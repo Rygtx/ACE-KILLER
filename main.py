@@ -18,6 +18,7 @@ import queue
 import subprocess
 import configparser
 import datetime
+import winreg
 
 
 class GameProcessMonitor:
@@ -38,6 +39,7 @@ class GameProcessMonitor:
         self.config_file = os.path.join(self.config_dir, "config.ini")  # 配置文件路径
         self.config = configparser.ConfigParser()
         self.show_notifications = True  # Windows通知开关默认值
+        self.auto_start = False  # 开机自启动开关默认值
         self.message_queue = queue.Queue()  # 消息队列，用于在线程间传递状态信息
         
         # 日志相关默认设置
@@ -113,6 +115,9 @@ class GameProcessMonitor:
             'Logging': {
                 'retention_days': '7',
                 'rotation': '1 day'
+            },
+            'Application': {
+                'auto_start': 'false'
             }
         }
         
@@ -131,6 +136,30 @@ class GameProcessMonitor:
                         self.log_retention_days = self.config.getint('Logging', 'retention_days')
                     if self.config.has_option('Logging', 'rotation'):
                         self.log_rotation = self.config.get('Logging', 'rotation')
+                
+                # 读取开机自启设置
+                if self.config.has_section('Application') and self.config.has_option('Application', 'auto_start'):
+                    self.auto_start = self.config.getboolean('Application', 'auto_start')
+                    # 检查实际注册表状态与配置是否一致
+                    actual_auto_start = self.check_auto_start()
+                    if self.auto_start != actual_auto_start:
+                        logger.warning(f"开机自启配置与实际状态不一致，配置为:{self.auto_start}，实际为:{actual_auto_start}，将以配置为准")
+                    
+                    # 确保注册表状态与配置一致
+                    if self.auto_start:
+                        self.enable_auto_start()
+                    else:
+                        self.disable_auto_start()
+                    
+                    logger.info(f"已从配置文件加载开机自启设置: {self.auto_start}")
+                else:
+                    # 如果配置中没有自启设置，检查注册表中是否已设置
+                    if self.check_auto_start():
+                        # 如果注册表中已设置，则更新配置
+                        self.auto_start = True
+                        logger.info("检测到注册表中已设置开机自启，已更新配置")
+                    else:
+                        self.auto_start = False
                 
                 # 如果没有完整的配置项，则补充默认配置
                 self.ensure_config_complete(default_config)
@@ -191,6 +220,9 @@ class GameProcessMonitor:
                 if self.config.has_option('Logging', 'rotation'):
                     self.log_rotation = self.config.get('Logging', 'rotation')
             
+            if self.config.has_section('Application') and self.config.has_option('Application', 'auto_start'):
+                self.auto_start = self.config.getboolean('Application', 'auto_start')
+            
             logger.info(f"已创建默认配置文件: {self.config_file}")
         except Exception as e:
             logger.error(f"创建默认配置文件失败: {str(e)}")
@@ -203,6 +235,8 @@ class GameProcessMonitor:
                 self.config.add_section('Notifications')
             if not self.config.has_section('Logging'):
                 self.config.add_section('Logging')
+            if not self.config.has_section('Application'):
+                self.config.add_section('Application')
             
             # 更新通知设置
             self.config.set('Notifications', 'enabled', str(self.show_notifications).lower())
@@ -210,6 +244,9 @@ class GameProcessMonitor:
             # 更新日志设置
             self.config.set('Logging', 'retention_days', str(self.log_retention_days))
             self.config.set('Logging', 'rotation', self.log_rotation)
+            
+            # 更新开机自启设置
+            self.config.set('Application', 'auto_start', str(self.auto_start).lower())
             
             # 保存配置文件
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -385,6 +422,65 @@ class GameProcessMonitor:
             time.sleep(1)
         return False
 
+    # 获取程序完整路径
+    def get_program_path(self):
+        if getattr(sys, 'frozen', False):
+            # PyInstaller创建的exe
+            return sys.executable
+        else:
+            # 直接运行的python脚本
+            return os.path.abspath(sys.argv[0])
+    
+    # 检查是否设置了开机自启
+    def check_auto_start(self):
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_READ)
+            try:
+                value, _ = winreg.QueryValueEx(key, "VALORANT_ACE_KILLER")
+                winreg.CloseKey(key)
+                # 检查注册表中的路径是否与当前程序路径一致
+                expected_path = f'"{self.get_program_path()}"'
+                if value.lower() != expected_path.lower():
+                    logger.warning(f"注册表中的自启路径与当前程序路径不一致，将更新。注册表:{value}，当前:{expected_path}")
+                    # 更新为正确的路径
+                    self.enable_auto_start()
+                return True
+            except FileNotFoundError:
+                winreg.CloseKey(key)
+                return False
+        except Exception as e:
+            logger.error(f"检查开机自启状态失败: {str(e)}")
+            return False
+
+    # 设置开机自启
+    def enable_auto_start(self):
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            program_path = self.get_program_path()
+            winreg.SetValueEx(key, "VALORANT_ACE_KILLER", 0, winreg.REG_SZ, f'"{program_path}"')
+            winreg.CloseKey(key)
+            logger.info("已设置开机自启")
+            return True
+        except Exception as e:
+            logger.error(f"设置开机自启失败: {str(e)}")
+            return False
+    
+    # 取消开机自启
+    def disable_auto_start(self):
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            try:
+                winreg.DeleteValue(key, "VALORANT_ACE_KILLER")
+            except FileNotFoundError:
+                # 注册表项不存在，无需删除
+                pass
+            winreg.CloseKey(key)
+            logger.info("已取消开机自启")
+            return True
+        except Exception as e:
+            logger.error(f"取消开机自启失败: {str(e)}")
+            return False
+
 # 判断是否以管理员权限运行
 def run_as_admin():
     if not ctypes.windll.shell32.IsUserAnAdmin():
@@ -420,6 +516,7 @@ def get_status_info(monitor):
     status_lines.append(f"📁 配置目录：{monitor.config_dir}")
     status_lines.append(f"📝 日志目录：{monitor.log_dir}")
     status_lines.append(f"⏱️ 日志保留：{monitor.log_retention_days}天，轮转：{monitor.log_rotation}")
+    status_lines.append(f"🔁 开机自启：{'开启' if monitor.auto_start else '关闭'}")
     
     return "\n".join(status_lines)
 
@@ -439,6 +536,21 @@ def create_tray_icon(monitor, icon_path):
         
     def is_notifications_enabled(item):
         return monitor.show_notifications
+        
+    def toggle_auto_start():
+        monitor.auto_start = not monitor.auto_start
+        if monitor.auto_start:
+            monitor.enable_auto_start()
+        else:
+            monitor.disable_auto_start()
+        # 保存配置
+        if monitor.save_config():
+            logger.info(f"开机自启状态已更改并保存: {'开启' if monitor.auto_start else '关闭'}")
+        else:
+            logger.warning(f"开机自启状态已更改但保存失败: {'开启' if monitor.auto_start else '关闭'}")
+        
+    def is_auto_start_enabled(item):
+        return monitor.auto_start
         
     def show_status():
         status = get_status_info(monitor)
@@ -474,6 +586,7 @@ def create_tray_icon(monitor, icon_path):
     menu = (
         pystray.MenuItem('显示状态', show_status),
         pystray.MenuItem('开启通知', toggle_notifications, checked=is_notifications_enabled),
+        pystray.MenuItem('开机自启', toggle_auto_start, checked=is_auto_start_enabled),
         pystray.MenuItem('打开配置目录', open_config_dir),
         pystray.MenuItem('退出程序', exit_app)
     )
