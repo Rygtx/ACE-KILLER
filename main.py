@@ -6,28 +6,12 @@ import psutil
 import win32process
 import win32con
 import win32api
-import logging
 import threading
-import configparser
-from datetime import datetime
-from win32gui import *
-from win32api import *
-from win32con import *
-import win32gui_struct
-import winreg
 import win10toast
 import pystray
-from PIL import Image, ImageDraw
-import io
+from PIL import Image
 from loguru import logger
 
-# 尝试导入 winrt 库，如果不可用则忽略
-try:
-    import winrt.windows.ui.notifications as notifications
-    import winrt.windows.data.xml.dom as dom
-    HAS_WINRT = True
-except ImportError:
-    HAS_WINRT = False
 
 # 设置配置目录
 def get_config_dir():
