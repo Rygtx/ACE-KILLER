@@ -6,7 +6,7 @@ import os
 import sys
 import time
 import psutil
-from win32process import SetPriorityClass, BELOW_NORMAL_PRIORITY_CLASS
+from win32process import SetPriorityClass, IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS
 from win32api import OpenProcess
 from win32con import PROCESS_ALL_ACCESS
 import threading
@@ -332,7 +332,7 @@ class GameProcessMonitor:
         if proc:
             try:
                 handle = OpenProcess(PROCESS_ALL_ACCESS, False, proc.pid)
-                SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS)
+                SetPriorityClass(handle, IDLE_PRIORITY_CLASS)
                 
                 cores = psutil.cpu_count(logical=True)
                 if cores > 0:
