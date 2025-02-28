@@ -6,20 +6,16 @@ import os
 import sys
 import time
 import psutil
-import win32process
-import win32con
-import win32api
+from win32process import SetPriorityClass, BELOW_NORMAL_PRIORITY_CLASS
+from win32api import OpenProcess
+from win32con import PROCESS_ALL_ACCESS
 import threading
 from loguru import logger
-import pystray
-from PIL import Image
-from winotify import Notification, audio
 import queue
 import subprocess
 import configparser
 import datetime
-import winreg
-
+# 按需导入winreg
 
 class GameProcessMonitor:
     def __init__(self):
@@ -70,8 +66,8 @@ class GameProcessMonitor:
         
         # 设置自身进程优先级
         try:
-            handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, os.getpid())
-            win32process.SetPriorityClass(handle, win32process.BELOW_NORMAL_PRIORITY_CLASS)
+            handle = OpenProcess(PROCESS_ALL_ACCESS, False, os.getpid())
+            SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS)
         except Exception:
             pass
     
@@ -335,8 +331,8 @@ class GameProcessMonitor:
         proc = self.is_process_running(process_name)
         if proc:
             try:
-                handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, proc.pid)
-                win32process.SetPriorityClass(handle, win32process.IDLE_PRIORITY_CLASS)
+                handle = OpenProcess(PROCESS_ALL_ACCESS, False, proc.pid)
+                SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS)
                 
                 cores = psutil.cpu_count(logical=True)
                 if cores > 0:
@@ -452,6 +448,7 @@ class GameProcessMonitor:
     # 检查是否设置了开机自启
     def check_auto_start(self):
         try:
+            import winreg
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_READ)
             try:
                 value, _ = winreg.QueryValueEx(key, "VALORANT_ACE_KILLER")
@@ -473,6 +470,7 @@ class GameProcessMonitor:
     # 设置开机自启
     def enable_auto_start(self):
         try:
+            import winreg
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
             program_path = self.get_program_path()
             winreg.SetValueEx(key, "VALORANT_ACE_KILLER", 0, winreg.REG_SZ, f'"{program_path}"')
@@ -486,6 +484,7 @@ class GameProcessMonitor:
     # 取消开机自启
     def disable_auto_start(self):
         try:
+            import winreg
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
             try:
                 winreg.DeleteValue(key, "VALORANT_ACE_KILLER")
@@ -541,6 +540,7 @@ def get_status_info(monitor):
 # 创建托盘菜单
 def create_tray_icon(monitor, icon_path):
     # 载入图标
+    from PIL import Image
     image = Image.open(icon_path)
     
     # 定义菜单项动作函数
@@ -572,6 +572,7 @@ def create_tray_icon(monitor, icon_path):
         
     def show_status():
         status = get_status_info(monitor)
+        from winotify import Notification, audio
         toast = Notification(
             app_id="VALORANT ACE KILLER",
             title="VALORANT ACE KILLER 状态",
@@ -579,6 +580,7 @@ def create_tray_icon(monitor, icon_path):
             icon=icon_path,
             duration="short"
         )
+        toast.set_audio(audio.Default, loop=False)
         toast.show()
         logger.info("已显示状态信息")
         
@@ -601,16 +603,18 @@ def create_tray_icon(monitor, icon_path):
         tray_icon.stop()
         
     # 创建菜单
+    from pystray import MenuItem
     menu = (
-        pystray.MenuItem('显示状态', show_status),
-        pystray.MenuItem('开启通知', toggle_notifications, checked=is_notifications_enabled),
-        pystray.MenuItem('开机自启', toggle_auto_start, checked=is_auto_start_enabled),
-        pystray.MenuItem('打开配置目录', open_config_dir),
-        pystray.MenuItem('退出程序', exit_app)
+        MenuItem('显示状态', show_status),
+        MenuItem('开启通知', toggle_notifications, checked=is_notifications_enabled),
+        MenuItem('开机自启', toggle_auto_start, checked=is_auto_start_enabled),
+        MenuItem('打开配置目录', open_config_dir),
+        MenuItem('退出程序', exit_app)
     )
     
     # 创建托盘图标
-    tray_icon = pystray.Icon("valorant_ace_killer", image, "VALORANT ACE KILLER", menu)
+    from pystray import Icon
+    tray_icon = Icon("valorant_ace_killer", image, "VALORANT ACE KILLER", menu)
     
     return tray_icon
 
@@ -620,6 +624,7 @@ def notification_thread(monitor, icon_path):
         try:
             # 获取消息，最多等待1秒
             message = monitor.message_queue.get(timeout=1)
+            from winotify import Notification, audio
             toast = Notification(
                 app_id="VALORANT ACE KILLER",
                 title="VALORANT ACE KILLER",
@@ -663,6 +668,7 @@ def main():
     tray_icon = create_tray_icon(monitor, icon_path)
     
     # 显示欢迎通知
+    from winotify import Notification, audio
     toast = Notification(
         app_id="VALORANT ACE KILLER",
         title="VALORANT ACE KILLER 已启动",

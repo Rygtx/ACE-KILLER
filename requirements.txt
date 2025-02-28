@@ -1,10 +1,8 @@
 --index-url https://pypi.tuna.tsinghua.edu.cn/simple
-waifu2x==2024.0.1
-moviepy==2.1.2
 pywin32==308
 pillow==10.4.0
 psutil==7.0.0
 winotify==1.1.0
 pystray==0.19.5
-pyinstaller==6.12.0
 loguru==0.7.3
+nuitka==2.6.7
