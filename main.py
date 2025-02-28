@@ -15,7 +15,7 @@ import queue
 import subprocess
 import configparser
 import datetime
-# 按需导入winreg
+
 
 class GameProcessMonitor:
     def __init__(self):
@@ -346,8 +346,10 @@ class GameProcessMonitor:
 
     # 监控游戏主进程
     def monitor_main_game(self):
+        # 检测计数器
         check_counter = 0
-        launcher_running = False  # Valorant登录器进程是否运行中标记
+        # Valorant登录器进程是否运行中标记
+        launcher_running = False
         
         # 循环监控游戏主进程和登录器进程
         while self.running:
