@@ -24,4 +24,4 @@ args = [
 # 运行PyInstaller
 PyInstaller.__main__.run(args)
 
-print("✅ VALORANT ACE KILLER 打包完成！EXE文件位于dist目录中。")
+print("✅ VALORANT ACE KILLER 打包完成！")
