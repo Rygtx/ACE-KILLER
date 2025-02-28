@@ -48,7 +48,7 @@ print("⏱️ 打包过程可能需要几分钟，请耐心等待...")
 
 # 执行打包命令
 try:
-    # subprocess.check_call(cmd)
+    subprocess.check_call(cmd)
     
     # 查找生成的可执行文件
     main_exe = os.path.join(current_dir, "main.dist", "VALORANT_ACE_KILL.exe")
