@@ -51,6 +51,6 @@ python build_exe.py
 ## 📜 开源许可
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)  
 
-LingYaoKeys 使用 [GNU General Public License v3.0](LICENSE) 开源许可证  
+VALORANT_ACE_KILL 使用 [GNU General Public License v3.0](LICENSE) 开源许可证  
 
 Copyright © 2025 by Cassianvale.  
