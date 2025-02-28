@@ -4,7 +4,7 @@ moviepy==2.1.2
 pywin32==308
 pillow==10.4.0
 psutil==7.0.0
-win10toast==0.9
+winotify==1.1.0
 pystray==0.19.5
 pyinstaller==6.12.0
 loguru==0.7.3

@@ -8,6 +8,11 @@ import win32con
 import win32api
 import threading
 from loguru import logger
+import pystray
+from PIL import Image
+from winotify import Notification, audio
+import queue
+
 
 class GameProcessMonitor:
     def __init__(self):
@@ -22,6 +27,8 @@ class GameProcessMonitor:
         self.last_cache_refresh = 0
         self.anticheat_killed = False   # 终止ACE进程标记
         self.scanprocess_optimized = False  # 优化SGuard64进程标记
+        self.show_notifications = True  # Windows通知开关
+        self.message_queue = queue.Queue()  # 消息队列，用于在线程间传递状态信息
 
         # 设置自身进程优先级
         try:
@@ -118,6 +125,7 @@ class GameProcessMonitor:
             
             if main_proc and not self.main_game_running:
                 self.main_game_running = True
+                self.add_message("检测到游戏主进程启动")
                 logger.info("检测到游戏主进程启动")
                 self.refresh_process_cache(force=True)
                 self.wait_and_kill_process(self.anticheat_name)
@@ -127,6 +135,7 @@ class GameProcessMonitor:
                 self.main_game_running = False
                 self.anticheat_killed = False
                 self.scanprocess_optimized = False
+                self.add_message("游戏主进程已关闭")
                 logger.info("游戏主进程已关闭")
 
             # 检测登录器进程
@@ -135,11 +144,13 @@ class GameProcessMonitor:
             # 登录器启动状态检测
             if launcher_proc and not launcher_running:
                 launcher_running = True
+                self.add_message(f"检测到Valorant登录器正在运行")
                 logger.info(f"检测到Valorant登录器 {self.launcher_name} 正在运行，PID: {launcher_proc.pid}")
             
             # 登录器关闭状态检测
             elif not launcher_proc and launcher_running:
                 launcher_running = False
+                self.add_message(f"Valorant登录器已关闭")
                 logger.info(f"Valorant登录器 {self.launcher_name} 已关闭")
                 
                 # 等待登录器可能的重启
@@ -147,10 +158,10 @@ class GameProcessMonitor:
                 logger.info("等待Valorant登录器重启中，每5秒刷新进程缓存...")
                 while time.time() - wait_start < 30 and self.running:
                     time.sleep(5)
-                    print("2222")
                     self.refresh_process_cache(force=True)
                     launcher_check = self.is_process_running(self.launcher_name)
                     if launcher_check:
+                        self.add_message(f"Valorant登录器已重启")
                         logger.info(f"Valorant登录器已重启，PID: {launcher_check.pid}")
                         launcher_running = True
                         break
@@ -160,6 +171,11 @@ class GameProcessMonitor:
                 logger.info(f"Valorant登录器 {self.launcher_name} 运行中，PID: {launcher_proc.pid}, CPU: {launcher_proc.cpu_percent()}%, 内存: {launcher_proc.memory_info().rss / 1024 / 1024:.2f}MB")
             
             time.sleep(3)
+            
+    # 添加消息到队列
+    def add_message(self, message):
+        if self.show_notifications:
+            self.message_queue.put(message)
 
     # 等待并终止进程，针对ACE进程
     def wait_and_kill_process(self, process_name, max_wait_time=60):
@@ -194,6 +210,94 @@ def run_as_admin():
         return False
     return True
 
+# 获取程序状态信息
+def get_status_info(monitor):
+    if not monitor:
+        return "程序未启动"
+    
+    status_lines = []
+    status_lines.append("🟢 监控程序运行中" if monitor.running else "🔴 监控程序已停止")
+    
+    if monitor.main_game_running:
+        status_lines.append("🎮 游戏主程序：运行中")
+        if monitor.anticheat_killed:
+            status_lines.append("✅ ACE进程：已终止")
+        else:
+            status_lines.append("❓ ACE进程：未处理")
+            
+        if monitor.scanprocess_optimized:
+            status_lines.append("✅ SGuard64进程：已优化")
+        else:
+            status_lines.append("❓ SGuard64进程：未处理")
+    else:
+        status_lines.append("🎮 游戏主程序：未运行")
+    
+    status_lines.append("🔔 通知状态：" + ("开启" if monitor.show_notifications else "关闭"))
+    
+    return "\n".join(status_lines)
+
+# 创建托盘菜单
+def create_tray_icon(monitor, icon_path):
+    # 载入图标
+    image = Image.open(icon_path)
+    
+    # 定义菜单项动作函数
+    def toggle_notifications():
+        monitor.show_notifications = not monitor.show_notifications
+        logger.info(f"通知状态：{'开启' if monitor.show_notifications else '关闭'}")
+        
+    def is_notifications_enabled(item):
+        return monitor.show_notifications
+        
+    def show_status():
+        status = get_status_info(monitor)
+        toast = Notification(
+            app_id="VALORANT ACE KILLER",
+            title="VALORANT ACE KILLER 状态",
+            msg=status,
+            icon=icon_path,
+            duration="short"
+        )
+        toast.show()
+        logger.info("已显示状态信息")
+        
+    def exit_app():
+        logger.info("🔴 VALORANT ACE KILLER 程序正在关闭...")
+        monitor.running = False
+        tray_icon.stop()
+        
+    # 创建菜单
+    menu = (
+        pystray.MenuItem('显示状态', show_status),
+        pystray.MenuItem('开启通知', toggle_notifications, checked=is_notifications_enabled),
+        pystray.MenuItem('退出程序', exit_app)
+    )
+    
+    # 创建托盘图标
+    tray_icon = pystray.Icon("valorant_ace_killer", image, "VALORANT ACE KILLER", menu)
+    
+    return tray_icon
+
+# 通知处理线程
+def notification_thread(monitor, icon_path):
+    while monitor.running:
+        try:
+            # 获取消息，最多等待1秒
+            message = monitor.message_queue.get(timeout=1)
+            toast = Notification(
+                app_id="VALORANT ACE KILLER",
+                title="VALORANT ACE KILLER",
+                msg=message,
+                icon=icon_path,
+                duration="short"
+            )
+            toast.set_audio(audio.Default, loop=False)
+            toast.show()
+        except queue.Empty:
+            pass
+        except Exception as e:
+            logger.error(f"通知发送失败: {str(e)}")
+
 def main():
     if not run_as_admin():
         return
@@ -205,14 +309,36 @@ def main():
     monitor_thread = threading.Thread(target=monitor.monitor_main_game)
     monitor_thread.daemon = True
     monitor_thread.start()
-
-    # 运行监控线程
-    try:
-        while monitor.running:
-            time.sleep(5)
-    except KeyboardInterrupt:
-        monitor.running = False
-        logger.info("🔴 VALORANT ACE KILLER 程序已终止！")
+    
+    # 初始化通知和托盘组件
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'favicon.ico')
+    
+    # 创建通知处理线程
+    notification_thread_obj = threading.Thread(
+        target=notification_thread, 
+        args=(monitor, icon_path)
+    )
+    notification_thread_obj.daemon = True
+    notification_thread_obj.start()
+    
+    # 创建并运行系统托盘图标
+    tray_icon = create_tray_icon(monitor, icon_path)
+    
+    # 显示欢迎通知
+    toast = Notification(
+        app_id="VALORANT ACE KILLER",
+        title="VALORANT ACE KILLER 已启动",
+        msg="程序现在运行在系统托盘，点击图标可查看菜单",
+        icon=icon_path,
+        duration="short"
+    )
+    toast.set_audio(audio.Default, loop=False)
+    toast.show()
+    
+    # 运行托盘图标 (这会阻塞主线程)
+    tray_icon.run()
+    
+    logger.info("🔴 VALORANT ACE KILLER 程序已终止！")
 
 if __name__ == "__main__":
     logger.remove()
@@ -221,6 +347,7 @@ if __name__ == "__main__":
     # 单实例检查
     mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Global\\VALORANT_ACE_KILL_MUTEX")
     if ctypes.windll.kernel32.GetLastError() == 183:
+        logger.warning("程序已经在运行中，无法启动多个实例！")
         sys.exit(0)
-
+        
     main()

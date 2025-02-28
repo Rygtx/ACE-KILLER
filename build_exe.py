@@ -18,6 +18,10 @@ args = [
     f'--icon={icon_path}',  # 设置图标（如果有）
     '--hidden-import=win32timezone',  # 解决可能的导入问题
     '--hidden-import=PIL._tkinter_finder',  # 解决PIL相关导入问题
+    '--hidden-import=pystray._win32',  # 解决托盘图标相关导入问题
+    '--hidden-import=winotify',  # 确保通知功能
+    '--hidden-import=PIL._imaging',  # 确保图像处理功能
+    '--add-data=%s;.' % icon_path,  # 添加图标文件到打包
     '--uac-admin',  # 请求管理员权限
 ]
 
