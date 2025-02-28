@@ -14,6 +14,7 @@ from winotify import Notification, audio
 import queue
 import subprocess
 import configparser
+import datetime
 
 
 class GameProcessMonitor:
@@ -30,10 +31,15 @@ class GameProcessMonitor:
         self.anticheat_killed = False   # 终止ACE进程标记
         self.scanprocess_optimized = False  # 优化SGuard64进程标记
         self.config_dir = os.path.join(os.path.expanduser("~"), ".ace_kill")  # 配置目录
+        self.log_dir = os.path.join(self.config_dir, "log")  # 日志目录
         self.config_file = os.path.join(self.config_dir, "config.ini")  # 配置文件路径
         self.config = configparser.ConfigParser()
         self.show_notifications = True  # Windows通知开关默认值
         self.message_queue = queue.Queue()  # 消息队列，用于在线程间传递状态信息
+        
+        # 日志相关默认设置
+        self.log_retention_days = 7  # 默认日志保留天数
+        self.log_rotation = "1 day"  # 默认日志轮转周期
 
         # 确保配置目录存在
         if not os.path.exists(self.config_dir):
@@ -42,9 +48,20 @@ class GameProcessMonitor:
                 logger.info(f"已创建配置目录: {self.config_dir}")
             except Exception as e:
                 logger.error(f"创建配置目录失败: {str(e)}")
+        
+        # 确保日志目录存在
+        if not os.path.exists(self.log_dir):
+            try:
+                os.makedirs(self.log_dir)
+                logger.info(f"已创建日志目录: {self.log_dir}")
+            except Exception as e:
+                logger.error(f"创建日志目录失败: {str(e)}")
                 
         # 加载或创建配置文件
         self.load_config()
+        
+        # 配置日志系统
+        self.setup_logger()
 
         # 设置自身进程优先级
         try:
@@ -52,6 +69,36 @@ class GameProcessMonitor:
             win32process.SetPriorityClass(handle, win32process.BELOW_NORMAL_PRIORITY_CLASS)
         except Exception:
             pass
+    
+    # 配置日志系统
+    def setup_logger(self):
+        # 移除默认的日志处理器
+        logger.remove()
+        
+        # 获取当前日期作为日志文件名的一部分
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        log_file = os.path.join(self.log_dir, f"ace_kill_{today}.log")
+        
+        # 添加文件日志处理器，配置轮转和保留策略
+        logger.add(
+            log_file,
+            rotation=self.log_rotation,  # 日志轮转周期
+            retention=f"{self.log_retention_days} days",  # 日志保留天数
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+            level="INFO",
+            encoding="utf-8"
+        )
+        
+        # 添加控制台日志处理器
+        logger.add(
+            sys.stderr,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+            level="INFO",
+            colorize=True
+        )
+        
+        logger.info(f"日志系统已初始化，日志文件: {log_file}")
+        logger.info(f"日志保留天数: {self.log_retention_days}，轮转周期: {self.log_rotation}")
             
     # 加载配置文件
     def load_config(self):
@@ -59,6 +106,10 @@ class GameProcessMonitor:
         default_config = {
             'Notifications': {
                 'enabled': 'true'
+            },
+            'Logging': {
+                'retention_days': '7',
+                'rotation': '1 day'
             }
         }
         
@@ -70,9 +121,16 @@ class GameProcessMonitor:
                 if self.config.has_section('Notifications') and self.config.has_option('Notifications', 'enabled'):
                     self.show_notifications = self.config.getboolean('Notifications', 'enabled')
                     logger.info(f"已从配置文件加载通知设置: {self.show_notifications}")
-                else:
-                    # 如果没有对应的配置项，则创建
-                    self.save_default_config(default_config)
+                
+                # 读取日志设置
+                if self.config.has_section('Logging'):
+                    if self.config.has_option('Logging', 'retention_days'):
+                        self.log_retention_days = self.config.getint('Logging', 'retention_days')
+                    if self.config.has_option('Logging', 'rotation'):
+                        self.log_rotation = self.config.get('Logging', 'rotation')
+                
+                # 如果没有完整的配置项，则补充默认配置
+                self.ensure_config_complete(default_config)
             except Exception as e:
                 logger.error(f"读取配置文件失败: {str(e)}")
                 # 配置文件可能损坏，创建默认配置
@@ -80,6 +138,30 @@ class GameProcessMonitor:
         else:
             # 配置文件不存在，创建默认配置
             self.save_default_config(default_config)
+    
+    # 确保配置完整
+    def ensure_config_complete(self, default_config):
+        config_updated = False
+        
+        # 检查并补充缺失的配置节和选项
+        for section, options in default_config.items():
+            if not self.config.has_section(section):
+                self.config.add_section(section)
+                config_updated = True
+            
+            for option, value in options.items():
+                if not self.config.has_option(section, option):
+                    self.config.set(section, option, value)
+                    config_updated = True
+        
+        # 如果有更新，保存配置
+        if config_updated:
+            try:
+                with open(self.config_file, 'w', encoding='utf-8') as f:
+                    self.config.write(f)
+                logger.info("已补充缺失的配置项")
+            except Exception as e:
+                logger.error(f"补充配置项失败: {str(e)}")
     
     # 保存默认配置
     def save_default_config(self, default_config):
@@ -100,6 +182,12 @@ class GameProcessMonitor:
             if self.config.has_section('Notifications') and self.config.has_option('Notifications', 'enabled'):
                 self.show_notifications = self.config.getboolean('Notifications', 'enabled')
             
+            if self.config.has_section('Logging'):
+                if self.config.has_option('Logging', 'retention_days'):
+                    self.log_retention_days = self.config.getint('Logging', 'retention_days')
+                if self.config.has_option('Logging', 'rotation'):
+                    self.log_rotation = self.config.get('Logging', 'rotation')
+            
             logger.info(f"已创建默认配置文件: {self.config_file}")
         except Exception as e:
             logger.error(f"创建默认配置文件失败: {str(e)}")
@@ -110,9 +198,15 @@ class GameProcessMonitor:
             # 确保配置节存在
             if not self.config.has_section('Notifications'):
                 self.config.add_section('Notifications')
+            if not self.config.has_section('Logging'):
+                self.config.add_section('Logging')
             
             # 更新通知设置
             self.config.set('Notifications', 'enabled', str(self.show_notifications).lower())
+            
+            # 更新日志设置
+            self.config.set('Logging', 'retention_days', str(self.log_retention_days))
+            self.config.set('Logging', 'rotation', self.log_rotation)
             
             # 保存配置文件
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -321,6 +415,8 @@ def get_status_info(monitor):
     
     status_lines.append("🔔 通知状态：" + ("开启" if monitor.show_notifications else "关闭"))
     status_lines.append(f"📁 配置目录：{monitor.config_dir}")
+    status_lines.append(f"📝 日志目录：{monitor.log_dir}")
+    status_lines.append(f"⏱️ 日志保留：{monitor.log_retention_days}天，轮转：{monitor.log_rotation}")
     
     return "\n".join(status_lines)
 
