@@ -62,12 +62,12 @@ class GameProcessMonitor:
             except Exception as e:
                 logger.error(f"创建日志目录失败: {str(e)}")
                 
-        # 加载或创建配置文件
+        # 先配置日志系统
+        self.setup_logger()
+        
+        # 然后加载或创建配置文件
         self.load_config()
         
-        # 配置日志系统
-        self.setup_logger()
-
         # 设置自身进程优先级
         try:
             handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, os.getpid())
@@ -84,7 +84,7 @@ class GameProcessMonitor:
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         log_file = os.path.join(self.log_dir, f"ace_kill_{today}.log")
         
-        # 添加文件日志处理器，配置轮转和保留策略
+        # 添加文件日志处理器，配置轮转和保留策略，写入到文件中
         logger.add(
             log_file,
             rotation=self.log_rotation,  # 日志轮转周期
@@ -94,13 +94,31 @@ class GameProcessMonitor:
             encoding="utf-8"
         )
         
-        # 添加控制台日志处理器
-        logger.add(
-            sys.stderr,
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-            level="INFO",
-            colorize=True
-        )
+        # 判断是否为打包的可执行文件，以及是否有控制台
+        is_frozen = getattr(sys, 'frozen', False)
+        has_console = True
+        
+        # 在Windows下，检查是否有控制台窗口
+        if is_frozen and sys.platform == 'win32':
+            try:
+                # 检查标准错误输出是否存在
+                if sys.stderr is None or not sys.stderr.isatty():
+                    has_console = False
+            except (AttributeError, IOError):
+                has_console = False
+        
+        # 只有在有控制台的情况下才添加控制台日志处理器
+        if has_console:
+            # 添加控制台日志处理器，输出到控制台
+            logger.add(
+                sys.stderr,
+                format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}:{function}:{line} | {message}",
+                level="INFO",
+                colorize=True
+            )
+            logger.info("已添加控制台日志处理器")
+        else:
+            logger.info("检测到无控制台环境，不添加控制台日志处理器")
         
         logger.info(f"日志系统已初始化，日志文件: {log_file}")
         logger.info(f"日志保留天数: {self.log_retention_days}，轮转周期: {self.log_rotation}")
@@ -366,13 +384,13 @@ class GameProcessMonitor:
             if launcher_proc and not launcher_running:
                 launcher_running = True
                 self.add_message(f"检测到Valorant登录器正在运行")
-                logger.info(f"检测到Valorant登录器 {self.launcher_name} 正在运行，PID: {launcher_proc.pid}")
+                logger.info(f"检测到Valorant登录器正在运行，PID: {launcher_proc.pid}")
             
             # 登录器关闭状态检测
             elif not launcher_proc and launcher_running:
                 launcher_running = False
                 self.add_message(f"Valorant登录器已关闭")
-                logger.info(f"Valorant登录器 {self.launcher_name} 已关闭")
+                logger.info(f"Valorant登录器已关闭")
                 
                 # 等待登录器可能的重启
                 wait_start = time.time()
@@ -389,7 +407,7 @@ class GameProcessMonitor:
 
             # 定期记录登录器状态
             elif launcher_proc and launcher_running and check_counter % 60 == 0:  # 大约每3分钟记录一次
-                logger.info(f"Valorant登录器 {self.launcher_name} 运行中，PID: {launcher_proc.pid}, CPU: {launcher_proc.cpu_percent()}%, 内存: {launcher_proc.memory_info().rss / 1024 / 1024:.2f}MB")
+                logger.info(f"Valorant登录器运行中，PID: {launcher_proc.pid}, CPU: {launcher_proc.cpu_percent()}%, 内存: {launcher_proc.memory_info().rss / 1024 / 1024:.2f}MB")
             
             time.sleep(3)
             
@@ -620,10 +638,12 @@ def main():
     if not run_as_admin():
         return
 
-    logger.info("🟩 VALORANT ACE KILLER 程序已启动！")
-    
     # 创建监控线程
     monitor = GameProcessMonitor()
+    
+    # 现在日志系统已初始化，可以记录启动信息
+    logger.info("🟩 VALORANT ACE KILLER 程序已启动！")
+    
     monitor_thread = threading.Thread(target=monitor.monitor_main_game)
     monitor_thread.daemon = True
     monitor_thread.start()
@@ -659,9 +679,7 @@ def main():
     logger.info("🔴 VALORANT ACE KILLER 程序已终止！")
 
 if __name__ == "__main__":
-    logger.remove()
-    logger.add(sys.stderr, level="INFO", format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}")
-    
+
     # 单实例检查
     mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Global\\VALORANT_ACE_KILL_MUTEX")
     if ctypes.windll.kernel32.GetLastError() == 183:
