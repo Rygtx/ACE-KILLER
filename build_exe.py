@@ -48,31 +48,17 @@ print("⏱️ 打包过程可能需要几分钟，请耐心等待...")
 
 # 执行打包命令
 try:
-    subprocess.check_call(cmd)
+    # subprocess.check_call(cmd)
     
     # 查找生成的可执行文件
-    dist_dir = os.path.join(current_dir, "main.dist")
-    final_exe = os.path.join(current_dir, "VALORANT_ACE_KILL.exe")
+    main_exe = os.path.join(current_dir, "main.dist", "VALORANT_ACE_KILL.exe")
     
-    # 首先尝试直接查找VALORANT_ACE_KILL.exe
-    for root, dirs, files in os.walk(dist_dir):
-        if "VALORANT_ACE_KILL.exe" in files:
-            found_exe = os.path.join(root, "VALORANT_ACE_KILL.exe")
-            break
-    
-    # 如果没找到，则查找main.exe并重命名
-    if not found_exe:
-        main_exe_path = os.path.join(dist_dir, "main.dist", "main.exe")
-        if os.path.exists(main_exe_path):
-            found_exe = main_exe_path
-            
-            # 在main.dist目录中创建一个VALORANT_ACE_KILL.exe的副本
-            dist_valorant_exe = os.path.join(os.path.dirname(main_exe_path), "VALORANT_ACE_KILL.exe")
-            shutil.copy2(main_exe_path, dist_valorant_exe)
-            print(f"✅ 打包成功！可执行文件已生成: {(dist_valorant_exe)}")
+    # 首先判断main_exe是否存在
+    if os.path.exists(main_exe):
+        print(f"✅ 打包成功！可执行文件已生成: {(main_exe)}")
         
         # 输出文件大小信息
-        size_mb = os.path.getsize(dist_valorant_exe) / (1024 * 1024)
+        size_mb = os.path.getsize(main_exe) / (1024 * 1024)
         print(f"📦 可执行文件大小: {size_mb:.2f} MB")
     else:
         print("❌ 打包完成，但未找到生成的可执行文件")
@@ -81,4 +67,16 @@ except subprocess.CalledProcessError as e:
     print(f"❌ 打包失败: {e}")
     sys.exit(1)
 
-print("✅ VALORANT ACE KILLER 使用Nuitka打包完成！")
+# 压缩可执行文件目录
+dist_dir = os.path.join(current_dir, "main.dist")
+zip_name = "VALORANT_ACE_KILL-1.0.0-x64"
+zip_path = os.path.join(current_dir, zip_name + ".zip")
+if os.path.exists(dist_dir):
+    print("📦 正在压缩可执行文件目录...")
+    shutil.make_archive(zip_name, 'zip', dist_dir)
+    print(f"✅ 压缩完成！已生成压缩文件: {zip_path}")
+else:
+    print("❌ 未找到可执行文件目录，无法压缩。")
+    sys.exit(1)
+
+print("✅ VALORANT ACE KILLER 使用Nuitka打包并压缩完成！")
