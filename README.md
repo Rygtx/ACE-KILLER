@@ -1,12 +1,15 @@
+<!-- markdownlint-restore -->
+<div align="center">
+
 # VALORANT_ACE_KILL
- 
-## ✨ 无畏契约游戏进程优化工具 ✨
 
-## 🍉 项目简介
+✨**无畏契约游戏进程优化工具**✨
 
-**本项目主要为了优化ACE扫盘进程，以提升游戏帧率和稳定性**  
+*本项目主要为了优化ACE扫盘进程，以提升游戏帧率和稳定性*
+</div>
+<!-- markdownlint-restore -->
 
-## ✨ 主要功能
+## 🍉 主要功能
 
 - 自动关闭`ACE-Tray.exe`安装提示  
 - 自动设置扫盘进程`SGuard64.exe`优先级为空闲&单小核运行  
