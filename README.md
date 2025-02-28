@@ -24,7 +24,7 @@
 
 > 注意：请始终从 GitHub Releases 页面下载最新版本，以确保获得最新的功能和安全更新。  
 
-### 如何打包
+## 📦 如何打包
 
 1. 安装依赖：  
 ```bash
@@ -36,5 +36,5 @@ pip install -r requirements.txt
 python build_exe.py
 ```
 
-3. 打包完成后，将在项目根目录生成 `VALORANT_ACE_KILL.exe` 文件  
+3. 打包完成后，生成`main.dist`打包输出目录以及`.zip`压缩文件
 
