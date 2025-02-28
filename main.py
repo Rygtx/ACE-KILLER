@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import ctypes
 import os
 import sys
@@ -84,7 +87,7 @@ class GameProcessMonitor:
             log_file,
             rotation=self.log_rotation,  # 日志轮转周期
             retention=f"{self.log_retention_days} days",  # 日志保留天数
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}:{function}:{line} | {message}",
             level="INFO",
             encoding="utf-8"
         )
