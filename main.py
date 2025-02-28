@@ -12,6 +12,7 @@ import pystray
 from PIL import Image
 from winotify import Notification, audio
 import queue
+import subprocess
 
 
 class GameProcessMonitor:
@@ -29,6 +30,15 @@ class GameProcessMonitor:
         self.scanprocess_optimized = False  # 优化SGuard64进程标记
         self.show_notifications = True  # Windows通知开关
         self.message_queue = queue.Queue()  # 消息队列，用于在线程间传递状态信息
+        self.config_dir = os.path.join(os.path.expanduser("~"), ".ace_kill")  # 配置目录
+
+        # 确保配置目录存在
+        if not os.path.exists(self.config_dir):
+            try:
+                os.makedirs(self.config_dir)
+                logger.info(f"已创建配置目录: {self.config_dir}")
+            except Exception as e:
+                logger.error(f"创建配置目录失败: {str(e)}")
 
         # 设置自身进程优先级
         try:
@@ -233,6 +243,7 @@ def get_status_info(monitor):
         status_lines.append("🎮 游戏主程序：未运行")
     
     status_lines.append("🔔 通知状态：" + ("开启" if monitor.show_notifications else "关闭"))
+    status_lines.append(f"📁 配置目录：{monitor.config_dir}")
     
     return "\n".join(status_lines)
 
@@ -261,8 +272,21 @@ def create_tray_icon(monitor, icon_path):
         toast.show()
         logger.info("已显示状态信息")
         
+    def open_config_dir():
+        try:
+            # 使用系统默认的文件浏览器打开配置目录
+            if os.path.exists(monitor.config_dir):
+                subprocess.Popen(f'explorer "{monitor.config_dir}"')
+                logger.info(f"已打开配置目录: {monitor.config_dir}")
+            else:
+                # 如果目录不存在，尝试创建
+                os.makedirs(monitor.config_dir, exist_ok=True)
+                subprocess.Popen(f'explorer "{monitor.config_dir}"')
+                logger.info(f"已创建并打开配置目录: {monitor.config_dir}")
+        except Exception as e:
+            logger.error(f"打开配置目录失败: {str(e)}")
+        
     def exit_app():
-        logger.info("🔴 VALORANT ACE KILLER 程序正在关闭...")
         monitor.running = False
         tray_icon.stop()
         
@@ -270,6 +294,7 @@ def create_tray_icon(monitor, icon_path):
     menu = (
         pystray.MenuItem('显示状态', show_status),
         pystray.MenuItem('开启通知', toggle_notifications, checked=is_notifications_enabled),
+        pystray.MenuItem('打开配置目录', open_config_dir),
         pystray.MenuItem('退出程序', exit_app)
     )
     
@@ -310,7 +335,7 @@ def main():
     monitor_thread.daemon = True
     monitor_thread.start()
     
-    # 初始化通知和托盘组件
+    # 初始化通知组件
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'favicon.ico')
     
     # 创建通知处理线程
@@ -328,7 +353,7 @@ def main():
     toast = Notification(
         app_id="VALORANT ACE KILLER",
         title="VALORANT ACE KILLER 已启动",
-        msg="程序现在运行在系统托盘，点击图标可查看菜单",
+        msg=f"程序现在运行在系统托盘，点击图标可查看菜单\n配置目录: {monitor.config_dir}",
         icon=icon_path,
         duration="short"
     )
