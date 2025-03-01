@@ -22,8 +22,8 @@
 - 开启/关闭Windows消息通知功能  
 - 优化后很小的资源占用率  
 
-<img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/image/1.png" alt="1" style="zoom: 50%;" /> <!-- markdownlint-disable-line MD033 -->
-<img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/image/2.png" alt="2" style="zoom: 50%;" /> <!-- markdownlint-disable-line MD033 -->
+<img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/1.png" alt="1" style="zoom: 50%;" /> <!-- markdownlint-disable-line MD033 -->
+<img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/2.png" alt="2" style="zoom: 50%;" /> <!-- markdownlint-disable-line MD033 -->
 
 
 ## 🌏 直接下载  
