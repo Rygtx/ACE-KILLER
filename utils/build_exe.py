@@ -42,7 +42,7 @@ cmd = [
     "--python-flag=no_site",  # 不导入site
     "--python-flag=no_warnings",  # 不显示警告
     "--low-memory",  # 低内存使用模式
-    "main.py"  # 主脚本
+    "main.py"
 ]
 
 print("🚀 开始使用Nuitka打包...")
@@ -50,10 +50,12 @@ print("⏱️ 打包过程可能需要几分钟，请耐心等待...")
 
 # 执行打包命令
 try:
+    # 切换到项目根目录执行打包命令
+    os.chdir(root_dir)
     subprocess.check_call(cmd)
     
     # 查找生成的可执行文件
-    main_exe = os.path.join(current_dir, "main.dist", "ACE-KILLER.exe")
+    main_exe = os.path.join(root_dir, "main.dist", "ACE-KILLER.exe")
     
     # 首先判断main_exe是否存在
     if os.path.exists(main_exe):
@@ -70,12 +72,13 @@ except subprocess.CalledProcessError as e:
     sys.exit(1)
 
 # 压缩可执行文件目录
-dist_dir = os.path.join(current_dir, "main.dist")
+dist_dir = os.path.join(root_dir, "main.dist")
 zip_name = "ACE-KILLER-1.0.1-x64"
-zip_path = os.path.join(current_dir, zip_name + ".zip")
+zip_path = os.path.join(root_dir, zip_name + ".zip")
 if os.path.exists(dist_dir):
     print("📦 正在压缩可执行文件目录...")
-    shutil.make_archive(zip_name, 'zip', dist_dir)
+    # 确保在正确的位置创建zip文件
+    shutil.make_archive(os.path.join(root_dir, zip_name), 'zip', dist_dir)
     print(f"✅ 压缩完成！已生成压缩文件: {zip_path}")
 else:
     print("❌ 未找到可执行文件目录，无法压缩。")

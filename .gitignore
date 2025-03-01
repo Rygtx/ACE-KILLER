@@ -15,7 +15,7 @@ nuitka-crash-report.xml
 build_upload.log
 error*.log/
 *log.txt
-ACE_KILL*
+ACE-KILLER*
 *.zip
 
 # Byte-compiled / optimized / DLL files
