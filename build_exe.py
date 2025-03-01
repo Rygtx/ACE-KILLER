@@ -34,7 +34,7 @@ cmd = [
     "--disable-cache=all",  # 禁用缓存
     "--clean-cache=all",  # 清除现有缓存
     "--show-progress",  # 显示编译进度
-    "--output-filename=VALORANT_ACE_KILL.exe",  # 指定输出文件名
+    "--output-filename=ACE_KILL.exe",  # 指定输出文件名
     "--nofollow-import-to=tkinter,PIL.ImageTk",  # 不跟随部分不必要模块
     "--prefer-source-code",  # 优先使用源代码而不是字节码
     "--python-flag=no_site",  # 不导入site
@@ -51,7 +51,7 @@ try:
     subprocess.check_call(cmd)
     
     # 查找生成的可执行文件
-    main_exe = os.path.join(current_dir, "main.dist", "VALORANT_ACE_KILL.exe")
+    main_exe = os.path.join(current_dir, "main.dist", "ACE_KILL.exe")
     
     # 首先判断main_exe是否存在
     if os.path.exists(main_exe):
@@ -69,7 +69,7 @@ except subprocess.CalledProcessError as e:
 
 # 压缩可执行文件目录
 dist_dir = os.path.join(current_dir, "main.dist")
-zip_name = "VALORANT_ACE_KILL-1.0.0-x64"
+zip_name = "ACE_KILL-1.0.0-x64"
 zip_path = os.path.join(current_dir, zip_name + ".zip")
 if os.path.exists(dist_dir):
     print("📦 正在压缩可执行文件目录...")
@@ -79,4 +79,4 @@ else:
     print("❌ 未找到可执行文件目录，无法压缩。")
     sys.exit(1)
 
-print("✅ VALORANT ACE KILLER 使用Nuitka打包并压缩完成！")
+print("✅ ACE KILLER 使用Nuitka打包并压缩完成！")

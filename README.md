@@ -1,11 +1,13 @@
 <!-- markdownlint-restore -->
 <div align="center">
 
-# VALORANT_ACE_KILL
+# ACE_KILL
 
-✨**无畏契约游戏进程优化工具**✨
+✨**TX Games 游戏进程优化工具**✨
 
 *本项目主要为了优化ACE扫盘进程，以提升游戏帧率和稳定性*
+*适用于无畏契约、三角洲行动*
+
 </div>
 <!-- markdownlint-restore -->
 
@@ -22,8 +24,8 @@
 
 您可以从以下位置下载最新版本：  
 
-- [最新版本下载](https://github.com/Cassianvale/VALORANT_ACE_KILL/releases/latest)  
-- [查看所有版本](https://github.com/Cassianvale/VALORANT_ACE_KILL/releases)  
+- [最新版本下载](https://github.com/Cassianvale/ACE_KILL/releases/latest)  
+- [查看所有版本](https://github.com/Cassianvale/ACE_KILL/releases)  
 
 > 注意：请始终从 GitHub Releases 页面下载最新版本，以确保获得最新的功能和安全更新。  
 
@@ -51,6 +53,6 @@ python build_exe.py
 ## 📜 开源许可
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)  
 
-VALORANT_ACE_KILL 使用 [GNU General Public License v3.0](LICENSE) 开源许可证  
+ACE_KILL 使用 [GNU General Public License v3.0](LICENSE) 开源许可证  
 
 Copyright © 2025 by Cassianvale.  
