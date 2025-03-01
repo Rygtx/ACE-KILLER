@@ -1,18 +1,20 @@
 <!-- markdownlint-restore -->
 <div align="center">
 
-# ACE_KILL
+# ACE-KILLER
 
 ✨**TX Games 游戏进程优化工具**✨
 
 *本项目主要为了优化ACE扫盘进程，以提升游戏帧率和稳定性*
-*适用于无畏契约、三角洲行动*
+<br>
+*适用于无畏契约、三角洲行动等TX游戏*
 
 </div>
 <!-- markdownlint-restore -->
 
 ## 🍉 主要功能
 
+- 自定义游戏功能  
 - 自动关闭`ACE-Tray.exe`安装提示  
 - 自动设置扫盘进程`SGuard64.exe`优先级为空闲&单小核运行  
 - 显示状态功能  
@@ -20,14 +22,33 @@
 - 开启/关闭Windows消息通知功能  
 - 优化后很小的资源占用率  
 
+<img src="assets\1.png" alt="1" style="zoom: 50%;" /> <!-- markdownlint-disable-line MD033 -->
+<img src="assets\2.png" alt="2" style="zoom: 50%;" /> <!-- markdownlint-disable-line MD033 -->
+
+
 ## 🌏 直接下载  
 
 您可以从以下位置下载最新版本：  
 
-- [最新版本下载](https://github.com/Cassianvale/ACE_KILL/releases/latest)  
-- [查看所有版本](https://github.com/Cassianvale/ACE_KILL/releases)  
+- [最新版本下载](https://github.com/Cassianvale/ACE-KILLER/releases/latest)  
+- [查看所有版本](https://github.com/Cassianvale/ACE-KILLER/releases)  
 
 > 注意：请始终从 GitHub Releases 页面下载最新版本，以确保获得最新的功能和安全更新。  
+
+## 😼 如何自定义游戏
+
+
+```yaml
+games:
+  # 自定义游戏名称
+  - name: 无畏契约
+    # 登陆器可执行文件的名称
+    launcher: 无畏契约登录器.exe
+    # 主游戏进程名
+    main_game: VALORANT-Win64-Shipping.exe
+    # 是否启用该游戏配置（true 表示启用，false 表示禁用）
+    enabled: true
+```
 
 ## 📦 如何打包
 
@@ -53,6 +74,6 @@ python build_exe.py
 ## 📜 开源许可
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)  
 
-ACE_KILL 使用 [GNU General Public License v3.0](LICENSE) 开源许可证  
+ACE-KILLER 使用 [GNU General Public License v3.0](LICENSE) 开源许可证  
 
 Copyright © 2025 by Cassianvale.  
