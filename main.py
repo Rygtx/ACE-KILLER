@@ -41,7 +41,7 @@ class GameProcessMonitor:
         # 日志相关默认设置
         self.log_retention_days = 7  # 默认日志保留天数
         self.log_rotation = "1 day"  # 默认日志轮转周期
-
+        
         # 确保配置目录存在
         if not os.path.exists(self.config_dir):
             try:
@@ -453,7 +453,7 @@ class GameProcessMonitor:
             import winreg
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_READ)
             try:
-                value, _ = winreg.QueryValueEx(key, "VALORANT_ACE_KILLER")
+                value, _ = winreg.QueryValueEx(key, "ACE_KILLER")
                 winreg.CloseKey(key)
                 # 检查注册表中的路径是否与当前程序路径一致
                 expected_path = f'"{self.get_program_path()}"'
@@ -475,7 +475,7 @@ class GameProcessMonitor:
             import winreg
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
             program_path = self.get_program_path()
-            winreg.SetValueEx(key, "VALORANT_ACE_KILLER", 0, winreg.REG_SZ, f'"{program_path}"')
+            winreg.SetValueEx(key, "ACE_KILLER", 0, winreg.REG_SZ, f'"{program_path}"')
             winreg.CloseKey(key)
             logger.info("已设置开机自启")
             return True
@@ -489,7 +489,7 @@ class GameProcessMonitor:
             import winreg
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
             try:
-                winreg.DeleteValue(key, "VALORANT_ACE_KILLER")
+                winreg.DeleteValue(key, "ACE_KILLER")
             except FileNotFoundError:
                 # 注册表项不存在，无需删除
                 pass
@@ -576,8 +576,8 @@ def create_tray_icon(monitor, icon_path):
         status = get_status_info(monitor)
         from winotify import Notification, audio
         toast = Notification(
-            app_id="VALORANT ACE KILLER",
-            title="VALORANT ACE KILLER 状态",
+            app_id="ACE KILLER",
+            title="ACE KILLER 状态",
             msg=status,
             icon=icon_path,
             duration="short"
@@ -610,13 +610,14 @@ def create_tray_icon(monitor, icon_path):
         MenuItem('显示状态', show_status),
         MenuItem('开启通知', toggle_notifications, checked=is_notifications_enabled),
         MenuItem('开机自启', toggle_auto_start, checked=is_auto_start_enabled),
+        # MenuItem('开启内存清理', ),
         MenuItem('打开配置目录', open_config_dir),
         MenuItem('退出程序', exit_app)
     )
     
     # 创建托盘图标
     from pystray import Icon
-    tray_icon = Icon("valorant_ace_killer", image, "VALORANT ACE KILLER", menu)
+    tray_icon = Icon("ace_killer", image, "ACE KILLER", menu)
     
     return tray_icon
 
@@ -628,8 +629,8 @@ def notification_thread(monitor, icon_path):
             message = monitor.message_queue.get(timeout=1)
             from winotify import Notification, audio
             toast = Notification(
-                app_id="VALORANT ACE KILLER",
-                title="VALORANT ACE KILLER",
+                app_id="ACE KILLER",
+                title="ACE KILLER",
                 msg=message,
                 icon=icon_path,
                 duration="short"
@@ -649,7 +650,7 @@ def main():
     monitor = GameProcessMonitor()
     
     # 现在日志系统已初始化，可以记录启动信息
-    logger.info("🟩 VALORANT ACE KILLER 程序已启动！")
+    logger.info("🟩 ACE KILLER 程序已启动！")
     
     monitor_thread = threading.Thread(target=monitor.monitor_main_game)
     monitor_thread.daemon = True
@@ -672,8 +673,8 @@ def main():
     # 显示欢迎通知
     from winotify import Notification, audio
     toast = Notification(
-        app_id="VALORANT ACE KILLER",
-        title="VALORANT ACE KILLER 已启动",
+        app_id="ACE KILLER",
+        title="ACE KILLER 已启动",
         msg=f"程序现在运行在系统托盘，点击图标可查看菜单\n配置目录: {monitor.config_dir}",
         icon=icon_path,
         duration="short"
@@ -684,12 +685,12 @@ def main():
     # 运行托盘图标 (这会阻塞主线程)
     tray_icon.run()
     
-    logger.info("🔴 VALORANT ACE KILLER 程序已终止！")
+    logger.info("🔴 ACE KILLER 程序已终止！")
 
 if __name__ == "__main__":
 
     # 单实例检查
-    mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Global\\VALORANT_ACE_KILL_MUTEX")
+    mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Global\\ACE_KILL_MUTEX")
     if ctypes.windll.kernel32.GetLastError() == 183:
         logger.warning("程序已经在运行中，无法启动多个实例！")
         sys.exit(0)
