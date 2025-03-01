@@ -5,9 +5,11 @@ import shutil
 
 # 获取当前脚本所在目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
+# 获取项目根目录
+root_dir = os.path.dirname(current_dir)
 
 # 设置图标文件路径
-icon_path = os.path.join(current_dir, 'assets', 'icon', 'favicon.ico')
+icon_path = os.path.join(root_dir, 'assets', 'icon', 'favicon.ico')
 
 # 确保nuitka已安装
 try:
@@ -69,7 +71,7 @@ except subprocess.CalledProcessError as e:
 
 # 压缩可执行文件目录
 dist_dir = os.path.join(current_dir, "main.dist")
-zip_name = "ACE-KILLER-1.0.0-x64"
+zip_name = "ACE-KILLER-1.0.1-x64"
 zip_path = os.path.join(current_dir, zip_name + ".zip")
 if os.path.exists(dist_dir):
     print("📦 正在压缩可执行文件目录...")
@@ -79,4 +81,4 @@ else:
     print("❌ 未找到可执行文件目录，无法压缩。")
     sys.exit(1)
 
-print("✅ ACE KILLER 使用Nuitka打包并压缩完成！")
+print("✅ ACE-KILLER 使用Nuitka打包并压缩完成！")
