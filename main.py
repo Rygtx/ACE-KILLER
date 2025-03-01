@@ -46,7 +46,7 @@ class GameProcessMonitor:
         self.anticheat_killed = False  # 终止ACE进程标记
         self.scanprocess_optimized = False  # 优化SGuard64进程标记
         self.config_dir = os.path.join(os.path.expanduser("~"), ".ace-killer")  # 配置目录名称更新为ace-killer
-        self.log_dir = os.path.join(self.config_dir, "log")  # 日志目录
+        self.log_dir = os.path.join(self.config_dir, "logs")  # 日志目录
         self.config_file = os.path.join(self.config_dir, "config.yaml")  # 配置文件路径
         self.show_notifications = True  # Windows通知开关默认值
         self.auto_start = False  # 开机自启动开关默认值
@@ -257,7 +257,7 @@ class GameProcessMonitor:
 
         # 获取当前日期作为日志文件名的一部分
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        log_file = os.path.join(self.log_dir, f"ace-killer_{today}.log")
+        log_file = os.path.join(self.log_dir, f"{today}.log")
 
         # 添加文件日志处理器，配置轮转和保留策略，写入到文件中
         logger.add(
@@ -725,9 +725,18 @@ def main():
     # 现在日志系统已初始化，可以记录启动信息
     logger.info("🟩 ACE-KILLER 程序已启动！")
 
-    # 初始化通知组件
-    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'icon', 'favicon.ico')
-
+    # 初始化通知组件 - 查找图标文件
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    icon_paths = [
+        # 标准开发环境路径
+        os.path.join(base_path, 'assets', 'icon', 'favicon.ico'),
+        # 打包环境路径
+        os.path.join(os.path.dirname(sys.executable), 'favicon.ico')
+    ]
+    
+    # 静默查找图标文件，使用第一个存在的路径
+    icon_path = next((path for path in icon_paths if os.path.exists(path)), None)
+    
     # 创建通知处理线程
     notification_thread_obj = threading.Thread(
         target=notification_thread,
