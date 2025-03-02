@@ -733,7 +733,7 @@ def get_status_info(monitor):
         status_lines.append("🎮 游戏主程序：未运行")
 
     # 添加各个游戏的目录信息
-    status_lines.append("\n📂 游戏目录信息：")
+    status_lines.append("📂 游戏目录信息：")
     game_dir_found = False
     for game_config in monitor.game_configs:
         if game_config.game_dir:
@@ -798,8 +798,7 @@ def create_tray_icon(monitor, icon_path):
             title="ACE-KILLER 状态",
             body=status,
             icon=icon,
-            scenario='incomingCall', # 取消超时
-            audio={'silent': 'true'}    # 取消响铃
+            audio={'silent': 'true'},    # 取消响铃
         )
         
     def refresh_game_directories():
