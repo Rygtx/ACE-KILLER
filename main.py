@@ -32,6 +32,7 @@ class GameConfig:
         self.main_game_running = False
         self.anticheat_handled = False
         self.scanprocess_handled = False
+        self.game_dir = ""  # 游戏目录
 
 
 class GameProcessMonitor:
@@ -104,13 +105,15 @@ class GameProcessMonitor:
                     'name': '无畏契约',
                     'launcher': '无畏契约登录器.exe',
                     'main_game': 'VALORANT-Win64-Shipping.exe',
+                    'game_dir': '',
                     'enabled': True
                 },
                 {
                     "name": "三角洲行动",
                     "launcher": "delta_force_launcher.exe",
                     "main_game": "DeltaForceClient-Win64-Shipping.exe",
-                    "enabled": False
+                    'game_dir': '',
+                    "enabled": False,
                 }
             ]
         }
@@ -171,6 +174,8 @@ class GameProcessMonitor:
                                 main_game=game_data['main_game'],
                                 enabled=game_data['enabled']
                             )
+                            if 'game_dir' in game_data:
+                                game_config.game_dir = game_data['game_dir']
                             self.game_configs.append(game_config)
 
                     logger.info(f"已从配置文件加载 {len(self.game_configs)} 个游戏配置")
@@ -236,7 +241,8 @@ class GameProcessMonitor:
                     'name': game_config.name,
                     'launcher': game_config.launcher,
                     'main_game': game_config.main_game,
-                    'enabled': game_config.enabled
+                    'enabled': game_config.enabled,
+                    'game_dir': game_config.game_dir
                 }
                 config_data['games'].append(game_data)
 
@@ -456,6 +462,10 @@ class GameProcessMonitor:
                 # 只在检测到游戏进程时强制刷新缓存，避免频繁刷新
                 self.refresh_process_cache(force=True)
 
+                # 如果游戏目录未设置，尝试从主进程获取
+                if not game_config.game_dir:
+                    self.get_game_directory(game_config)
+
                 # 处理反作弊进程和扫描进程
                 if not game_config.anticheat_handled and self.anticheat_name:
                     game_config.anticheat_handled = self.wait_and_kill_process(self.anticheat_name)
@@ -480,6 +490,10 @@ class GameProcessMonitor:
                 launcher_running = True
                 self.add_message(f"检测到 {game_config.name} 启动器正在运行")
                 logger.info(f"检测到 {game_config.name} 启动器正在运行，PID: {launcher_proc.pid}")
+                
+                # 尝试获取游戏目录
+                if not game_config.game_dir:
+                    self.get_game_directory(game_config, launcher_proc)
 
             # 启动器状态变化：运行->未运行
             elif not launcher_proc and launcher_running:
@@ -489,6 +503,135 @@ class GameProcessMonitor:
 
             # 降低检测频率，减少CPU使用率
             time.sleep(3)
+
+    # 获取游戏目录
+    def get_game_directory(self, game_config, launcher_proc=None):
+        try:
+            # 如果游戏目录已经找到，直接返回
+            if game_config.game_dir and os.path.exists(game_config.game_dir):
+                logger.info(f"{game_config.name} 游戏目录已存在: {game_config.game_dir}")
+                return True
+                
+            # 首先尝试从主游戏进程获取目录
+            main_game_proc = self.is_process_running(game_config.main_game)
+            if main_game_proc:
+                try:
+                    main_game_path = main_game_proc.exe()
+                    if main_game_path and os.path.exists(main_game_path):
+                        main_game_dir = os.path.dirname(main_game_path)
+                        game_config.game_dir = main_game_dir
+                        logger.info(f"从运行中的游戏主进程获取到 {game_config.name} 游戏目录: {main_game_dir}")
+                        self.save_config()
+                        return True
+                except Exception as e:
+                    logger.error(f"获取游戏主进程路径时出错: {str(e)}")
+            
+            # 如果没有提供启动器进程，尝试找到它
+            if launcher_proc is None:
+                launcher_proc = self.is_process_running(game_config.launcher)
+            
+            # 如果找到了启动器进程，尝试通过它找到游戏目录
+            if launcher_proc:
+                try:
+                    # 获取启动器进程的可执行文件路径
+                    launcher_path = launcher_proc.exe()
+                    if launcher_path and os.path.exists(launcher_path):
+                        launcher_dir = os.path.dirname(launcher_path)
+                        logger.info(f"找到 {game_config.name} 启动器目录: {launcher_dir}")
+                        
+                        # 尝试查找游戏主进程目录
+                        main_game_path = self.find_main_game_path(launcher_dir, game_config.main_game)
+                        if main_game_path:
+                            main_game_dir = os.path.dirname(main_game_path)
+                            game_config.game_dir = main_game_dir
+                            logger.info(f"从启动器目录找到 {game_config.name} 游戏目录: {main_game_dir}")
+                            # 保存配置到文件
+                            self.save_config()
+                            return True
+                except Exception as e:
+                    logger.error(f"通过启动器获取游戏目录时出错: {str(e)}")
+            
+            # 如果都没找到，发送通知提示用户先开启游戏
+            self.add_message(f"未找到 {game_config.name} 游戏目录，请先开启一次游戏主程序")
+            logger.warning(f"未找到 {game_config.name} 游戏目录，建议用户先启动游戏")
+            return False
+                
+        except Exception as e:
+            logger.error(f"获取游戏目录时出错: {str(e)}")
+            return False
+
+    # 递归查找游戏主进程可执行文件
+    def find_main_game_path(self, start_dir, main_game_name, max_depth=3):
+        try:
+            # 在当前目录搜索
+            for item in os.listdir(start_dir):
+                item_path = os.path.join(start_dir, item)
+                
+                # 检查是否是文件并且名称匹配
+                if os.path.isfile(item_path) and item.lower() == main_game_name.lower():
+                    return item_path
+                
+                # 如果是目录且未超过最大深度，递归搜索
+                if os.path.isdir(item_path) and max_depth > 0:
+                    found_path = self.find_main_game_path(item_path, main_game_name, max_depth - 1)
+                    if found_path:
+                        return found_path
+            
+            # 如果在启动器目录没有找到，检查上一级目录
+            parent_dir = os.path.dirname(start_dir)
+            if parent_dir and parent_dir != start_dir:  # 防止无限循环
+                for item in os.listdir(parent_dir):
+                    item_path = os.path.join(parent_dir, item)
+                    
+                    # 检查是否是文件并且名称匹配
+                    if os.path.isfile(item_path) and item.lower() == main_game_name.lower():
+                        return item_path
+            
+            return None
+        except Exception as e:
+            logger.error(f"查找游戏主进程路径时出错: {str(e)}")
+            return None
+
+    # 根据游戏名称获取游戏配置
+    def get_game_config_by_name(self, game_name):
+        for game_config in self.game_configs:
+            if game_config.name == game_name:
+                return game_config
+        return None
+
+    # 根据游戏名称获取游戏目录
+    def get_game_directory_by_name(self, game_name):
+        game_config = self.get_game_config_by_name(game_name)
+        if game_config:
+            return game_config.game_dir
+        return None
+
+    # 尝试获取所有游戏目录
+    def get_all_game_directories(self):
+        success_count = 0
+        for game_config in self.game_configs:
+            # 检查是否已经有游戏目录
+            if not game_config.game_dir:
+                # 尝试找到启动器进程
+                launcher_proc = self.is_process_running(game_config.launcher)
+                if launcher_proc:
+                    if self.get_game_directory(game_config, launcher_proc):
+                        success_count += 1
+                else:
+                    logger.info(f"{game_config.name} 启动器未运行，无法获取游戏目录")
+            else:
+                logger.info(f"{game_config.name} 游戏目录已设置: {game_config.game_dir}")
+                success_count += 1
+        
+        if success_count == len(self.game_configs):
+            self.add_message("已成功获取所有游戏目录")
+            return True
+        elif success_count > 0:
+            self.add_message(f"已获取 {success_count}/{len(self.game_configs)} 个游戏目录")
+            return True
+        else:
+            self.add_message("未能获取任何游戏目录，请确保游戏启动器正在运行")
+            return False
 
     # 获取程序完整路径
     def get_program_path(self):
@@ -589,11 +732,25 @@ def get_status_info(monitor):
     else:
         status_lines.append("🎮 游戏主程序：未运行")
 
-    status_lines.append("🔔 通知状态：" + ("开启" if monitor.show_notifications else "关闭"))
-    status_lines.append(f"📁 配置目录：{monitor.config_dir}")
-    status_lines.append(f"📝 日志目录：{monitor.log_dir}")
-    status_lines.append(f"⏱️ 日志保留：{monitor.log_retention_days}天，轮转：{monitor.log_rotation}")
-    status_lines.append(f"🔁 开机自启：{'开启' if monitor.auto_start else '关闭'}")
+    # 添加各个游戏的目录信息
+    status_lines.append("\n📂 游戏目录信息：")
+    game_dir_found = False
+    for game_config in monitor.game_configs:
+        if game_config.game_dir:
+            status_lines.append(f"  ✓ {game_config.name}：{game_config.game_dir}")
+            game_dir_found = True
+        else:
+            status_lines.append(f"  ✗ {game_config.name}：未找到目录")
+    
+    if not game_dir_found:
+        status_lines.append("  提示：请启动游戏或点击「刷新游戏目录」")
+
+    status_lines.append("\n⚙️ 系统设置：")
+    status_lines.append("  🔔 通知状态：" + ("开启" if monitor.show_notifications else "关闭"))
+    status_lines.append(f"  🔁 开机自启：{'开启' if monitor.auto_start else '关闭'}")
+    status_lines.append(f"  📁 配置目录：{monitor.config_dir}")
+    status_lines.append(f"  📝 日志目录：{monitor.log_dir}")
+    status_lines.append(f"  ⏱️ 日志保留：{monitor.log_retention_days}天")
 
     return "\n".join(status_lines)
 
@@ -632,13 +789,36 @@ def create_tray_icon(monitor, icon_path):
 
     def show_status():
         status = get_status_info(monitor)
+        icon = {
+            'src': icon_path,
+            'placement': 'appLogoOverride'  # 方形icon
+        }
         notify(
             app_id="ACE-KILLER",
             title="ACE-KILLER 状态",
             body=status,
-            icon=icon_path,
-            duration="short"
+            icon=icon,
+            scenario='incomingCall', # 取消超时
+            audio={'silent': 'true'}    # 取消响铃
         )
+        
+    def refresh_game_directories():
+        if monitor.get_all_game_directories():
+            notify(
+                app_id="ACE-KILLER",
+                title="游戏目录刷新",
+                body="游戏目录刷新完成",
+                icon=icon_path,
+                duration="short"
+            )
+        else:
+            notify(
+                app_id="ACE-KILLER",
+                title="游戏目录刷新",
+                body="未能获取任何游戏目录，请确保游戏启动器或主程序正在运行",
+                icon=icon_path,
+                duration="short"
+            )
 
     # 创建游戏开关菜单项
     game_menu_items = []
@@ -681,13 +861,17 @@ def create_tray_icon(monitor, icon_path):
         tray_icon.stop()
 
     # 创建菜单
-    menu = (
+    menu = Menu(
         MenuItem('显示状态', show_status),
-        MenuItem('开启通知', toggle_notifications, checked=is_notifications_enabled),
+        MenuItem('切换通知', toggle_notifications, checked=is_notifications_enabled),
         MenuItem('开机自启', toggle_auto_start, checked=is_auto_start_enabled),
+        Menu.SEPARATOR,
         MenuItem('游戏监控', Menu(*game_menu_items)),
+        Menu.SEPARATOR,
+        MenuItem('刷新游戏目录', refresh_game_directories),
         MenuItem('打开配置目录', open_config_dir),
-        MenuItem('退出程序', exit_app)
+        Menu.SEPARATOR,
+        MenuItem('退出', exit_app)
     )
 
     # 创建托盘图标
@@ -760,6 +944,17 @@ def main():
         icon=icon_path,
         buttons=buttons
     )
+
+    # 检查并尝试获取游戏目录
+    for game_config in monitor.game_configs:
+        if not game_config.game_dir:
+            logger.info(f"尝试自动获取 {game_config.name} 游戏目录")
+            # 尝试查找已运行的启动器进程
+            launcher_proc = monitor.is_process_running(game_config.launcher)
+            if launcher_proc:
+                monitor.get_game_directory(game_config, launcher_proc)
+            else:
+                logger.info(f"{game_config.name} 启动器未运行，等待启动后自动获取游戏目录")
 
     # 启动已启用的游戏监控线程
     for game_config in monitor.game_configs:
