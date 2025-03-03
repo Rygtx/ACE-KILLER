@@ -862,7 +862,7 @@ def create_tray_icon(monitor, icon_path):
     # 创建菜单
     menu = Menu(
         MenuItem('显示状态', show_status),
-        MenuItem('切换通知', toggle_notifications, checked=is_notifications_enabled),
+        MenuItem('启动Windows通知', toggle_notifications, checked=is_notifications_enabled),
         MenuItem('开机自启', toggle_auto_start, checked=is_auto_start_enabled),
         Menu.SEPARATOR,
         MenuItem('游戏监控', Menu(*game_menu_items)),
