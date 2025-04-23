@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QLabel, QCheckBox, QSystemTrayIcon, QMenu, 
     QListWidget, QListWidgetItem, QGroupBox, QTabWidget, QFrame,
-    QMessageBox, QScrollArea, QStyle
+    QMessageBox, QScrollArea, QStyle, QDialog, QLineEdit, QFormLayout
 )
 from PySide6.QtCore import Qt, Signal, QSize, QObject, Slot, QTimer, QEvent
 from PySide6.QtGui import QIcon, QPixmap, QColor, QAction
@@ -50,6 +50,66 @@ class GameListItem(QWidget):
         self.checkbox.blockSignals(True)
         self.checkbox.setChecked(checked)
         self.checkbox.blockSignals(False)
+
+
+class GameConfigDialog(QDialog):
+    """游戏配置对话框"""
+    
+    def __init__(self, parent=None, game_config=None):
+        super().__init__(parent)
+        self.game_config = game_config
+        self.is_edit_mode = game_config is not None
+        
+        self.setup_ui()
+        
+        if self.is_edit_mode:
+            self.setWindowTitle("编辑游戏配置")
+            self.name_edit.setText(game_config.name)
+            self.launcher_edit.setText(game_config.launcher)
+            self.main_game_edit.setText(game_config.main_game)
+            # 编辑模式下不允许修改名称
+            self.name_edit.setReadOnly(True)
+        else:
+            self.setWindowTitle("添加游戏配置")
+    
+    def setup_ui(self):
+        """设置对话框UI"""
+        layout = QVBoxLayout(self)
+        
+        # 表单布局
+        form_layout = QFormLayout()
+        
+        # 游戏名称
+        self.name_edit = QLineEdit()
+        form_layout.addRow("游戏名称:", self.name_edit)
+        
+        # 启动器进程名
+        self.launcher_edit = QLineEdit()
+        form_layout.addRow("启动器进程名:", self.launcher_edit)
+        
+        # 游戏主进程名
+        self.main_game_edit = QLineEdit()
+        form_layout.addRow("游戏主进程名:", self.main_game_edit)
+        
+        layout.addLayout(form_layout)
+        
+        # 按钮布局
+        button_layout = QHBoxLayout()
+        
+        # 确定按钮
+        self.ok_button = QPushButton("确定")
+        self.ok_button.clicked.connect(self.accept)
+        
+        # 取消按钮
+        self.cancel_button = QPushButton("取消")
+        self.cancel_button.clicked.connect(self.reject)
+        
+        button_layout.addWidget(self.ok_button)
+        button_layout.addWidget(self.cancel_button)
+        
+        layout.addLayout(button_layout)
+        
+        self.setMinimumWidth(300)
 
 
 class MainWindow(QMainWindow):
@@ -118,6 +178,8 @@ class MainWindow(QMainWindow):
         games_group = QGroupBox("游戏监控")
         games_box_layout = QVBoxLayout()
         self.games_list = QListWidget()
+        self.games_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.games_list.customContextMenuRequested.connect(self.show_games_context_menu)
         games_box_layout.addWidget(self.games_list)
         games_group.setLayout(games_box_layout)
         games_layout.addWidget(games_group)
@@ -196,9 +258,9 @@ class MainWindow(QMainWindow):
         settings_layout.addStretch()
         
         # 添加选项卡
-        tabs.addTab(status_tab, "状态")
-        tabs.addTab(games_tab, "游戏")
-        tabs.addTab(settings_tab, "设置")
+        tabs.addTab(status_tab, "  程序状态  ")
+        tabs.addTab(games_tab, "  游戏监控  ")
+        tabs.addTab(settings_tab, "  设置  ")
     
     def setup_tray(self):
         """设置系统托盘图标"""
@@ -745,6 +807,148 @@ class MainWindow(QMainWindow):
         """直接退出程序"""
         event.accept()
         self.exit_app()
+
+    @Slot(object)
+    def show_games_context_menu(self, pos):
+        """显示游戏列表右键菜单"""
+        context_menu = QMenu(self)
+        
+        # 添加游戏配置
+        add_action = QAction("添加游戏配置", self)
+        add_action.triggered.connect(self.add_game_config)
+        context_menu.addAction(add_action)
+        
+        # 获取当前选中项
+        current_item = self.games_list.itemAt(pos)
+        
+        if current_item:
+            # 编辑菜单项
+            edit_action = QAction("编辑游戏配置", self)
+            edit_action.triggered.connect(lambda: self.edit_game_config(current_item))
+            context_menu.addAction(edit_action)
+            
+            # 删除菜单项
+            delete_action = QAction("删除游戏配置", self)
+            delete_action.triggered.connect(lambda: self.delete_game_config(current_item))
+            context_menu.addAction(delete_action)
+        
+        context_menu.exec(self.games_list.mapToGlobal(pos))
+    
+    @Slot()
+    def add_game_config(self):
+        """添加游戏配置"""
+        dialog = GameConfigDialog(self)
+        if dialog.exec():
+            name = dialog.name_edit.text().strip()
+            launcher = dialog.launcher_edit.text().strip()
+            main_game = dialog.main_game_edit.text().strip()
+            
+            # 验证输入
+            if not name or not launcher or not main_game:
+                QMessageBox.warning(self, "输入错误", "请填写所有字段")
+                return
+            
+            # 检查名称是否已存在
+            if any(config.name == name for config in self.monitor.game_configs):
+                QMessageBox.warning(self, "输入错误", f"游戏配置 '{name}' 已存在")
+                return
+            
+            # 添加游戏配置
+            self.monitor.config_manager.add_game_config(name, launcher, main_game, True)
+            
+            # 更新游戏列表和菜单
+            self.update_games_menu()
+            
+            logger.info(f"已添加游戏配置: {name}")
+    
+    @Slot(QListWidgetItem)
+    def edit_game_config(self, list_item):
+        """编辑游戏配置"""
+        # 获取游戏名称
+        widget = self.games_list.itemWidget(list_item)
+        if not widget:
+            return
+        
+        game_name = widget.game_name
+        
+        # 获取游戏配置
+        game_config = self.monitor.config_manager.get_game_config(game_name)
+        if not game_config:
+            return
+        
+        dialog = GameConfigDialog(self, game_config)
+        if dialog.exec():
+            launcher = dialog.launcher_edit.text().strip()
+            main_game = dialog.main_game_edit.text().strip()
+            
+            # 验证输入
+            if not launcher or not main_game:
+                QMessageBox.warning(self, "输入错误", "请填写所有字段")
+                return
+            
+            # 更新配置
+            game_config.launcher = launcher
+            game_config.main_game = main_game
+            
+            # 保存配置
+            self.monitor.config_manager.save_config()
+            
+            logger.info(f"已更新游戏配置: {game_name}")
+    
+    @Slot(QListWidgetItem)
+    def delete_game_config(self, list_item):
+        """删除游戏配置"""
+        # 获取游戏名称
+        widget = self.games_list.itemWidget(list_item)
+        if not widget:
+            return
+        
+        game_name = widget.game_name
+        
+        # 确认删除
+        reply = QMessageBox.question(
+            self, "确认删除", 
+            f"确定要删除游戏配置 '{game_name}' 吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            # 查找游戏配置
+            game_config = None
+            for config in self.monitor.game_configs:
+                if config.name == game_name:
+                    game_config = config
+                    break
+            
+            if game_config:
+                # 如果游戏正在监控中，先停止监控
+                if game_config.enabled:
+                    # 先将enabled设置为False以便线程退出循环
+                    game_config.enabled = False
+                    # 停止监控线程
+                    self.monitor.stop_monitor_thread(game_config)
+                    logger.info(f"已停止游戏 '{game_name}' 的监控线程")
+                    
+                    # 检查是否还有其他启用的游戏
+                    if not any(g.enabled for g in self.monitor.game_configs if g.name != game_name):
+                        # 如果没有其他启用的游戏，重置监控器状态
+                        logger.info("所有游戏监控已关闭")
+                        self.monitor.running = False
+                        self.monitor.anticheat_killed = False
+                        self.monitor.scanprocess_optimized = False
+                        logger.info("监控程序已停止")
+            
+            # 删除游戏配置
+            self.monitor.config_manager.remove_game_config(game_name)
+            
+            # 更新游戏列表和菜单
+            self.update_games_menu()
+            
+            # 更新状态显示
+            self.update_status()
+            
+            logger.info(f"已删除游戏配置: {game_name}")
 
 
 def get_status_info(monitor):
