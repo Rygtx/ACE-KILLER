@@ -16,7 +16,7 @@ from core.process_monitor import GameProcessMonitor
 from core.system_utils import run_as_admin, check_single_instance
 from utils.logger import setup_logger
 from utils.notification import find_icon_path, send_notification, create_notification_thread
-from ui.tray_icon import create_tray_icon
+from ui.main_window import create_gui
 
 
 def main():
@@ -54,8 +54,8 @@ def main():
         icon_path
     )
     
-    # 创建并运行系统托盘图标
-    tray_icon = create_tray_icon(monitor, icon_path)
+    # 创建并运行PySide6图形界面
+    app, window = create_gui(monitor, icon_path)
     
     # 显示欢迎通知
     buttons = [
@@ -75,8 +75,10 @@ def main():
     monitor.start_all_enabled_monitors()
     
     try:
-        # 运行托盘图标 (这会阻塞主线程)
-        tray_icon.run()
+        # 显示窗口
+        window.show()
+        # 运行应用（这会阻塞主线程直到应用程序退出）
+        sys.exit(app.exec())
     except KeyboardInterrupt:
         # 处理键盘中断
         pass
