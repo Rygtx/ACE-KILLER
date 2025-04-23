@@ -420,10 +420,32 @@ class MainWindow(QMainWindow):
                 if game_config.enabled != enabled:
                     game_config.enabled = enabled
                     if enabled:
+                        # 如果是从无启用游戏到有启用游戏，设置running为True
+                        was_running = self.monitor.running
+                        if not was_running:
+                            self.monitor.running = True
+                            logger.info("监控程序已启动")
+                        
+                        # 启用游戏监控
                         self.monitor.start_monitor_thread(game_config)
                     else:
+                        # 停止该游戏的监控
                         self.monitor.stop_monitor_thread(game_config)
+                        
+                        # 检查是否还有其他启用的游戏
+                        if not any(g.enabled for g in self.monitor.game_configs):
+                            # 如果没有任何启用的游戏，重置监控器状态
+                            logger.info("所有游戏监控已关闭")
+                            self.monitor.running = False
+                            self.monitor.anticheat_killed = False
+                            self.monitor.scanprocess_optimized = False
+                            logger.info("监控程序已停止")
+                    
+                    # 保存配置
                     self.monitor.config_manager.save_config()
+                    
+                    # 立即更新状态显示
+                    self.update_status()
                 break
         
         # 更新托盘菜单
@@ -447,10 +469,32 @@ class MainWindow(QMainWindow):
                     if game_config.enabled != enabled:
                         game_config.enabled = enabled
                         if enabled:
+                            # 如果是从无启用游戏到有启用游戏，设置running为True
+                            was_running = self.monitor.running
+                            if not was_running:
+                                self.monitor.running = True
+                                logger.info("监控程序已启动")
+                            
+                            # 启用游戏监控
                             self.monitor.start_monitor_thread(game_config)
                         else:
+                            # 停止该游戏的监控
                             self.monitor.stop_monitor_thread(game_config)
+                            
+                            # 检查是否还有其他启用的游戏
+                            if not any(g.enabled for g in self.monitor.game_configs):
+                                # 如果没有任何启用的游戏，重置监控器状态
+                                logger.info("所有游戏监控已关闭")
+                                self.monitor.running = False
+                                self.monitor.anticheat_killed = False
+                                self.monitor.scanprocess_optimized = False
+                                logger.info("监控程序已停止")
+                        
+                        # 保存配置
                         self.monitor.config_manager.save_config()
+                        
+                        # 立即更新状态显示
+                        self.update_status()
                     
                     # 更新主窗口游戏列表
                     for i in range(self.games_list.count()):

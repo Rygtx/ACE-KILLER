@@ -72,7 +72,13 @@ def main():
     )
     
     # 启动已启用的游戏监控线程
-    monitor.start_all_enabled_monitors()
+    if any(game.enabled for game in monitor.game_configs):
+        monitor.running = True  # 显式设置为True
+        logger.info("监控程序已启动")
+        monitor.start_all_enabled_monitors()
+    else:
+        monitor.running = False  # 显式设置为False
+        logger.info("未启用任何游戏监控，不启动监控线程")
     
     try:
         # 显示窗口

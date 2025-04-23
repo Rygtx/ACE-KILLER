@@ -29,7 +29,7 @@ class GameProcessMonitor:
         self.config_manager = config_manager
         self.anticheat_name = "ACE-Tray.exe"  # 反作弊进程名称
         self.scanprocess_name = "SGuard64.exe"  # 扫描进程名称
-        self.running = True  # 监控线程运行标记
+        self.running = False  # 监控线程运行标记，初始为False
         self.main_game_running = False  # 游戏主进程是否运行中标记
         self.process_cache = {}  # 进程缓存
         self.cache_timeout = 5  # 缓存超时时间（秒）
@@ -338,9 +338,19 @@ class GameProcessMonitor:
     
     def start_all_enabled_monitors(self):
         """启动所有已启用的游戏监控线程"""
-        for game_config in self.game_configs:
-            if game_config.enabled:
-                self.start_monitor_thread(game_config)
+        enabled_games = [game for game in self.game_configs if game.enabled]
+        
+        if not enabled_games:
+            logger.info("未启用任何游戏监控，不启动监控线程")
+            self.running = False
+            return
+        
+        # 有启用的游戏，设置running为True
+        self.running = True
+        logger.info("监控程序已启动")
+            
+        for game_config in enabled_games:
+            self.start_monitor_thread(game_config)
     
     def stop_all_monitors(self):
         """停止所有游戏监控线程"""
@@ -348,4 +358,5 @@ class GameProcessMonitor:
             self.stop_monitor_thread(game_config)
         
         # 设置运行标志为False
-        self.running = False 
+        self.running = False
+        logger.info("监控程序已停止") 
