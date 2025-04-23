@@ -71,6 +71,16 @@ games:
     enabled: true/false
 ```
 
+## ACE Control
+“AntiCheatExpert Service”：用户模式，由 SvGuard64.exe 控制，这是游戏交互的服务，也是在服务概览 (services.msc) 中看到的唯一服务
+“ACE-BASE”：内核模式，加载系统驱动程序
+“ACE-GAME”：内核模式，加载系统驱动程序
+
+sc delete ACE-GAME
+sc delete ACE-BASE
+sc delete "AntiCheatExpert Service"
+sc delete "AntiCheatExpert Protection"
+
 ## 注意事项
 
 - 本程序需要管理员权限运行
