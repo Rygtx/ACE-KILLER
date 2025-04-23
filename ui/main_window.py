@@ -639,8 +639,8 @@ class MainWindow(QMainWindow):
     def exit_app(self):
         """退出应用程序"""
         # 停止所有监控
-        self.monitor.running = False
-        self.monitor.stop_all_monitors()
+        if self.monitor.running:
+            self.monitor.running = False
         
         # 停止定时器
         self.update_timer.stop()

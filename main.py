@@ -89,8 +89,12 @@ def main():
         # 处理键盘中断
         pass
     finally:
-        # 停止所有线程
-        monitor.stop_all_monitors()
+        # 确保停止所有线程，唯一调用stop_all_monitors的地方
+        if monitor.running:
+            monitor.running = False
+            # 停止所有游戏监控
+            monitor.stop_all_monitors()
+            
         # 设置通知线程停止事件
         stop_event.set()
         # 等待通知线程结束
