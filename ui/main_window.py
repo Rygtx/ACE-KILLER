@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QGroupBox, QTabWidget, QFrame,
     QMessageBox, QScrollArea, QStyle
 )
-from PySide6.QtCore import Qt, Signal, QSize, QObject, Slot, QTimer
+from PySide6.QtCore import Qt, Signal, QSize, QObject, Slot, QTimer, QEvent
 from PySide6.QtGui import QIcon, QPixmap, QColor, QAction
 from loguru import logger
 
@@ -169,20 +169,6 @@ class MainWindow(QMainWindow):
         tabs.addTab(status_tab, "状态")
         tabs.addTab(games_tab, "游戏")
         tabs.addTab(settings_tab, "设置")
-        
-        # 添加底部按钮
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        self.hide_btn = QPushButton("隐藏到托盘")
-        self.hide_btn.clicked.connect(self.hide)
-        button_layout.addWidget(self.hide_btn)
-        
-        self.exit_btn = QPushButton("退出程序")
-        self.exit_btn.clicked.connect(self.confirm_exit)
-        button_layout.addWidget(self.exit_btn)
-        
-        main_layout.addLayout(button_layout)
     
     def setup_tray(self):
         """设置系统托盘图标"""
@@ -326,10 +312,14 @@ class MainWindow(QMainWindow):
                          if game_config.enabled and game_config.main_game_running]
         any_game_running = bool(running_games)
         
+        # 检查反作弊和扫描进程状态
+        anticheat_status = self._check_anticheat_status()
+        scanprocess_status = self._check_scanprocess_status()
+        
         if any_game_running:
             status_lines.append(f"<p>🎮 游戏主程序：<span style='color: green; font-weight: bold;'>运行中</span> ({', '.join(running_games)})</p>")
-            status_lines.append("<p>✅ ACE进程：<span style='color: green;'>已终止</span></p>" if self.monitor.anticheat_killed else "<p>❓ ACE进程：<span style='color: orange;'>未处理</span></p>")
-            status_lines.append("<p>✅ SGuard64进程：<span style='color: green;'>已优化</span></p>" if self.monitor.scanprocess_optimized else "<p>❓ SGuard64进程：<span style='color: orange;'>未处理</span></p>")
+            status_lines.append(f"<p>{anticheat_status[0]} ACE进程：<span style='color: {anticheat_status[1]};'>{anticheat_status[2]}</span></p>")
+            status_lines.append(f"<p>{scanprocess_status[0]} SGuard64进程：<span style='color: {scanprocess_status[1]};'>{scanprocess_status[2]}</span></p>")
         else:
             status_lines.append("<p>🎮 游戏主程序：<span style='color: gray;'>未运行</span></p>")
         
@@ -341,6 +331,79 @@ class MainWindow(QMainWindow):
         status_lines.append(f"<p>  ⏱️ 日志保留：{self.monitor.config_manager.log_retention_days}天</p>")
         
         return "".join(status_lines)
+    
+    def _check_anticheat_status(self):
+        """
+        检查反作弊进程状态
+        
+        Returns:
+            tuple: (图标, 颜色, 状态文本)
+        """
+        # 检查是否有任何游戏在运行
+        any_game_running = any(game_config.main_game_running for game_config in self.monitor.game_configs 
+                              if game_config.enabled)
+        
+        if not any_game_running:
+            return "❓", "gray", "未检测"
+            
+        # 检查 ACE-Tray.exe 是否存在
+        ace_proc = self.monitor.is_process_running(self.monitor.anticheat_name)
+        
+        # 如果反作弊进程不存在，且全局状态标记为已处理
+        if not ace_proc and self.monitor.anticheat_killed:
+            return "✅", "green", "已终止"
+        
+        # 如果反作弊进程不存在，但没有标记处理成功
+        if not ace_proc:
+            return "ℹ️", "blue", "未运行"
+            
+        # 如果反作弊进程存在，但已标记为处理过(说明即将被终止)
+        if ace_proc and self.monitor.anticheat_killed:
+            return "⏳", "orange", "处理中"
+            
+        # 反作弊进程存在，且未处理
+        return "❗", "red", "需要处理"
+    
+    def _check_scanprocess_status(self):
+        """
+        检查扫描进程状态
+        
+        Returns:
+            tuple: (图标, 颜色, 状态文本)
+        """
+        # 检查是否有任何游戏在运行
+        any_game_running = any(game_config.main_game_running for game_config in self.monitor.game_configs 
+                              if game_config.enabled)
+        
+        if not any_game_running:
+            return "❓", "gray", "未检测"
+            
+        # 检查 SGuard64.exe 是否存在
+        scan_proc = self.monitor.is_process_running(self.monitor.scanprocess_name)
+        
+        # 如果扫描进程不存在，且全局状态标记为已优化
+        if not scan_proc and self.monitor.scanprocess_optimized:
+            return "✅", "green", "已优化"
+        
+        # 如果扫描进程不存在，但没有标记处理成功
+        if not scan_proc:
+            return "ℹ️", "blue", "未运行"
+            
+        # 如果扫描进程存在，但已标记为处理过
+        if scan_proc and self.monitor.scanprocess_optimized:
+            # 验证是否真的优化了
+            try:
+                is_running, is_optimized = self.monitor.check_process_status(self.monitor.scanprocess_name)
+                if is_running and is_optimized:
+                    return "✅", "green", "已优化"
+                else:
+                    return "⏳", "orange", "优化中"
+            except Exception:
+                # 如果无法检查状态，显示处理中
+                return "⏳", "orange", "优化中"
+            
+        # 扫描进程存在，且未处理
+        return "❗", "red", "需要优化"
     
     @Slot()
     def toggle_notifications(self):
@@ -571,14 +634,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def confirm_exit(self):
         """确认退出程序"""
-        reply = QMessageBox.question(
-            self, '确认退出', 
-            '确定要退出 ACE-KILLER 吗？退出后将停止所有监控。',
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-        )
-        
-        if reply == QMessageBox.Yes:
-            self.exit_app()
+        self.exit_app()
     
     def exit_app(self):
         """退出应用程序"""
@@ -595,18 +651,19 @@ class MainWindow(QMainWindow):
         # 退出应用
         QApplication.quit()
     
+    def changeEvent(self, event):
+        """处理窗口状态变化事件"""
+        if event.type() == QEvent.WindowStateChange and self.isMinimized():
+            # 窗口最小化时隐藏窗口
+            self.hide()
+            event.accept()
+        else:
+            super().changeEvent(event)
+    
     def closeEvent(self, event):
-        """重写关闭事件，改为隐藏窗口"""
-        event.ignore()
-        self.hide()
-        
-        # 显示托盘提示
-        self.tray_icon.showMessage(
-            "ACE-KILLER 已最小化到托盘",
-            "程序将继续在后台运行，右键点击托盘图标可以打开菜单。",
-            QSystemTrayIcon.Information,
-            3000
-        )
+        """直接退出程序"""
+        event.accept()
+        self.exit_app()
 
 
 def get_status_info(monitor):
@@ -636,11 +693,41 @@ def get_status_info(monitor):
     # 如果没有游戏在运行但monitor状态显示有游戏在运行，更新monitor状态
     elif not any_game_running and monitor.main_game_running:
         monitor.main_game_running = False
-        
+    
+    # 检查进程状态
     if any_game_running:
         status_lines.append(f"🎮 游戏主程序：运行中 ({', '.join(running_games)})")
-        status_lines.append("✅ ACE进程：已终止" if monitor.anticheat_killed else "❓ ACE进程：未处理")
-        status_lines.append("✅ SGuard64进程：已优化" if monitor.scanprocess_optimized else "❓ SGuard64进程：未处理")
+        
+        # 检查 ACE-Tray.exe 是否存在
+        ace_proc = monitor.is_process_running(monitor.anticheat_name)
+        if not ace_proc and monitor.anticheat_killed:
+            status_lines.append("✅ ACE进程：已终止")
+        elif not ace_proc:
+            status_lines.append("ℹ️ ACE进程：未运行")
+        elif ace_proc and monitor.anticheat_killed:
+            status_lines.append("⏳ ACE进程：处理中")
+        else:
+            status_lines.append("❗ ACE进程：需要处理")
+        
+        # 检查 SGuard64.exe 是否存在
+        scan_proc = monitor.is_process_running(monitor.scanprocess_name)
+        if not scan_proc and monitor.scanprocess_optimized:
+            status_lines.append("✅ SGuard64进程：已优化")
+        elif not scan_proc:
+            status_lines.append("ℹ️ SGuard64进程：未运行")
+        elif scan_proc and monitor.scanprocess_optimized:
+            # 验证是否真的优化了
+            try:
+                is_running, is_optimized = monitor.check_process_status(monitor.scanprocess_name)
+                if is_running and is_optimized:
+                    status_lines.append("✅ SGuard64进程：已优化")
+                else:
+                    status_lines.append("⏳ SGuard64进程：优化中")
+            except Exception:
+                # 如果无法检查状态，显示处理中
+                status_lines.append("⏳ SGuard64进程：优化中") 
+        else:
+            status_lines.append("❗ SGuard64进程：需要优化")
     else:
         status_lines.append("🎮 游戏主程序：未运行")
     
