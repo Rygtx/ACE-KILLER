@@ -7,6 +7,8 @@ PySide6 GUI界面模块
 
 import os
 import sys
+import qdarktheme
+import darkdetect
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QLabel, QCheckBox, QSystemTrayIcon, QMenu, 
@@ -60,6 +62,8 @@ class MainWindow(QMainWindow):
         
         self.monitor = monitor
         self.icon_path = icon_path
+        self.current_theme = "auto"  # 支持 "light", "dark", "auto"
+        
         self.setup_ui()
         self.setup_tray()
         
@@ -140,6 +144,32 @@ class MainWindow(QMainWindow):
         startup_group.setLayout(startup_layout)
         settings_layout.addWidget(startup_group)
         
+        # 主题设置
+        theme_group = QGroupBox("主题设置")
+        theme_layout = QVBoxLayout()
+        
+        # 主题选择水平布局
+        theme_buttons_layout = QHBoxLayout()
+        
+        # 浅色主题按钮
+        self.light_theme_btn = QPushButton("浅色")
+        self.light_theme_btn.clicked.connect(lambda: self.switch_theme("light"))
+        theme_buttons_layout.addWidget(self.light_theme_btn)
+        
+        # 跟随系统按钮
+        self.auto_theme_btn = QPushButton("跟随系统")
+        self.auto_theme_btn.clicked.connect(lambda: self.switch_theme("auto"))
+        theme_buttons_layout.addWidget(self.auto_theme_btn)
+        
+        # 深色主题按钮
+        self.dark_theme_btn = QPushButton("深色")
+        self.dark_theme_btn.clicked.connect(lambda: self.switch_theme("dark"))
+        theme_buttons_layout.addWidget(self.dark_theme_btn)
+        
+        theme_layout.addLayout(theme_buttons_layout)
+        theme_group.setLayout(theme_layout)
+        settings_layout.addWidget(theme_group)
+        
         # 添加操作按钮
         actions_group = QGroupBox("操作")
         actions_layout = QHBoxLayout()
@@ -206,6 +236,26 @@ class MainWindow(QMainWindow):
         self.startup_action.triggered.connect(self.toggle_auto_start_from_tray)
         tray_menu.addAction(self.startup_action)
         
+        # 主题切换子菜单
+        theme_menu = QMenu("主题设置")
+        
+        # 浅色主题动作
+        light_theme_action = QAction("浅色", self)
+        light_theme_action.triggered.connect(lambda: self.switch_theme("light"))
+        theme_menu.addAction(light_theme_action)
+        
+        # 跟随系统动作
+        auto_theme_action = QAction("跟随系统", self)
+        auto_theme_action.triggered.connect(lambda: self.switch_theme("auto"))
+        theme_menu.addAction(auto_theme_action)
+        
+        # 深色主题动作
+        dark_theme_action = QAction("深色", self)
+        dark_theme_action.triggered.connect(lambda: self.switch_theme("dark"))
+        theme_menu.addAction(dark_theme_action)
+        
+        tray_menu.addMenu(theme_menu)
+        
         tray_menu.addSeparator()
         
         # 游戏监控子菜单
@@ -233,6 +283,70 @@ class MainWindow(QMainWindow):
         
         # 设置工具提示
         self.tray_icon.setToolTip("ACE-KILLER")
+    
+    @Slot(str)
+    def switch_theme(self, theme):
+        """
+        切换应用程序主题
+        
+        Args:
+            theme: 主题类型，可以是 "light"、"dark" 或 "auto"
+        """
+        if theme != self.current_theme:
+            self.current_theme = theme
+            
+            if theme == "auto":
+                # 使用系统主题
+                detected_theme = "dark" if darkdetect.isDark() else "light"
+                qdarktheme.setup_theme(detected_theme)
+                logger.info(f"主题已设置为跟随系统 (当前检测到: {detected_theme})")
+            else:
+                # 使用指定主题
+                qdarktheme.setup_theme(theme)
+                logger.info(f"主题已设置为: {theme}")
+    
+    def get_status_html(self):
+        """获取HTML格式的状态信息"""
+        if not self.monitor:
+            return "<p>程序未启动</p>"
+        
+        status_lines = []
+        status_lines.append("<p style='color: green; font-weight: bold;'>🟢 监控程序运行中</p>" if self.monitor.running else "<p style='color: red; font-weight: bold;'>🔴 监控程序已停止</p>")
+        
+        # 检查是否有任何游戏在运行
+        running_games = [game_config.name for game_config in self.monitor.game_configs 
+                         if game_config.enabled and game_config.main_game_running]
+        any_game_running = bool(running_games)
+        
+        # 检查反作弊和扫描进程状态
+        anticheat_status = self._check_anticheat_status()
+        scanprocess_status = self._check_scanprocess_status()
+        
+        if any_game_running:
+            status_lines.append(f"<p>🎮 游戏主程序：<span style='color: green; font-weight: bold;'>运行中</span> ({', '.join(running_games)})</p>")
+            status_lines.append(f"<p>{anticheat_status[0]} ACE进程：<span style='color: {anticheat_status[1]};'>{anticheat_status[2]}</span></p>")
+            status_lines.append(f"<p>{scanprocess_status[0]} SGuard64进程：<span style='color: {scanprocess_status[1]};'>{scanprocess_status[2]}</span></p>")
+        else:
+            status_lines.append("<p>🎮 游戏主程序：<span style='color: gray;'>未运行</span></p>")
+        
+        status_lines.append("<p><b>⚙️ 系统设置：</b></p>")
+        status_lines.append("<p>  🔔 通知状态：<span style='color: green;'>开启</span></p>" if self.monitor.show_notifications else "<p>  🔔 通知状态：<span style='color: gray;'>关闭</span></p>")
+        status_lines.append(f"<p>  🔁 开机自启：<span style='color: green;'>开启</span></p>" if self.monitor.auto_start else "<p>  🔁 开机自启：<span style='color: gray;'>关闭</span></p>")
+        status_lines.append(f"<p>  🎨 界面主题：{self._get_theme_display_name()}</p>")
+        status_lines.append(f"<p>  📁 配置目录：{self.monitor.config_manager.config_dir}</p>")
+        status_lines.append(f"<p>  📝 日志目录：{self.monitor.config_manager.log_dir}</p>")
+        status_lines.append(f"<p>  ⏱️ 日志保留：{self.monitor.config_manager.log_retention_days}天</p>")
+        
+        return "".join(status_lines)
+    
+    def _get_theme_display_name(self):
+        """获取主题的显示名称"""
+        if self.current_theme == "light":
+            return "浅色"
+        elif self.current_theme == "dark":
+            return "深色"
+        else:  # auto
+            return "跟随系统"
     
     def update_games_menu(self):
         """更新游戏监控子菜单"""
@@ -298,39 +412,6 @@ class MainWindow(QMainWindow):
                     action.setChecked(game_config.enabled)
                     action.blockSignals(False)
                     break
-    
-    def get_status_html(self):
-        """获取HTML格式的状态信息"""
-        if not self.monitor:
-            return "<p>程序未启动</p>"
-        
-        status_lines = []
-        status_lines.append("<p style='color: green; font-weight: bold;'>🟢 监控程序运行中</p>" if self.monitor.running else "<p style='color: red; font-weight: bold;'>🔴 监控程序已停止</p>")
-        
-        # 检查是否有任何游戏在运行
-        running_games = [game_config.name for game_config in self.monitor.game_configs 
-                         if game_config.enabled and game_config.main_game_running]
-        any_game_running = bool(running_games)
-        
-        # 检查反作弊和扫描进程状态
-        anticheat_status = self._check_anticheat_status()
-        scanprocess_status = self._check_scanprocess_status()
-        
-        if any_game_running:
-            status_lines.append(f"<p>🎮 游戏主程序：<span style='color: green; font-weight: bold;'>运行中</span> ({', '.join(running_games)})</p>")
-            status_lines.append(f"<p>{anticheat_status[0]} ACE进程：<span style='color: {anticheat_status[1]};'>{anticheat_status[2]}</span></p>")
-            status_lines.append(f"<p>{scanprocess_status[0]} SGuard64进程：<span style='color: {scanprocess_status[1]};'>{scanprocess_status[2]}</span></p>")
-        else:
-            status_lines.append("<p>🎮 游戏主程序：<span style='color: gray;'>未运行</span></p>")
-        
-        status_lines.append("<p><b>⚙️ 系统设置：</b></p>")
-        status_lines.append("<p>  🔔 通知状态：<span style='color: green;'>开启</span></p>" if self.monitor.show_notifications else "<p>  🔔 通知状态：<span style='color: gray;'>关闭</span></p>")
-        status_lines.append(f"<p>  🔁 开机自启：<span style='color: green;'>开启</span></p>" if self.monitor.auto_start else "<p>  🔁 开机自启：<span style='color: gray;'>关闭</span></p>")
-        status_lines.append(f"<p>  📁 配置目录：{self.monitor.config_manager.config_dir}</p>")
-        status_lines.append(f"<p>  📝 日志目录：{self.monitor.config_manager.log_dir}</p>")
-        status_lines.append(f"<p>  ⏱️ 日志保留：{self.monitor.config_manager.log_retention_days}天</p>")
-        
-        return "".join(status_lines)
     
     def _check_anticheat_status(self):
         """
@@ -755,6 +836,12 @@ def create_gui(monitor, icon_path=None):
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
+        
+    qdarktheme.enable_hi_dpi()
+    
+    # 检测系统主题
+    system_theme = "dark" if darkdetect.isDark() else "light"
+    qdarktheme.setup_theme(system_theme)
     
     window = MainWindow(monitor, icon_path)
     return app, window 
