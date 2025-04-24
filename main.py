@@ -32,11 +32,12 @@ def main():
     # 创建配置管理器
     config_manager = ConfigManager()
     
-    # 设置日志系统
+    # 配置日志系统
     setup_logger(
         config_manager.log_dir,
         config_manager.log_retention_days,
-        config_manager.log_rotation
+        config_manager.log_rotation,
+        config_manager.debug_mode  # 传递调试模式设置
     )
     
     # 创建进程监控器

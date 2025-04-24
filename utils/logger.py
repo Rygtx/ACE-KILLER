@@ -11,7 +11,7 @@ import datetime
 from loguru import logger
 
 
-def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day"):
+def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day", debug_mode=False):
     """
     配置日志系统
     
@@ -19,6 +19,7 @@ def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day"):
         log_dir (str): 日志保存目录
         log_retention_days (int): 日志保留天数
         log_rotation (str): 日志轮转周期
+        debug_mode (bool): 是否启用调试模式
     """
     # 移除默认的日志处理器
     logger.remove()
@@ -27,13 +28,16 @@ def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day"):
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     log_file = os.path.join(log_dir, f"{today}.log")
     
+    # 设置日志级别
+    log_level = "DEBUG" if debug_mode else "INFO"
+    
     # 添加文件日志处理器，配置轮转和保留策略，写入到文件中
     logger.add(
         log_file,
         rotation=log_rotation,  # 日志轮转周期
         retention=f"{log_retention_days} days",  # 日志保留天数
         format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}:{function}:{line} | {message}",
-        level="INFO",
+        level=log_level,
         encoding="utf-8"
     )
     
@@ -56,7 +60,7 @@ def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day"):
         logger.add(
             sys.stderr,
             format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}:{function}:{line} | {message}",
-            level="INFO",
+            level=log_level,
             colorize=True
         )
         logger.info("已添加控制台日志处理器")
@@ -65,5 +69,6 @@ def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day"):
     
     logger.info(f"日志系统已初始化，日志文件: {log_file}")
     logger.info(f"日志保留天数: {log_retention_days}，轮转周期: {log_rotation}")
+    logger.info(f"调试模式: {'开启' if debug_mode else '关闭'}")
     
     return logger 

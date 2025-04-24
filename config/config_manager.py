@@ -26,6 +26,7 @@ class ConfigManager:
         self.auto_start = False  # 开机自启动开关默认值
         self.log_retention_days = 7  # 默认日志保留天数
         self.log_rotation = "1 day"  # 默认日志轮转周期
+        self.debug_mode = False  # 调试模式默认值
         self.game_configs = []  # 游戏配置列表
         
         # 确保配置目录存在
@@ -65,7 +66,8 @@ class ConfigManager:
             },
             'logging': {
                 'retention_days': 7,
-                'rotation': '1 day'
+                'rotation': '1 day',
+                'debug_mode': False
             },
             'application': {
                 'auto_start': False
@@ -108,6 +110,9 @@ class ConfigManager:
                         self.log_retention_days = int(config_data['logging']['retention_days'])
                     if 'rotation' in config_data['logging']:
                         self.log_rotation = config_data['logging']['rotation']
+                    if 'debug_mode' in config_data['logging']:
+                        self.debug_mode = bool(config_data['logging']['debug_mode'])
+                        logger.info(f"已从配置文件加载调试模式设置: {self.debug_mode}")
                 
                 # 读取开机自启设置
                 if 'application' in config_data and 'auto_start' in config_data['application']:
@@ -185,6 +190,7 @@ class ConfigManager:
             self.show_notifications = default_config['notifications']['enabled']
             self.log_retention_days = default_config['logging']['retention_days']
             self.log_rotation = default_config['logging']['rotation']
+            self.debug_mode = default_config['logging']['debug_mode']
             self.auto_start = default_config['application']['auto_start']
             
             # 加载默认游戏配置
@@ -209,7 +215,8 @@ class ConfigManager:
                 },
                 'logging': {
                     'retention_days': self.log_retention_days,
-                    'rotation': self.log_rotation
+                    'rotation': self.log_rotation,
+                    'debug_mode': self.debug_mode
                 },
                 'application': {
                     'auto_start': self.auto_start

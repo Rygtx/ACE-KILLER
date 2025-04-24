@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
         # 添加定时器，定期更新状态
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.update_status)
-        self.update_timer.start(3000)  # 每3秒更新一次
+        self.update_timer.start(1000)  # 每1秒更新一次
         
         # 初始加载设置
         self.load_settings()
@@ -205,6 +205,15 @@ class MainWindow(QMainWindow):
         startup_layout.addWidget(self.startup_checkbox)
         startup_group.setLayout(startup_layout)
         settings_layout.addWidget(startup_group)
+        
+        # 日志设置
+        log_group = QGroupBox("日志设置")
+        log_layout = QVBoxLayout()
+        self.debug_checkbox = QCheckBox("启用调试模式")
+        self.debug_checkbox.stateChanged.connect(self.toggle_debug_mode)
+        log_layout.addWidget(self.debug_checkbox)
+        log_group.setLayout(log_layout)
+        settings_layout.addWidget(log_group)
         
         # 主题设置
         theme_group = QGroupBox("主题设置")
@@ -366,6 +375,9 @@ class MainWindow(QMainWindow):
                 # 使用指定主题
                 qdarktheme.setup_theme(theme)
                 logger.info(f"主题已设置为: {theme}")
+            
+            # 立即更新状态显示
+            self.update_status()
     
     def get_status_html(self):
         """获取HTML格式的状态信息"""
@@ -394,6 +406,7 @@ class MainWindow(QMainWindow):
         status_lines.append("<p><b>⚙️ 系统设置：</b></p>")
         status_lines.append("<p>  🔔 通知状态：<span style='color: green;'>开启</span></p>" if self.monitor.show_notifications else "<p>  🔔 通知状态：<span style='color: gray;'>关闭</span></p>")
         status_lines.append(f"<p>  🔁 开机自启：<span style='color: green;'>开启</span></p>" if self.monitor.auto_start else "<p>  🔁 开机自启：<span style='color: gray;'>关闭</span></p>")
+        status_lines.append(f"<p>  🐛 调试模式：<span style='color: green;'>开启</span></p>" if self.monitor.config_manager.debug_mode else "<p>  🐛 调试模式：<span style='color: gray;'>关闭</span></p>")
         status_lines.append(f"<p>  🎨 界面主题：{self._get_theme_display_name()}</p>")
         status_lines.append(f"<p>  📁 配置目录：{self.monitor.config_manager.config_dir}</p>")
         status_lines.append(f"<p>  📝 日志目录：{self.monitor.config_manager.log_dir}</p>")
@@ -447,6 +460,9 @@ class MainWindow(QMainWindow):
         # 更新自启动设置
         self.startup_checkbox.setChecked(self.monitor.auto_start)
         self.startup_action.setChecked(self.monitor.auto_start)
+        
+        # 更新调试模式设置
+        self.debug_checkbox.setChecked(self.monitor.config_manager.debug_mode)
         
         self.update_status()
         self.blockSignals(False)
@@ -561,6 +577,9 @@ class MainWindow(QMainWindow):
             logger.info(f"通知状态已更改并保存: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
         else:
             logger.warning(f"通知状态已更改但保存失败: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
+        
+        # 立即更新状态显示
+        self.update_status()
     
     @Slot()
     def toggle_notifications_from_tray(self):
@@ -575,6 +594,9 @@ class MainWindow(QMainWindow):
             logger.info(f"通知状态已更改并保存: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
         else:
             logger.warning(f"通知状态已更改但保存失败: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
+        
+        # 立即更新状态显示
+        self.update_status()
     
     @Slot()
     def toggle_auto_start(self):
@@ -596,6 +618,9 @@ class MainWindow(QMainWindow):
             logger.info(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
         else:
             logger.warning(f"开机自启状态已更改但保存失败: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
+        
+        # 立即更新状态显示
+        self.update_status()
     
     @Slot()
     def toggle_auto_start_from_tray(self):
@@ -617,6 +642,9 @@ class MainWindow(QMainWindow):
             logger.info(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
         else:
             logger.warning(f"开机自启状态已更改但保存失败: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
+        
+        # 立即更新状态显示
+        self.update_status()
     
     @Slot(str, bool)
     def on_game_status_changed(self, game_name, enabled):
@@ -950,6 +978,19 @@ class MainWindow(QMainWindow):
             
             logger.info(f"已删除游戏配置: {game_name}")
 
+    @Slot()
+    def toggle_debug_mode(self):
+        """切换调试模式"""
+        self.monitor.config_manager.debug_mode = self.debug_checkbox.isChecked()
+        # 保存配置
+        if self.monitor.config_manager.save_config():
+            logger.info(f"调试模式已更改并保存: {'开启' if self.monitor.config_manager.debug_mode else '关闭'}")
+        else:
+            logger.warning(f"调试模式已更改但保存失败: {'开启' if self.monitor.config_manager.debug_mode else '关闭'}")
+        
+        # 立即更新状态显示
+        self.update_status()
+
 
 def get_status_info(monitor):
     """
@@ -1019,6 +1060,7 @@ def get_status_info(monitor):
     status_lines.append("\n⚙️ 系统设置：")
     status_lines.append("  🔔 通知状态：" + ("开启" if monitor.show_notifications else "关闭"))
     status_lines.append(f"  🔁 开机自启：{'开启' if monitor.auto_start else '关闭'}")
+    status_lines.append(f"  🐛 调试模式：{'开启' if monitor.config_manager.debug_mode else '关闭'}")
     status_lines.append(f"  📁 配置目录：{monitor.config_manager.config_dir}")
     status_lines.append(f"  📝 日志目录：{monitor.config_manager.log_dir}")
     status_lines.append(f"  ⏱️ 日志保留：{monitor.config_manager.log_retention_days}天")
@@ -1037,14 +1079,16 @@ def create_gui(monitor, icon_path=None):
     Returns:
         (QApplication, MainWindow): 应用程序对象和主窗口对象
     """
+    
+    qdarktheme.enable_hi_dpi()
+    
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
         
-    qdarktheme.enable_hi_dpi()
-    
     # 检测系统主题
     system_theme = "dark" if darkdetect.isDark() else "light"
+    
     qdarktheme.setup_theme(system_theme)
     
     window = MainWindow(monitor, icon_path)
