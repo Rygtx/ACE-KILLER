@@ -61,7 +61,7 @@ class GameProcessMonitor:
         try:
             handle = OpenProcess(PROCESS_ALL_ACCESS, False, os.getpid())
             SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS)
-            logger.info("已设置程序优先级为低于正常")
+            logger.debug("已设置程序优先级为低于正常")
         except Exception as e:
             logger.error(f"设置自身进程优先级失败: {str(e)}")
     
@@ -152,7 +152,7 @@ class GameProcessMonitor:
         if proc:
             try:
                 proc.kill()
-                logger.info(f"已终止进程: {process_name}")
+                logger.debug(f"已终止进程: {process_name}")
                 if process_name.lower() in self.process_cache:
                     del self.process_cache[process_name.lower()]
                 return True
@@ -185,7 +185,7 @@ class GameProcessMonitor:
                 # 设置为效能模式
                 self._set_process_eco_qos(proc.pid)
                 
-                logger.info(f"优化进程: {process_name}，已设置为效能模式")
+                logger.debug(f"优化进程: {process_name}，已设置为效能模式")
                 return True
             except Exception as e:
                 logger.error(f"优化进程失败: {str(e)}")
@@ -232,7 +232,7 @@ class GameProcessMonitor:
             ctypes.windll.kernel32.CloseHandle(process_handle)
             
             if result:
-                logger.info(f"成功将进程(PID: {pid})设置为效能模式")
+                logger.debug(f"成功将进程(PID: {pid})设置为效能模式")
                 return True
             else:
                 error = ctypes.windll.kernel32.GetLastError()
@@ -304,14 +304,14 @@ class GameProcessMonitor:
         if not game_config.monitor_thread or not game_config.monitor_thread.is_alive():
             # 先添加通知消息
             self.add_message(f"已启动 {game_config.name} 监控")
-            logger.info(f"已启动 {game_config.name} 监控线程")
+            logger.debug(f"已启动 {game_config.name} 监控线程")
             
             # 检查游戏是否已经在运行
             main_proc = self.is_process_running(game_config.main_game)
             if main_proc:
                 game_config.main_game_running = True
                 self.main_game_running = True
-                logger.info(f"{game_config.name} 主进程已经在运行，立即检查反作弊和扫描进程")
+                logger.debug(f"{game_config.name} 主进程已经在运行，立即检查反作弊和扫描进程")
                 
                 # 强制刷新进程缓存
                 self.refresh_process_cache(force=True)
@@ -319,30 +319,30 @@ class GameProcessMonitor:
                 # 检查反作弊进程状态
                 anticheat_proc = self.is_process_running(self.anticheat_name)
                 if anticheat_proc and not game_config.anticheat_handled:
-                    logger.info(f"检测到 {self.anticheat_name} 正在运行，尝试终止")
+                    logger.debug(f"检测到 {self.anticheat_name} 正在运行，尝试终止")
                     if self.kill_process(self.anticheat_name):
                         game_config.anticheat_handled = True
                         self.anticheat_killed = True  # 更新全局状态
-                        logger.info(f"已终止 {self.anticheat_name}")
+                        logger.debug(f"已终止 {self.anticheat_name}")
                 elif not anticheat_proc:
                     # 如果进程不存在，也认为是已处理的
                     game_config.anticheat_handled = True
                     self.anticheat_killed = True  # 更新全局状态
-                    logger.info(f"{self.anticheat_name} 进程不存在，标记为已处理")
+                    logger.debug(f"{self.anticheat_name} 进程不存在，标记为已处理")
                 
                 # 检查扫描进程状态
                 scan_proc = self.is_process_running(self.scanprocess_name)
                 if scan_proc and not game_config.scanprocess_handled:
-                    logger.info(f"检测到 {self.scanprocess_name} 正在运行，尝试优化")
+                    logger.debug(f"检测到 {self.scanprocess_name} 正在运行，尝试优化")
                     if self.set_process_priority_and_affinity(self.scanprocess_name):
                         game_config.scanprocess_handled = True
                         self.scanprocess_optimized = True  # 更新全局状态
-                        logger.info(f"已优化 {self.scanprocess_name}")
+                        logger.debug(f"已优化 {self.scanprocess_name}")
                     elif not scan_proc:
                         # 如果进程不存在，也记录为已处理过
                         game_config.scanprocess_handled = True
                         self.scanprocess_optimized = True  # 更新全局状态
-                        logger.info(f"{self.scanprocess_name} 进程不存在，标记为已处理")
+                        logger.debug(f"{self.scanprocess_name} 进程不存在，标记为已处理")
             
             # 然后再启动监控线程
             game_config.monitor_thread = threading.Thread(
@@ -364,7 +364,7 @@ class GameProcessMonitor:
             self.main_game_running = False  # 同步更新主监视器的状态
             game_config.anticheat_handled = False
             game_config.scanprocess_handled = False
-            logger.info(f"已停止 {game_config.name} 监控线程")
+            logger.debug(f"已停止 {game_config.name} 监控线程")
             self.add_message(f"已停止 {game_config.name} 监控")
     
     def check_process_status(self, process_name):
@@ -445,7 +445,7 @@ class GameProcessMonitor:
                 game_config.main_game_running = True
                 self.main_game_running = True  # 同步更新主监视器的状态
                 self.add_message(f"检测到 {game_config.name} 主进程启动")
-                logger.info(f"检测到 {game_config.name} 主进程启动")
+                logger.debug(f"检测到 {game_config.name} 主进程启动")
                 
                 # 只在检测到游戏进程时强制刷新缓存，避免频繁刷新
                 self.refresh_process_cache(force=True)
@@ -467,7 +467,7 @@ class GameProcessMonitor:
                 if not game_config.anticheat_handled and self.anticheat_name:
                     anticheat_running, _ = self.check_process_status(self.anticheat_name)
                     if anticheat_running:
-                        logger.info(f"游戏运行中检测到 {self.anticheat_name}，尝试终止")
+                        logger.debug(f"游戏运行中检测到 {self.anticheat_name}，尝试终止")
                         if self.kill_process(self.anticheat_name):
                             game_config.anticheat_handled = True
                             self.anticheat_killed = True  # 更新全局状态
@@ -476,7 +476,7 @@ class GameProcessMonitor:
                 if not game_config.scanprocess_handled and self.scanprocess_name:
                     scan_running, is_optimized = self.check_process_status(self.scanprocess_name)
                     if scan_running and not is_optimized:
-                        logger.info(f"游戏运行中检测到未优化的 {self.scanprocess_name}，尝试优化")
+                        logger.debug(f"游戏运行中检测到未优化的 {self.scanprocess_name}，尝试优化")
                         if self.set_process_priority_and_affinity(self.scanprocess_name):
                             game_config.scanprocess_handled = True
                             self.scanprocess_optimized = True  # 更新全局状态
@@ -499,7 +499,7 @@ class GameProcessMonitor:
                     self.scanprocess_optimized = False
                 
                 self.add_message(f"{game_config.name} 主进程已关闭")
-                logger.info(f"{game_config.name} 主进程已关闭")
+                logger.debug(f"{game_config.name} 主进程已关闭")
             
             # 检测启动器进程
             launcher_proc = self.is_process_running(game_config.launcher)
@@ -508,13 +508,13 @@ class GameProcessMonitor:
             if launcher_proc and not launcher_running:
                 launcher_running = True
                 self.add_message(f"检测到 {game_config.name} 启动器正在运行")
-                logger.info(f"检测到 {game_config.name} 启动器正在运行，PID: {launcher_proc.pid}")
+                logger.debug(f"检测到 {game_config.name} 启动器正在运行，PID: {launcher_proc.pid}")
             
             # 启动器状态变化：运行->未运行
             elif not launcher_proc and launcher_running:
                 launcher_running = False
                 self.add_message(f"{game_config.name} 启动器已关闭")
-                logger.info(f"{game_config.name} 启动器已关闭")
+                logger.debug(f"{game_config.name} 启动器已关闭")
             
             # 降低检测频率，减少CPU使用率
             time.sleep(3)
@@ -557,13 +557,13 @@ class GameProcessMonitor:
         enabled_games = [game for game in self.game_configs if game.enabled]
         
         if not enabled_games:
-            logger.info("未启用任何游戏监控，不启动监控线程")
+            logger.debug("未启用任何游戏监控，不启动监控线程")
             self.running = False
             return
         
         # 有启用的游戏，设置running为True
         self.running = True
-        logger.info("监控程序已启动")
+        logger.debug("监控程序已启动")
             
         for game_config in enabled_games:
             self.start_monitor_thread(game_config)
@@ -575,4 +575,4 @@ class GameProcessMonitor:
         
         # 设置运行标志为False
         self.running = False
-        logger.info("监控程序已停止") 
+        logger.debug("监控程序已停止") 

@@ -24,13 +24,13 @@ def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day", debug_mode
     # 移除默认的日志处理器
     logger.remove()
     
+    # 设置日志级别，调试模式为True时输出DEBUG级别日志，否则输出INFO级别
+    log_level = "DEBUG" if debug_mode else "INFO"
+    
     # 获取当前日期作为日志文件名的一部分
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     log_file = os.path.join(log_dir, f"{today}.log")
-    
-    # 设置日志级别
-    log_level = "DEBUG" if debug_mode else "INFO"
-    
+
     # 添加文件日志处理器，配置轮转和保留策略，写入到文件中
     logger.add(
         log_file,
@@ -63,12 +63,12 @@ def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day", debug_mode
             level=log_level,
             colorize=True
         )
-        logger.info("已添加控制台日志处理器")
+        logger.debug("已添加控制台日志处理器")
     else:
-        logger.info("检测到无控制台环境，不添加控制台日志处理器")
+        logger.debug("检测到无控制台环境，不添加控制台日志处理器")
     
-    logger.info(f"日志系统已初始化，日志文件: {log_file}")
-    logger.info(f"日志保留天数: {log_retention_days}，轮转周期: {log_rotation}")
-    logger.info(f"调试模式: {'开启' if debug_mode else '关闭'}")
+    logger.debug(f"日志系统已初始化，日志文件: {log_file}")
+    logger.debug(f"日志保留天数: {log_retention_days}，轮转周期: {log_rotation}")
+    logger.debug(f"调试模式: {'开启' if debug_mode else '关闭'}")
     
-    return logger 
+    return logger

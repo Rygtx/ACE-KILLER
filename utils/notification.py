@@ -82,7 +82,7 @@ def notification_thread(message_queue, icon_path=None, stop_event=None):
         icon_path (str, optional): 图标路径
         stop_event (threading.Event, optional): 停止事件
     """
-    logger.info("通知线程已启动")
+    logger.debug("通知线程已启动")
     
     # 如果未指定停止事件，则创建一个新的
     if stop_event is None:
@@ -110,7 +110,7 @@ def notification_thread(message_queue, icon_path=None, stop_event=None):
             # 尝试短暂休眠以避免CPU占用过高
             time.sleep(0.1)
     
-    logger.info("通知线程已终止")
+    logger.debug("通知线程已终止")
 
 
 def create_notification_thread(message_queue, icon_path=None):

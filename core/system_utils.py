@@ -104,7 +104,7 @@ def enable_auto_start(app_name="ACE-KILLER"):
         program_path = get_program_path()
         winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{program_path}"')
         winreg.CloseKey(key)
-        logger.info("已设置开机自启")
+        logger.debug("已设置开机自启")
         return True
     except Exception as e:
         logger.error(f"设置开机自启失败: {str(e)}")
@@ -131,7 +131,7 @@ def disable_auto_start(app_name="ACE-KILLER"):
             # 注册表项不存在，无需删除
             pass
         winreg.CloseKey(key)
-        logger.info("已取消开机自启")
+        logger.debug("已取消开机自启")
         return True
     except Exception as e:
         logger.error(f"取消开机自启失败: {str(e)}")

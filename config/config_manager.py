@@ -41,7 +41,7 @@ class ConfigManager:
         if not os.path.exists(self.config_dir):
             try:
                 os.makedirs(self.config_dir)
-                logger.info(f"已创建配置目录: {self.config_dir}")
+                logger.debug(f"已创建配置目录: {self.config_dir}")
             except Exception as e:
                 logger.error(f"创建配置目录失败: {str(e)}")
         
@@ -49,7 +49,7 @@ class ConfigManager:
         if not os.path.exists(self.log_dir):
             try:
                 os.makedirs(self.log_dir)
-                logger.info(f"已创建日志目录: {self.log_dir}")
+                logger.debug(f"已创建日志目录: {self.log_dir}")
             except Exception as e:
                 logger.error(f"创建日志目录失败: {str(e)}")
     
@@ -102,7 +102,7 @@ class ConfigManager:
                 # 读取通知设置
                 if 'notifications' in config_data and 'enabled' in config_data['notifications']:
                     self.show_notifications = bool(config_data['notifications']['enabled'])
-                    logger.info(f"已从配置文件加载通知设置: {self.show_notifications}")
+                    logger.debug(f"已从配置文件加载通知设置: {self.show_notifications}")
                 
                 # 读取日志设置
                 if 'logging' in config_data:
@@ -112,7 +112,7 @@ class ConfigManager:
                         self.log_rotation = config_data['logging']['rotation']
                     if 'debug_mode' in config_data['logging']:
                         self.debug_mode = bool(config_data['logging']['debug_mode'])
-                        logger.info(f"已从配置文件加载调试模式设置: {self.debug_mode}")
+                        logger.debug(f"已从配置文件加载调试模式设置: {self.debug_mode}")
                 
                 # 读取开机自启设置
                 if 'application' in config_data and 'auto_start' in config_data['application']:
@@ -129,18 +129,18 @@ class ConfigManager:
                     else:
                         disable_auto_start()
                     
-                    logger.info(f"已从配置文件加载开机自启设置: {self.auto_start}")
+                    logger.debug(f"已从配置文件加载开机自启设置: {self.auto_start}")
                 else:
                     # 如果配置中没有自启设置，检查注册表中是否已设置
                     if check_auto_start():
                         # 如果注册表中已设置，则更新配置
                         self.auto_start = True
-                        logger.info("检测到注册表中已设置开机自启，已更新配置")
+                        logger.debug("检测到注册表中已设置开机自启，已更新配置")
                 
                 # 加载游戏配置
                 self._load_game_configs(config_data)
                 
-                logger.info("配置文件加载成功")
+                logger.debug("配置文件加载成功")
                 return True
             except Exception as e:
                 logger.error(f"加载配置文件失败: {str(e)}")
@@ -149,7 +149,7 @@ class ConfigManager:
                 return False
         else:
             # 如果配置文件不存在，则创建默认配置文件
-            logger.info("配置文件不存在，将创建默认配置文件")
+            logger.debug("配置文件不存在，将创建默认配置文件")
             self._create_default_config(default_config)
             return True
     
@@ -172,7 +172,7 @@ class ConfigManager:
                     )
                     self.game_configs.append(game_config)
             
-            logger.info(f"已从配置文件加载 {len(self.game_configs)} 个游戏配置")
+            logger.debug(f"已从配置文件加载 {len(self.game_configs)} 个游戏配置")
     
     def _create_default_config(self, default_config):
         """
@@ -196,7 +196,7 @@ class ConfigManager:
             # 加载默认游戏配置
             self._load_game_configs(default_config)
             
-            logger.info("已创建并加载默认配置")
+            logger.debug("已创建并加载默认配置")
         except Exception as e:
             logger.error(f"创建默认配置文件失败: {str(e)}")
     
@@ -238,7 +238,7 @@ class ConfigManager:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True)
             
-            logger.info("配置已保存")
+            logger.debug("配置已保存")
             return True
         except Exception as e:
             logger.error(f"保存配置文件失败: {str(e)}")

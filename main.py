@@ -44,7 +44,7 @@ def main():
     monitor = GameProcessMonitor(config_manager)
     
     # 现在日志系统已初始化，可以记录启动信息
-    logger.info("🟩 ACE-KILLER 程序已启动！")
+    logger.debug("🟩 ACE-KILLER 程序已启动！")
     
     # 查找图标文件
     icon_path = find_icon_path()
@@ -75,11 +75,11 @@ def main():
     # 启动已启用的游戏监控线程
     if any(game.enabled for game in monitor.game_configs):
         monitor.running = True  # 显式设置为True
-        logger.info("监控程序已启动")
+        logger.debug("监控程序已启动")
         monitor.start_all_enabled_monitors()
     else:
         monitor.running = False  # 显式设置为False
-        logger.info("未启用任何游戏监控，不启动监控线程")
+        logger.debug("未启用任何游戏监控，不启动监控线程")
     
     try:
         # 显示窗口
@@ -101,7 +101,7 @@ def main():
         # 等待通知线程结束
         notification_thread_obj.join(timeout=1.0)
         
-    logger.info("🔴 ACE-KILLER 程序已终止！")
+    logger.debug("🔴 ACE-KILLER 程序已终止！")
 
 
 if __name__ == "__main__":

@@ -370,11 +370,11 @@ class MainWindow(QMainWindow):
                 # 使用系统主题
                 detected_theme = "dark" if darkdetect.isDark() else "light"
                 qdarktheme.setup_theme(detected_theme)
-                logger.info(f"主题已设置为跟随系统 (当前检测到: {detected_theme})")
+                logger.debug(f"主题已设置为跟随系统 (当前检测到: {detected_theme})")
             else:
                 # 使用指定主题
                 qdarktheme.setup_theme(theme)
-                logger.info(f"主题已设置为: {theme}")
+                logger.debug(f"主题已设置为: {theme}")
             
             # 立即更新状态显示
             self.update_status()
@@ -574,7 +574,7 @@ class MainWindow(QMainWindow):
         self.notify_action.blockSignals(False)
         # 保存配置
         if self.monitor.config_manager.save_config():
-            logger.info(f"通知状态已更改并保存: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
+            logger.debug(f"通知状态已更改并保存: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
         else:
             logger.warning(f"通知状态已更改但保存失败: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
         
@@ -591,7 +591,7 @@ class MainWindow(QMainWindow):
         self.notify_checkbox.blockSignals(False)
         # 保存配置
         if self.monitor.config_manager.save_config():
-            logger.info(f"通知状态已更改并保存: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
+            logger.debug(f"通知状态已更改并保存: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
         else:
             logger.warning(f"通知状态已更改但保存失败: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
         
@@ -615,7 +615,7 @@ class MainWindow(QMainWindow):
         
         # 保存配置
         if self.monitor.config_manager.save_config():
-            logger.info(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
+            logger.debug(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
         else:
             logger.warning(f"开机自启状态已更改但保存失败: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
         
@@ -639,7 +639,7 @@ class MainWindow(QMainWindow):
         
         # 保存配置
         if self.monitor.config_manager.save_config():
-            logger.info(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
+            logger.debug(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
         else:
             logger.warning(f"开机自启状态已更改但保存失败: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
         
@@ -658,7 +658,7 @@ class MainWindow(QMainWindow):
                         was_running = self.monitor.running
                         if not was_running:
                             self.monitor.running = True
-                            logger.info("监控程序已启动")
+                            logger.debug("监控程序已启动")
                         
                         # 启用游戏监控
                         self.monitor.start_monitor_thread(game_config)
@@ -669,11 +669,11 @@ class MainWindow(QMainWindow):
                         # 检查是否还有其他启用的游戏
                         if not any(g.enabled for g in self.monitor.game_configs):
                             # 如果没有任何启用的游戏，重置监控器状态
-                            logger.info("所有游戏监控已关闭")
+                            logger.debug("所有游戏监控已关闭")
                             self.monitor.running = False
                             self.monitor.anticheat_killed = False
                             self.monitor.scanprocess_optimized = False
-                            logger.info("监控程序已停止")
+                            logger.debug("监控程序已停止")
                     
                     # 保存配置
                     self.monitor.config_manager.save_config()
@@ -707,7 +707,7 @@ class MainWindow(QMainWindow):
                             was_running = self.monitor.running
                             if not was_running:
                                 self.monitor.running = True
-                                logger.info("监控程序已启动")
+                                logger.debug("监控程序已启动")
                             
                             # 启用游戏监控
                             self.monitor.start_monitor_thread(game_config)
@@ -718,11 +718,11 @@ class MainWindow(QMainWindow):
                             # 检查是否还有其他启用的游戏
                             if not any(g.enabled for g in self.monitor.game_configs):
                                 # 如果没有任何启用的游戏，重置监控器状态
-                                logger.info("所有游戏监控已关闭")
+                                logger.debug("所有游戏监控已关闭")
                                 self.monitor.running = False
                                 self.monitor.anticheat_killed = False
                                 self.monitor.scanprocess_optimized = False
-                                logger.info("监控程序已停止")
+                                logger.debug("监控程序已停止")
                         
                         # 保存配置
                         self.monitor.config_manager.save_config()
@@ -749,7 +749,7 @@ class MainWindow(QMainWindow):
                 else:
                     import subprocess
                     subprocess.Popen(['xdg-open', self.monitor.config_manager.config_dir])
-                logger.info(f"已打开配置目录: {self.monitor.config_manager.config_dir}")
+                logger.debug(f"已打开配置目录: {self.monitor.config_manager.config_dir}")
             else:
                 os.makedirs(self.monitor.config_manager.config_dir, exist_ok=True)
                 if sys.platform == 'win32':
@@ -757,7 +757,7 @@ class MainWindow(QMainWindow):
                 else:
                     import subprocess
                     subprocess.Popen(['xdg-open', self.monitor.config_manager.config_dir])
-                logger.info(f"已创建并打开配置目录: {self.monitor.config_manager.config_dir}")
+                logger.debug(f"已创建并打开配置目录: {self.monitor.config_manager.config_dir}")
         except Exception as e:
             logger.error(f"打开配置目录失败: {str(e)}")
             QMessageBox.warning(self, "错误", f"打开配置目录失败: {str(e)}")
@@ -887,7 +887,7 @@ class MainWindow(QMainWindow):
             # 更新游戏列表和菜单
             self.update_games_menu()
             
-            logger.info(f"已添加游戏配置: {name}")
+            logger.debug(f"已添加游戏配置: {name}")
     
     @Slot(QListWidgetItem)
     def edit_game_config(self, list_item):
@@ -921,7 +921,7 @@ class MainWindow(QMainWindow):
             # 保存配置
             self.monitor.config_manager.save_config()
             
-            logger.info(f"已更新游戏配置: {game_name}")
+            logger.debug(f"已更新游戏配置: {game_name}")
     
     @Slot(QListWidgetItem)
     def delete_game_config(self, list_item):
@@ -956,16 +956,16 @@ class MainWindow(QMainWindow):
                     game_config.enabled = False
                     # 停止监控线程
                     self.monitor.stop_monitor_thread(game_config)
-                    logger.info(f"已停止游戏 '{game_name}' 的监控线程")
+                    logger.debug(f"已停止游戏 '{game_name}' 的监控线程")
                     
                     # 检查是否还有其他启用的游戏
                     if not any(g.enabled for g in self.monitor.game_configs if g.name != game_name):
                         # 如果没有其他启用的游戏，重置监控器状态
-                        logger.info("所有游戏监控已关闭")
+                        logger.debug("所有游戏监控已关闭")
                         self.monitor.running = False
                         self.monitor.anticheat_killed = False
                         self.monitor.scanprocess_optimized = False
-                        logger.info("监控程序已停止")
+                        logger.debug("监控程序已停止")
             
             # 删除游戏配置
             self.monitor.config_manager.remove_game_config(game_name)
@@ -976,17 +976,29 @@ class MainWindow(QMainWindow):
             # 更新状态显示
             self.update_status()
             
-            logger.info(f"已删除游戏配置: {game_name}")
+            logger.debug(f"已删除游戏配置: {game_name}")
 
     @Slot()
     def toggle_debug_mode(self):
         """切换调试模式"""
-        self.monitor.config_manager.debug_mode = self.debug_checkbox.isChecked()
+        # 获取新的调试模式状态
+        new_debug_mode = self.debug_checkbox.isChecked()
+        self.monitor.config_manager.debug_mode = new_debug_mode
+        
         # 保存配置
         if self.monitor.config_manager.save_config():
-            logger.info(f"调试模式已更改并保存: {'开启' if self.monitor.config_manager.debug_mode else '关闭'}")
+            logger.debug(f"调试模式已更改并保存: {'开启' if new_debug_mode else '关闭'}")
         else:
-            logger.warning(f"调试模式已更改但保存失败: {'开启' if self.monitor.config_manager.debug_mode else '关闭'}")
+            logger.warning(f"调试模式已更改但保存失败: {'开启' if new_debug_mode else '关闭'}")
+        
+        # 重新初始化日志系统
+        from utils.logger import setup_logger
+        setup_logger(
+            self.monitor.config_manager.log_dir,
+            self.monitor.config_manager.log_retention_days,
+            self.monitor.config_manager.log_rotation,
+            new_debug_mode
+        )
         
         # 立即更新状态显示
         self.update_status()
@@ -1092,4 +1104,4 @@ def create_gui(monitor, icon_path=None):
     qdarktheme.setup_theme(system_theme)
     
     window = MainWindow(monitor, icon_path)
-    return app, window 
+    return app, window
