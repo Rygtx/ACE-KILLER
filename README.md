@@ -32,7 +32,7 @@
 - 📱 支持Windows系统通知
 - 🔄 支持开机自启动
 - 💻 系统托盘常驻运行
-- 🧹 内存清理根据`H3d9`大佬C++编写的 [Memory Cleaner](https://github.com/H3d9/memory_cleanerpython) 重构而来
+- 🧹 内存清理根据`H3d9`大佬C++编写的 [Memory Cleaner](https://github.com/H3d9/memory_cleaner) 重构而来
 - 🌓 支持明暗主题切换
 - 🗑️ 支持一键卸载ACE反作弊服务
 
