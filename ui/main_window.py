@@ -144,7 +144,7 @@ class MainWindow(QMainWindow):
         # 添加定时器，定期更新状态
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.update_status)
-        self.update_timer.start(2000)  # 每2秒更新一次
+        self.update_timer.start(1000)
         
         # 初始加载设置
         self.load_settings()
