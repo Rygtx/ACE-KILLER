@@ -20,7 +20,7 @@
 
 <br/>
 
-> 项目设计初衷并非直接对抗反作弊程序，而是优化扫盘程序对系统资源的占用，并且能让用户能更好的对反作弊程序进行管理
+> 项目设计初衷并非直接对抗反作弊程序，而是优化扫盘程序对系统资源的占用优化1%low帧，并且能让用户能更好的对反作弊程序进行管理
 
 </div>
 
@@ -35,6 +35,22 @@
 - 🧹 内存清理根据`H3d9`大佬C++编写的 [Memory Cleaner](https://github.com/H3d9/memory_cleanerpython) 重构而来
 - 🌓 支持明暗主题切换
 - 🗑️ 支持一键卸载ACE反作弊服务
+
+## 项目展示
+
+<div align="center">
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_1.png" width="60%" alt="应用界面预览">
+  <p>ACE-KILLER 应用界面</p>
+</div>
+<div align="center">
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_3.png" width="60%" alt="内存清理界面预览">
+  <p>ACE-KILLER 内存清理界面</p>
+</div>
+<div align="center">
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_4.png" width="60%" alt="设置界面预览">
+  <p>ACE-KILLER 设置界面</p>
+</div>
+
 
 ## 📂 项目结构
 
