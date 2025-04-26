@@ -1,0 +1,70 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 打包和部署
+
+ACE-KILLER 使用 PyInstaller 进行打包，生成可分发的独立可执行文件。
+
+## 打包流程
+
+打包脚本位于 [utils/build_exe.py](mdc:utils/build_exe.py)，主要负责：
+
+1. 配置 PyInstaller 选项
+2. 编译程序
+3. 生成最终发布包
+
+## 打包配置
+
+PyInstaller 配置包含以下关键选项：
+
+```python
+PyInstaller.__main__.run([
+    '--name=ACE-KILLER',
+    '--onefile',
+    '--windowed',
+    '--uac-admin',
+    '--icon=assets/icon.ico',
+    '--clean',
+    '--add-data=assets/icon.ico;assets',
+    'main.py'
+])
+```
+
+## 打包步骤
+
+用户可以通过以下步骤打包程序：
+
+1. 安装依赖：
+```bash
+pip install -r requirements.txt
+```
+
+2. 运行打包脚本：
+```bash
+python -m utils.build_exe
+```
+
+3. 打包完成后，生成 `dist` 目录下的可执行文件
+
+## 资源文件
+
+打包时会包含以下资源：
+
+- [assets/icon.ico](mdc:assets/icon.ico) - 用于系统托盘图标显示
+- 默认配置模板 - 通过代码生成
+
+## 项目依赖
+
+主要依赖包含在 [requirements.txt](mdc:requirements.txt) 文件中：
+
+```
+psutil>=5.9.0
+pywin32>=305
+pystray>=0.19.4
+Pillow>=9.3.0
+win11toast>=0.32
+pyyaml>=6.0
+loguru>=0.6.0
+```

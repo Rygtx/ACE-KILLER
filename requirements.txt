@@ -1,8 +1,11 @@
 --index-url https://pypi.tuna.tsinghua.edu.cn/simple
-pywin32==308
-pillow==10.4.0
+pywin32==310
+pillow==11.2.1
 psutil==7.0.0
-win11toast==0.34
-pystray==0.19.5
+pyyaml==6.0.2
+win11toast==0.35
 loguru==0.7.3
+pyinstaller==6.13.0
+PySide6==6.9.0
 nuitka==2.6.7
+pyqtdarktheme==2.1.0

@@ -1,0 +1,42 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# ACE-KILLER 项目概述
+
+ACE-KILLER 是一个游戏反作弊进程管理工具，专为无畏契约、三角洲行动等使用ACE反作弊的游戏设计。主要用于优化 ACE 扫盘进程，以提升游戏帧率和稳定性。
+
+## 主要功能
+
+- 自动终止 `ACE-Tray.exe` 反作弊进程
+- 优化 `SGuard64.exe` 扫描进程，降低CPU占用
+- 支持多游戏同时监控
+- 支持 Windows 系统通知
+- 支持开机自启动
+- 系统托盘常驻运行
+
+## 项目结构
+
+- [main.py](mdc:main.py) - 程序入口文件
+- [core/process_monitor.py](mdc:core/process_monitor.py) - 进程监控核心实现
+- [core/system_utils.py](mdc:core/system_utils.py) - 系统工具函数
+- [config/config_manager.py](mdc:config/config_manager.py) - 配置管理器
+- [ui/tray_icon.py](mdc:ui/tray_icon.py) - 系统托盘界面
+- [utils/logger.py](mdc:utils/logger.py) - 日志工具
+- [utils/notification.py](mdc:utils/notification.py) - 通知系统
+- [models/game_config.py](mdc:models/game_config.py) - 游戏配置数据模型
+- [requirements.txt](mdc:requirements.txt) - 项目依赖列表
+
+## 配置方法
+
+用户可通过修改配置文件自定义游戏：
+
+```yaml
+games:
+  - name: 游戏名称
+    launcher: 启动器进程名.exe
+    main_game: 主游戏进程名.exe
+    enabled: true/false
+```
+

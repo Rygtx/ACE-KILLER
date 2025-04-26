@@ -1,0 +1,58 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 核心类结构
+
+ACE-KILLER 的主要功能由以下几个核心类实现：
+
+## GameConfig 类
+
+[models/game_config.py](mdc:models/game_config.py) 中的 `GameConfig` 类负责存储每个游戏的配置信息：
+
+```python
+class GameConfig:
+    def __init__(self, name: str, launcher: str, main_game: str, enabled: bool):
+        self.name = name
+        self.launcher = launcher
+        self.main_game = main_game
+        self.enabled = bool(enabled)
+        self.monitor_thread = None
+        self.main_game_running = False
+        self.anticheat_handled = False
+        self.scanprocess_handled = False
+```
+
+## GameProcessMonitor 类
+
+[core/process_monitor.py](mdc:core/process_monitor.py) 中的 `GameProcessMonitor` 类是程序的核心，负责：
+
+1. 加载和保存配置
+2. 监控游戏进程
+3. 管理 ACE 反作弊进程优化
+4. 处理系统通知
+
+主要方法：
+- `load_config()` - 加载配置文件
+- `save_config()` - 保存配置文件
+- `monitor_game_process()` - 监控游戏进程并实施优化
+- `set_process_priority_and_affinity()` - 设置进程优先级和 CPU 亲和性
+- `kill_process()` - 终止指定进程
+- `start_all_enabled_monitors()` - 启动所有已启用的游戏监控
+- `stop_all_monitors()` - 停止所有游戏监控
+
+## ConfigManager 类
+
+[config/config_manager.py](mdc:config/config_manager.py) 中的 `ConfigManager` 类负责：
+
+1. 管理程序配置
+2. 创建配置目录
+3. 设置日志和通知系统
+
+主要方法：
+- `load_config()` - 加载用户配置
+- `save_config()` - 保存用户配置
+- `get_config_path()` - 获取配置文件路径
+- `create_config_dir()` - 创建配置目录
+

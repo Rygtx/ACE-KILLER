@@ -1,0 +1,82 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 运行流程和执行逻辑
+
+ACE-KILLER 的运行流程和执行逻辑如下：
+
+## 程序启动流程
+
+程序启动流程在 [main.py](mdc:main.py) 中的 `main()` 函数定义：
+
+```python
+def main():
+    # 检查管理员权限
+    if not run_as_admin():
+        return
+    
+    # 检查单实例运行
+    if not check_single_instance():
+        return
+    
+    # 创建配置管理器
+    config_manager = ConfigManager()
+    
+    # 设置日志系统
+    setup_logger(
+        config_manager.log_dir,
+        config_manager.log_retention_days,
+        config_manager.log_rotation
+    )
+    
+    # 创建进程监控器
+    monitor = GameProcessMonitor(config_manager)
+    
+    # 创建通知线程
+    notification_thread_obj, stop_event = create_notification_thread(
+        monitor.message_queue,
+        icon_path
+    )
+    
+    # 创建并运行系统托盘图标
+    tray_icon = create_tray_icon(monitor, icon_path)
+    
+    # 显示欢迎通知
+    send_notification(...)
+    
+    # 启动已启用的游戏监控线程
+    monitor.start_all_enabled_monitors()
+    
+    # 运行托盘图标 (阻塞主线程)
+    tray_icon.run()
+```
+
+## 游戏进程监控流程
+
+游戏进程监控在 [core/process_monitor.py](mdc:core/process_monitor.py) 中实现：
+
+1. 对每个启用的游戏配置创建监控线程
+2. 监控线程定期检查游戏进程状态
+3. 当检测到目标游戏运行时：
+   - 查找并终止 ACE-Tray.exe 进程
+   - 查找并优化 SGuard64.exe 进程的 CPU 优先级和亲和性
+4. 当游戏关闭时，重置状态等待下次运行
+
+## 线程管理
+
+ACE-KILLER 使用多线程处理不同功能：
+
+1. 主线程 - 运行系统托盘界面
+2. 游戏监控线程 - 每个启用的游戏一个监控线程
+3. 通知线程 - 处理通知消息队列
+
+## 错误处理
+
+程序实现了全面的错误处理机制：
+
+1. 使用 `try-except` 块捕获各种异常
+2. 通过日志系统记录错误信息
+3. 通过消息队列发送重要错误通知给用户
+

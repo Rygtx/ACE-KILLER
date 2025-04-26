@@ -17,6 +17,7 @@ error*.log/
 *log.txt
 ACE-KILLER*
 *.zip
+memclean/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

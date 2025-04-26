@@ -1,0 +1,60 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 配置系统
+
+ACE-KILLER 使用 YAML 格式的配置文件来管理应用程序设置和游戏列表。
+
+## 配置文件位置
+
+配置文件存储在用户主目录的 `.ace-killer/config.yaml` 下：
+
+```python
+# 在 config/config_manager.py 中定义
+self.config_dir = os.path.join(os.path.expanduser("~"), ".ace-killer")
+self.config_file = os.path.join(self.config_dir, "config.yaml")
+```
+
+## 配置结构
+
+配置文件包含以下主要部分：
+
+```yaml
+notifications:
+  enabled: true               # 是否启用 Windows 通知
+  
+logging:
+  retention_days: 7           # 日志保留天数
+  rotation: '1 day'           # 日志轮转周期
+  
+application:
+  auto_start: false           # 是否开机自启动
+  
+games:                        # 游戏配置列表
+  - name: '无畏契约'
+    launcher: '无畏契约登录器.exe'
+    main_game: 'VALORANT-Win64-Shipping.exe'
+    enabled: true
+  - name: "三角洲行动"
+    launcher: "delta_force_launcher.exe"
+    main_game: "DeltaForceClient-Win64-Shipping.exe"
+    enabled: false
+```
+
+## 配置管理
+
+配置通过 [config/config_manager.py](mdc:config/config_manager.py) 中的 `ConfigManager` 类管理：
+
+- `load_config()` - 加载配置，如果不存在则创建默认配置
+- `save_config()` - 保存当前配置到文件
+- `create_default_config()` - 创建默认配置文件
+- `get_game_configs()` - 获取游戏配置列表
+- `set_notification_enabled()` - 设置通知系统启用状态
+- `set_auto_start()` - 设置开机自启动状态
+
+## 游戏配置模型
+
+游戏配置由 [models/game_config.py](mdc:models/game_config.py) 中的 `GameConfig` 类表示，管理每个游戏的监控状态和处理逻辑。
+

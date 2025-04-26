@@ -18,6 +18,17 @@ except ImportError:
     print("正在安装Nuitka打包工具...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "nuitka"])
 
+# PySide6相关设置
+try:
+    from PySide6.QtCore import QLibraryInfo
+    qt_plugins_path = QLibraryInfo.path(QLibraryInfo.PluginsPath)
+    qt_translations_path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
+    qt_binaries_path = QLibraryInfo.path(QLibraryInfo.BinariesPath)
+    print(f"✅ 已找到Qt插件路径: {qt_plugins_path}")
+except ImportError:
+    print("❌ 无法导入PySide6，请确保已安装")
+    sys.exit(1)
+
 # 构建Nuitka打包命令
 cmd = [
     sys.executable,
@@ -28,6 +39,10 @@ cmd = [
     "--include-data-files=%s=favicon.ico" % icon_path,  # 添加图标文件
     "--windows-uac-admin",  # 请求管理员权限
     "--remove-output",  # 在重新构建前移除输出目录
+    
+    # PySide6 相关配置
+    "--enable-plugin=pyside6",  # 启用PySide6插件
+
     # 优化选项
     "--lto=yes",  # 链接时优化
     "--mingw64",  # 使用MinGW64
@@ -73,7 +88,7 @@ except subprocess.CalledProcessError as e:
 
 # 压缩可执行文件目录
 dist_dir = os.path.join(root_dir, "main.dist")
-zip_name = "ACE-KILLER-1.0.1-x64"
+zip_name = "ACE-KILLER-1.0.2-x64"
 zip_path = os.path.join(root_dir, zip_name + ".zip")
 if os.path.exists(dist_dir):
     print("📦 正在压缩可执行文件目录...")

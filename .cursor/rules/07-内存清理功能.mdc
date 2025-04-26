@@ -1,0 +1,32 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 内存清理功能
+
+ACE-KILLER 集成了内存清理功能，该功能基于 Memory Cleaner 重制版实现。
+
+## 内存清理概述
+
+内存清理模块位于 [memclean](mdc:memclean) 目录，主要功能包括：
+
+1. 清理系统未使用内存
+2. 清理内存等待链（适用于游戏玩家）
+3. 优化系统内存使用
+
+## 功能特点
+
+1. 低资源占用 - 清理进程自身占用极低
+2. 静默运行 - 可选择后台运行不显示界面
+3. 自定义触发 - 可设置在游戏启动时自动清理
+4. 无网络依赖 - 不需要联网即可使用
+
+## 原理说明
+
+内存清理基于 Windows 系统 API 实现，主要涉及：
+
+1. `EmptyWorkingSet()` - 清空工作集
+2. `SetProcessWorkingSetSize()` - 设置进程工作集大小
+3. `NtSetSystemInformation()` - 设置系统信息，用于清理待机列表
+
