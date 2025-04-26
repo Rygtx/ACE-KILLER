@@ -29,6 +29,11 @@ class ConfigManager:
         self.debug_mode = False  # 调试模式默认值
         self.game_configs = []  # 游戏配置列表
         
+        # 内存清理设置
+        self.memory_cleaner_enabled = False  # 内存清理开关默认值
+        self.memory_cleaner_brute_mode = True  # 内存清理暴力模式默认值
+        self.memory_cleaner_switches = [False] * 6  # 内存清理选项默认值
+        
         # 确保配置目录存在
         self._ensure_directories()
         
@@ -71,6 +76,11 @@ class ConfigManager:
             },
             'application': {
                 'auto_start': False
+            },
+            'memory_cleaner': {
+                'enabled': False,
+                'brute_mode': True,
+                'switches': [False, False, False, True, True, False]
             },
             'games': [
                 {
@@ -137,6 +147,18 @@ class ConfigManager:
                         self.auto_start = True
                         logger.debug("检测到注册表中已设置开机自启，已更新配置")
                 
+                # 读取内存清理设置
+                if 'memory_cleaner' in config_data:
+                    if 'enabled' in config_data['memory_cleaner']:
+                        self.memory_cleaner_enabled = bool(config_data['memory_cleaner']['enabled'])
+                    if 'brute_mode' in config_data['memory_cleaner']:
+                        self.memory_cleaner_brute_mode = bool(config_data['memory_cleaner']['brute_mode'])
+                    if 'switches' in config_data['memory_cleaner'] and isinstance(config_data['memory_cleaner']['switches'], list):
+                        for i, switch in enumerate(config_data['memory_cleaner']['switches']):
+                            if i < len(self.memory_cleaner_switches):
+                                self.memory_cleaner_switches[i] = bool(switch)
+                    logger.debug("已从配置文件加载内存清理设置")
+                
                 # 加载游戏配置
                 self._load_game_configs(config_data)
                 
@@ -193,6 +215,14 @@ class ConfigManager:
             self.debug_mode = default_config['logging']['debug_mode']
             self.auto_start = default_config['application']['auto_start']
             
+            # 加载内存清理默认设置
+            if 'memory_cleaner' in default_config:
+                self.memory_cleaner_enabled = default_config['memory_cleaner']['enabled']
+                self.memory_cleaner_brute_mode = default_config['memory_cleaner']['brute_mode']
+                for i, switch in enumerate(default_config['memory_cleaner']['switches']):
+                    if i < len(self.memory_cleaner_switches):
+                        self.memory_cleaner_switches[i] = switch
+            
             # 加载默认游戏配置
             self._load_game_configs(default_config)
             
@@ -220,6 +250,11 @@ class ConfigManager:
                 },
                 'application': {
                     'auto_start': self.auto_start
+                },
+                'memory_cleaner': {
+                    'enabled': self.memory_cleaner_enabled,
+                    'brute_mode': self.memory_cleaner_brute_mode,
+                    'switches': self.memory_cleaner_switches
                 },
                 'games': []
             }

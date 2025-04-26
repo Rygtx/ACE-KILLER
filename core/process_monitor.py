@@ -16,6 +16,8 @@ from win32con import PROCESS_ALL_ACCESS
 from win32process import SetPriorityClass, IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS
 import ctypes
 from ctypes import wintypes
+import win32service
+import win32serviceutil
 
 # 定义Windows API常量和结构体
 PROCESS_POWER_THROTTLING_INFORMATION = 4
@@ -44,6 +46,7 @@ class GameProcessMonitor:
         self.config_manager = config_manager
         self.anticheat_name = "ACE-Tray.exe"  # 反作弊进程名称
         self.scanprocess_name = "SGuard64.exe"  # 扫描进程名称
+        self.anticheat_service_name = "AntiCheatExpert Service"  # 反作弊服务名称
         self.running = False  # 监控线程运行标记，初始为False
         self.main_game_running = False  # 游戏主进程是否运行中标记
         self.process_cache = {}  # 进程缓存
@@ -137,6 +140,97 @@ class GameProcessMonitor:
             pass
         
         return None
+    
+    def check_service_status(self, service_name):
+        """
+        检查Windows服务的运行状态
+        
+        Args:
+            service_name (str): 服务名称
+            
+        Returns:
+            tuple: (是否存在, 运行状态, 启动类型)
+                运行状态: 'running', 'stopped', 'paused', 'start_pending', 
+                         'stop_pending', 'continue_pending', 'pause_pending', 'unknown'
+                启动类型: 'auto', 'manual', 'disabled', 'unknown'
+        """
+        try:
+            status_map = {
+                win32service.SERVICE_RUNNING: 'running',
+                win32service.SERVICE_STOPPED: 'stopped',
+                win32service.SERVICE_PAUSED: 'paused',
+                win32service.SERVICE_START_PENDING: 'start_pending',
+                win32service.SERVICE_STOP_PENDING: 'stop_pending',
+                win32service.SERVICE_CONTINUE_PENDING: 'continue_pending',
+                win32service.SERVICE_PAUSE_PENDING: 'pause_pending'
+            }
+            
+            start_type_map = {
+                win32service.SERVICE_AUTO_START: 'auto',
+                win32service.SERVICE_DEMAND_START: 'manual',
+                win32service.SERVICE_DISABLED: 'disabled',
+                win32service.SERVICE_BOOT_START: 'boot',
+                win32service.SERVICE_SYSTEM_START: 'system'
+            }
+            
+            # 获取服务管理器句柄
+            sch_handle = win32service.OpenSCManager(None, None, win32service.SC_MANAGER_ALL_ACCESS)
+            
+            try:
+                # 获取服务句柄
+                service_handle = win32service.OpenService(
+                    sch_handle, service_name, win32service.SERVICE_QUERY_CONFIG | win32service.SERVICE_QUERY_STATUS
+                )
+                
+                try:
+                    # 获取服务状态
+                    service_status = win32service.QueryServiceStatus(service_handle)
+                    status = status_map.get(service_status[1], 'unknown')
+                    
+                    # 获取服务配置信息
+                    service_config = win32service.QueryServiceConfig(service_handle)
+                    start_type = start_type_map.get(service_config[1], 'unknown')
+                    
+                    # logger.debug(f"服务 {service_name} 状态: {status}, 启动类型: {start_type}")
+                    return True, status, start_type
+                    
+                finally:
+                    win32service.CloseServiceHandle(service_handle)
+            except win32service.error as e:
+                logger.warning(f"无法访问服务 {service_name}: {str(e)}")
+                return False, 'unknown', 'unknown'
+            finally:
+                win32service.CloseServiceHandle(sch_handle)
+                
+        except Exception as e:
+            logger.error(f"检查服务状态时发生错误: {str(e)}")
+            return False, 'unknown', 'unknown'
+    
+    def monitor_anticheat_service(self):
+        """
+        监控AntiCheatExpert Service服务状态
+        
+        Returns:
+            tuple: (是否存在, 运行状态, 启动类型)
+        """
+        service_exists, status, start_type = self.check_service_status(self.anticheat_service_name)
+        
+        if service_exists:
+            logger.debug(f"反作弊AntiCheatExpert Service服务状态: {status}, 启动类型: {start_type}")
+            
+            # 判断是否需要通知
+            if self.show_notifications:
+                if status == 'running':
+                    self.add_message(f"检测到 {self.anticheat_service_name} 服务正在运行")
+                elif status == 'stopped':
+                    self.add_message(f"{self.anticheat_service_name} 服务已停止")
+                
+                if start_type == 'auto':
+                    self.add_message(f"{self.anticheat_service_name} 服务设置为自动启动")
+                elif start_type == 'disabled':
+                    self.add_message(f"{self.anticheat_service_name} 服务已禁用")
+                    
+        return service_exists, status, start_type
     
     def kill_process(self, process_name):
         """
@@ -343,6 +437,9 @@ class GameProcessMonitor:
                         game_config.scanprocess_handled = True
                         self.scanprocess_optimized = True  # 更新全局状态
                         logger.debug(f"{self.scanprocess_name} 进程不存在，标记为已处理")
+                
+                # 检查反作弊服务状态
+                self.monitor_anticheat_service()
             
             # 然后再启动监控线程
             game_config.monitor_thread = threading.Thread(
@@ -437,6 +534,10 @@ class GameProcessMonitor:
                 self.refresh_process_cache()
             check_counter += 1
             
+            # 定期检查反作弊服务状态
+            if check_counter % 20 == 0:  # 每20个循环检查一次服务状态
+                self.monitor_anticheat_service()
+            
             # 检测游戏主进程
             main_proc = self.is_process_running(game_config.main_game)
             
@@ -460,6 +561,9 @@ class GameProcessMonitor:
                     if self.wait_and_optimize_process(self.scanprocess_name):
                         game_config.scanprocess_handled = True
                         self.scanprocess_optimized = True  # 更新全局状态
+                
+                # 检查反作弊服务状态
+                self.monitor_anticheat_service()
             
             # 游戏主进程运行中，检查反作弊和扫描进程状态
             elif main_proc and game_config.main_game_running:
@@ -564,6 +668,9 @@ class GameProcessMonitor:
         # 有启用的游戏，设置running为True
         self.running = True
         logger.debug("监控程序已启动")
+        
+        # 初始检查反作弊服务状态
+        self.monitor_anticheat_service()
             
         for game_config in enabled_games:
             self.start_monitor_thread(game_config)
