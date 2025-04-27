@@ -157,15 +157,6 @@ jobs:
           }
         shell: pwsh
         
-      - name: 保存构建产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: ACE-KILLER-v${{ github.event.inputs.version }}
-          path: |
-            ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip
-            ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip.sha256
-          retention-days: 7
-          
       - name: 创建发布
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -189,6 +180,5 @@ jobs:
           prerelease: false
           files: |
             ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip
-            ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
