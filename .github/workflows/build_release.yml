@@ -19,7 +19,6 @@ jobs:
     env:
       PYTHONIOENCODING: utf-8
       PYTHONLEGACYWINDOWSSTDIO: 1
-      NUITKA_DOWNLOAD_CONFIRMATION: 1
     steps:
       - name: 检出代码
         uses: actions/checkout@v3
@@ -54,35 +53,6 @@ jobs:
       - name: 列出已安装包
         run: pip list
         
-      - name: 下载并设置MinGW-w64 GCC编译器
-        run: |
-          # 创建Nuitka缓存目录
-          $nuitkaCacheDir = "$env:APPDATA\Local\Nuitka\Nuitka\Cache\downloads\gcc\x86_64\14.2.0posix-19.1.1-12.0.0-msvcrt-r2"
-          New-Item -Path $nuitkaCacheDir -ItemType Directory -Force
-          
-          # 下载MinGW-w64编译器
-          echo "正在下载MinGW-w64 GCC编译器..."
-          $gccUrl = "https://github.com/Nuitka/Nuitka-MinGW64-Backward-Compatibility/archive/refs/tags/14.2.0posix-19.1.1-12.0.0-msvcrt-r2.zip"
-          $gccZip = "$env:TEMP\mingw64.zip"
-          
-          # 使用.NET WebClient下载
-          (New-Object System.Net.WebClient).DownloadFile($gccUrl, $gccZip)
-          
-          # 解压到Nuitka期望的位置
-          echo "正在解压MinGW-w64到Nuitka缓存目录..."
-          Expand-Archive -Path $gccZip -DestinationPath "$env:TEMP\mingw64" -Force
-          
-          # 将解压后的内容复制到Nuitka缓存目录
-          Copy-Item -Path "$env:TEMP\mingw64\*" -Destination $nuitkaCacheDir -Recurse -Force
-          
-          echo "MinGW-w64 GCC编译器设置完成"
-          if (Test-Path "$nuitkaCacheDir\bin\gcc.exe") {
-            echo "GCC编译器可执行文件存在"
-          } else {
-            echo "警告：GCC编译器可执行文件未找到"
-          }
-        shell: pwsh
-        
       - name: 缓存Nuitka构建文件
         uses: actions/cache@v3
         with:
@@ -109,7 +79,6 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONLEGACYWINDOWSSTDIO: 1
-          NUITKA_DOWNLOAD_CONFIRMATION: 1
         
       - name: 验证构建结果
         run: |
