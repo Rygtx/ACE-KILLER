@@ -214,21 +214,6 @@ class MainWindow(QMainWindow):
         auto_group = QGroupBox("自动清理")
         auto_layout = QVBoxLayout()
         
-        # 使用比例超出80%的选项
-        self.clean_option4 = QCheckBox("若内存使用量超出80%，截取进程工作集")
-        self.clean_option4.stateChanged.connect(lambda state: self.toggle_clean_option(3, state))
-        auto_layout.addWidget(self.clean_option4)
-        
-        self.clean_option5 = QCheckBox("若内存使用量超出80%，清理系统缓存")
-        self.clean_option5.stateChanged.connect(lambda state: self.toggle_clean_option(4, state))
-        auto_layout.addWidget(self.clean_option5)
-        
-        self.clean_option6 = QCheckBox("若内存使用量超出80%，用全部可能的方法清理内存")
-        self.clean_option6.stateChanged.connect(lambda state: self.toggle_clean_option(5, state))
-        auto_layout.addWidget(self.clean_option6)
-        
-        auto_layout.addSpacing(10)
-        
         # 定时选项
         self.clean_option1 = QCheckBox("每过5分钟，截取进程工作集")
         self.clean_option1.stateChanged.connect(lambda state: self.toggle_clean_option(0, state))
@@ -241,6 +226,21 @@ class MainWindow(QMainWindow):
         self.clean_option3 = QCheckBox("每过5分钟，用全部可能的方法清理内存")
         self.clean_option3.stateChanged.connect(lambda state: self.toggle_clean_option(2, state))
         auto_layout.addWidget(self.clean_option3)
+        
+        auto_layout.addSpacing(10)
+        
+        # 使用比例超出80%的选项
+        self.clean_option4 = QCheckBox("若内存使用量超出80%，截取进程工作集")
+        self.clean_option4.stateChanged.connect(lambda state: self.toggle_clean_option(3, state))
+        auto_layout.addWidget(self.clean_option4)
+        
+        self.clean_option5 = QCheckBox("若内存使用量超出80%，清理系统缓存")
+        self.clean_option5.stateChanged.connect(lambda state: self.toggle_clean_option(4, state))
+        auto_layout.addWidget(self.clean_option5)
+        
+        self.clean_option6 = QCheckBox("若内存使用量超出80%，用全部可能的方法清理内存")
+        self.clean_option6.stateChanged.connect(lambda state: self.toggle_clean_option(5, state))
+        auto_layout.addWidget(self.clean_option6)
         
         auto_group.setLayout(auto_layout)
         memory_layout.addWidget(auto_group)
@@ -266,22 +266,33 @@ class MainWindow(QMainWindow):
         
         # 手动清理按钮
         buttons_group = QGroupBox("手动清理")
-        buttons_layout = QHBoxLayout()
+        buttons_layout = QVBoxLayout()
+        
+        # 按钮水平布局
+        btn_row_layout = QHBoxLayout()
         
         # 截取进程工作集按钮
         self.clean_workingset_btn = QPushButton("截取进程工作集")
         self.clean_workingset_btn.clicked.connect(self.manual_clean_workingset)
-        buttons_layout.addWidget(self.clean_workingset_btn)
+        btn_row_layout.addWidget(self.clean_workingset_btn)
         
         # 清理系统缓存按钮
         self.clean_syscache_btn = QPushButton("清理系统缓存")
         self.clean_syscache_btn.clicked.connect(self.manual_clean_syscache)
-        buttons_layout.addWidget(self.clean_syscache_btn)
+        btn_row_layout.addWidget(self.clean_syscache_btn)
         
         # 全面清理按钮
         self.clean_all_btn = QPushButton("执行全部已知清理")
         self.clean_all_btn.clicked.connect(self.manual_clean_all)
-        buttons_layout.addWidget(self.clean_all_btn)
+        btn_row_layout.addWidget(self.clean_all_btn)
+        
+        buttons_layout.addLayout(btn_row_layout)
+        
+        # 添加提示文本
+        warning_label = QLabel("如果已经开启游戏不建议点击“全部已知清理”，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡")
+        warning_label.setStyleSheet("color: red;")
+        warning_label.setWordWrap(True)
+        buttons_layout.addWidget(warning_label)
         
         buttons_group.setLayout(buttons_layout)
         memory_layout.addWidget(buttons_group)
@@ -397,7 +408,7 @@ class MainWindow(QMainWindow):
         service_layout = QVBoxLayout()
         
         # 提醒文本
-        warning_label = QLabel("警告：以下操作需要管理员权限，并会永久删除反作弊服务")
+        warning_label = QLabel("警告：以下操作需要管理员权限，并会永久删除ACE反作弊服务")
         warning_label.setStyleSheet("color: red;")
         service_layout.addWidget(warning_label)
         
@@ -626,14 +637,14 @@ class MainWindow(QMainWindow):
         html.append('<div class="card">')
         html.append('<div class="section-title">进程状态</div>')
         
-        # ACE进程状态
+        # ACE进程状态(ACE反作弊程序是否安装提示弹窗)
         ace_running = self.monitor.is_process_running(self.monitor.anticheat_name) is not None
         if ace_running and self.monitor.anticheat_killed:
-            html.append('<p class="status-item">✅ ACE进程: <span class="status-success">已被优化</span></p>')
+            html.append('<p class="status-item">✅ ACE-Tray进程: <span class="status-success">已被优化</span></p>')
         elif ace_running:
-            html.append('<p class="status-item">🔄 ACE进程: <span class="status-warning">正在运行</span></p>')
+            html.append('<p class="status-item">🔄 ACE-Tray进程: <span class="status-warning">正在运行</span></p>')
         else:
-            html.append('<p class="status-item">⚠️ ACE进程: <span class="status-error">未在运行</span></p>')
+            html.append('<p class="status-item">⚠️ ACE-Tray进程: <span class="status-error">未在运行</span>  (ACE反作弊程序是否安装提示弹窗)</p>')
         
         # SGuard64进程状态
         scan_running = self.monitor.is_process_running(self.monitor.scanprocess_name) is not None
@@ -642,7 +653,7 @@ class MainWindow(QMainWindow):
         elif scan_running:
             html.append('<p class="status-item">🔄 SGuard64进程: <span class="status-warning">正在运行 (未优化)</span></p>')
         else:
-            html.append('<p class="status-item">⚠️ SGuard64进程: <span class="status-error">未在运行</span></p>')
+            html.append('<p class="status-item">⚠️ SGuard64进程: <span class="status-error">未在运行</span>  (SGuard64反作弊扫盘进程)</p>')
         
         # AntiCheatExpert Service服务状态
         service_exists, status, start_type = self.monitor.check_service_status(self.monitor.anticheat_service_name)
@@ -1380,13 +1391,14 @@ class MainWindow(QMainWindow):
         # PySide6中Qt.Checked的值为2
         enabled = (state == 2)
         
-        # 更新配置
         self.memory_cleaner.clean_switches[option_index] = enabled
         
         # 将设置同步到配置管理器
         self.memory_cleaner.sync_to_config_manager()
         
-        logger.debug(f"内存清理选项 {option_index} 已{'启用' if enabled else '禁用'}")
+        # 将索引转换为实际的选项编号
+        option_number = option_index + 1
+        logger.debug(f"内存清理选项 {option_number} 已{'启用' if enabled else '禁用'}")
     
     @Slot()
     def _update_progress_dialog_value(self, value):
@@ -1417,6 +1429,18 @@ class MainWindow(QMainWindow):
     @Slot()
     def manual_clean_all(self):
         """手动执行全面清理"""
+        # 添加二次确认对话框
+        reply = QMessageBox.question(
+            self,
+            "清理确认",
+            "如果已经开启游戏不建议点击“全部已知清理”，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡\n\n确定要继续执行全部清理吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
         # 显示进度对话框
         self.progress_dialog = QProgressDialog("正在清理内存...", "取消", 0, 3, self)
         self.progress_dialog.setWindowTitle("全面内存清理")
@@ -1618,16 +1642,16 @@ def get_status_info(monitor):
     if any_game_running:
         status_lines.append(f"🎮 游戏主程序：运行中 ({', '.join(running_games)})")
         
-        # 检查 ACE-Tray.exe 是否存在
+        # 检查 ACE-Tray.exe 是否存在 (ACE反作弊程序是否安装提示弹窗)
         ace_proc = monitor.is_process_running(monitor.anticheat_name)
         if not ace_proc and monitor.anticheat_killed:
-            status_lines.append("✅ ACE进程：已终止")
+            status_lines.append("✅ ACE-Tray进程：已终止")
         elif not ace_proc:
-            status_lines.append("ℹ️ ACE进程：未运行")
+            status_lines.append("ℹ️ ACE-Tray进程：未运行")
         elif ace_proc and monitor.anticheat_killed:
-            status_lines.append("⏳ ACE进程：处理中")
+            status_lines.append("⏳ ACE-Tray进程：处理中")
         else:
-            status_lines.append("❗ ACE进程：需要处理")
+            status_lines.append("❗ ACE-Tray进程：需要处理")
         
         # 检查 SGuard64.exe 是否存在
         scan_proc = monitor.is_process_running(monitor.scanprocess_name)

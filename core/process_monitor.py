@@ -154,6 +154,13 @@ class GameProcessMonitor:
                          'stop_pending', 'continue_pending', 'pause_pending', 'unknown'
                 启动类型: 'auto', 'manual', 'disabled', 'unknown'
         """
+        # 检查服务缓存，如果服务之前检查过不存在，减少重复检查频率
+        if hasattr(self, '_service_cache') and service_name in self._service_cache:
+            cache_item = self._service_cache[service_name]
+            # 如果服务不存在，且上次检查时间在10分钟内，直接返回缓存结果
+            if not cache_item['exists'] and time.time() - cache_item['last_check'] < 600:
+                return cache_item['exists'], cache_item['status'], cache_item['start_type']
+        
         try:
             status_map = {
                 win32service.SERVICE_RUNNING: 'running',
@@ -191,13 +198,35 @@ class GameProcessMonitor:
                     service_config = win32service.QueryServiceConfig(service_handle)
                     start_type = start_type_map.get(service_config[1], 'unknown')
                     
-                    # logger.debug(f"服务 {service_name} 状态: {status}, 启动类型: {start_type}")
+                    # 更新缓存
+                    if not hasattr(self, '_service_cache'):
+                        self._service_cache = {}
+                    self._service_cache[service_name] = {
+                        'exists': True,
+                        'status': status,
+                        'start_type': start_type,
+                        'last_check': time.time()
+                    }
+                    
                     return True, status, start_type
                     
                 finally:
                     win32service.CloseServiceHandle(service_handle)
             except win32service.error as e:
-                logger.warning(f"无法访问服务 {service_name}: {str(e)}")
+                # 服务不存在时不记录警告日志，只在初次检查或错误码不是1060时记录
+                if not hasattr(self, '_service_cache') or service_name not in self._service_cache or e[0] != 1060:
+                    logger.debug(f"服务 {service_name} 不存在或无法访问: {str(e)}")
+                
+                # 更新缓存
+                if not hasattr(self, '_service_cache'):
+                    self._service_cache = {}
+                self._service_cache[service_name] = {
+                    'exists': False,
+                    'status': 'unknown',
+                    'start_type': 'unknown',
+                    'last_check': time.time()
+                }
+                
                 return False, 'unknown', 'unknown'
             finally:
                 win32service.CloseServiceHandle(sch_handle)
