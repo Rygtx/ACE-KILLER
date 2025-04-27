@@ -5,7 +5,7 @@ alwaysApply: false
 ---
 # 配置系统
 
-ACE-KILLER 使用 YAML 格式的配置文件来管理应用程序设置和游戏列表。
+ACE-KILLER 使用 YAML 格式的配置文件来管理应用程序设置、内存清理和I/O优先级设置。
 
 ## 配置文件位置
 
@@ -28,19 +28,25 @@ notifications:
 logging:
   retention_days: 7           # 日志保留天数
   rotation: '1 day'           # 日志轮转周期
+  debug_mode: false           # 是否启用调试模式
   
 application:
   auto_start: false           # 是否开机自启动
   
-games:                        # 游戏配置列表
-  - name: '无畏契约'
-    launcher: '无畏契约登录器.exe'
-    main_game: 'VALORANT-Win64-Shipping.exe'
-    enabled: true
-  - name: "三角洲行动"
-    launcher: "delta_force_launcher.exe"
-    main_game: "DeltaForceClient-Win64-Shipping.exe"
-    enabled: false
+memory_cleaner:
+  enabled: false              # 是否启用内存清理
+  brute_mode: true            # 是否启用暴力清理模式
+  switches: [false, false, false, true, true, false]  # 内存清理选项
+  interval: 300               # 内存清理间隔(秒)
+  threshold: 80.0             # 内存占用触发阈值(百分比)
+  cooldown: 60                # 内存清理冷却时间(秒)
+  
+io_priority:
+  processes:                  # 需要设置I/O优先级的进程列表
+    - name: 'SGuard64.exe'    # 进程名称
+      priority: 0             # I/O优先级(0-7)
+    - name: 'ACE-Tray.exe' 
+      priority: 0
 ```
 
 ## 配置管理
@@ -49,12 +55,24 @@ games:                        # 游戏配置列表
 
 - `load_config()` - 加载配置，如果不存在则创建默认配置
 - `save_config()` - 保存当前配置到文件
-- `create_default_config()` - 创建默认配置文件
-- `get_game_configs()` - 获取游戏配置列表
-- `set_notification_enabled()` - 设置通知系统启用状态
-- `set_auto_start()` - 设置开机自启动状态
+- `_create_default_config()` - 创建默认配置文件
+- `_ensure_directories()` - 确保配置和日志目录存在
 
-## 游戏配置模型
+## 内存清理配置
 
-游戏配置由 [models/game_config.py](mdc:models/game_config.py) 中的 `GameConfig` 类表示，管理每个游戏的监控状态和处理逻辑。
+内存清理配置说明：
+- `enabled` - 是否启用内存清理功能
+- `brute_mode` - 是否使用暴力模式清理
+- `switches` - 不同内存清理方法的开关设置，对应6种不同的清理方式
+- `interval` - 自动清理的时间间隔(秒)，最小值60秒
+- `threshold` - 内存占用触发清理的阈值(百分比)，范围30%-95%
+- `cooldown` - 两次清理之间的冷却时间(秒)，最小值30秒
+
+## I/O优先级配置
+
+I/O优先级配置允许为特定进程设置I/O优先级，优化系统资源分配：
+- `processes` - 进程列表，包含需要设置I/O优先级的进程名称和优先级
+  - `name` - 进程名称(区分大小写)
+  - `priority` - I/O优先级值(0-7)，0为最高优先级
+
 

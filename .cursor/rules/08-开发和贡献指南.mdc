@@ -52,10 +52,8 @@ python main.py
 - `core/` - 核心功能模块
 - `utils/` - 工具函数
 - `config/` - 配置管理
-- `models/` - 数据模型
 - `ui/` - 用户界面
 - `assets/` - 静态资源
-- `memclean/` - 内存清理功能模块
 
 ## 测试指南
 

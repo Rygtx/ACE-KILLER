@@ -5,32 +5,15 @@ alwaysApply: false
 ---
 # 打包和部署
 
-ACE-KILLER 使用 PyInstaller 进行打包，生成可分发的独立可执行文件。
+ACE-KILLER 使用 Nuitka 进行打包，生成可分发的独立可执行文件。
 
 ## 打包流程
 
 打包脚本位于 [utils/build_exe.py](mdc:utils/build_exe.py)，主要负责：
 
-1. 配置 PyInstaller 选项
+1. 配置 Nuitka 选项
 2. 编译程序
 3. 生成最终发布包
-
-## 打包配置
-
-PyInstaller 配置包含以下关键选项：
-
-```python
-PyInstaller.__main__.run([
-    '--name=ACE-KILLER',
-    '--onefile',
-    '--windowed',
-    '--uac-admin',
-    '--icon=assets/icon.ico',
-    '--clean',
-    '--add-data=assets/icon.ico;assets',
-    'main.py'
-])
-```
 
 ## 打包步骤
 
@@ -43,7 +26,7 @@ pip install -r requirements.txt
 
 2. 运行打包脚本：
 ```bash
-python -m utils.build_exe
+python -m utils/build_exe.py
 ```
 
 3. 打包完成后，生成 `dist` 目录下的可执行文件
