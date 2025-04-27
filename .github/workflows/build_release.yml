@@ -31,12 +31,6 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'pip'
-          
-      # - name: 安装MinGW-w64
-      #   uses: egor-tensin/setup-mingw@v2
-      #   with:
-      #     platform: x64
-      #     static: 0
 
       - name: 环境诊断
         run: |
@@ -77,54 +71,29 @@ jobs:
           # 获取图标文件路径
           $icon_path = "assets/icon/favicon.ico"
           
-          # 创建自动回答"Yes"的辅助脚本
-          $auto_yes_script = @"
-          Set-PSDebug -Strict
-          $confirmation = 'y'
-          Write-Output "自动向进程传入确认: $confirmation"
-          
-          # 执行编译命令
-          $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-          $processInfo.FileName = "python"
-          $processInfo.Arguments = '-m nuitka --standalone --windows-console-mode=disable --windows-icon-from-ico=$icon_path --include-data-files=$icon_path=favicon.ico --windows-uac-admin --remove-output --enable-plugin=pyside6 --lto=yes --jobs=4 --show-memory --disable-cache=all --clean-cache=all --show-progress --output-filename=ACE-KILLER.exe --nofollow-import-to=tkinter,PIL.ImageTk --prefer-source-code --python-flag=no_site --python-flag=no_warnings --low-memory main.py'
-          $processInfo.UseShellExecute = $false
-          $processInfo.RedirectStandardInput = $true
-          $processInfo.RedirectStandardOutput = $true
-          $processInfo.RedirectStandardError = $true
-          $processInfo.WorkingDirectory = "$PWD"
-          
-          $process = New-Object System.Diagnostics.Process
-          $process.StartInfo = $processInfo
-          $process.Start() | Out-Null
-          
-          # 启动异步读取输出
-          $outputTask = $process.StandardOutput.ReadToEndAsync()
-          $errorTask = $process.StandardError.ReadToEndAsync()
-          
-          # 等待询问下载确认的提示，然后发送确认
-          Start-Sleep -Seconds 15  # 给进程一些时间先运行
-          $process.StandardInput.WriteLine($confirmation)
-          
-          # 等待进程完成
-          $process.WaitForExit()
-          $output = $outputTask.Result
-          $error_output = $errorTask.Result
-          
-          # 显示输出
-          Write-Output $output
-          Write-Output $error_output
-          
-          # 返回进程的退出代码
-          exit $process.ExitCode
-          "@
-          
-          # 写入辅助脚本到文件
-          $auto_yes_script | Out-File -FilePath "auto_yes_nuitka.ps1" -Encoding utf8
-          
-          # 运行辅助脚本
-          Write-Host "执行带有自动确认的Nuitka打包..."
-          & powershell -File "auto_yes_nuitka.ps1"
-          
+          # 编译命令
+          python -m nuitka --standalone `
+            --assume-yes-for-downloads `
+            --windows-console-mode=disable `
+            --windows-icon-from-ico=$icon_path `
+            --include-data-files=$icon_path=favicon.ico `
+            --windows-uac-admin `
+            --remove-output `
+            --enable-plugin=pyside6 `
+            --lto=yes `
+            --jobs=4 `
+            --show-memory `
+            --disable-cache=all `
+            --clean-cache=all `
+            --show-progress `
+            --output-filename=ACE-KILLER.exe `
+            --nofollow-import-to=tkinter,PIL.ImageTk `
+            --prefer-source-code `
+            --python-flag=no_site `
+            --python-flag=no_warnings `
+            --low-memory `
+            main.py
+            
           # 检查打包结果
           $main_exe = "main.dist/ACE-KILLER.exe"
           if (Test-Path $main_exe) {
@@ -218,4 +187,4 @@ jobs:
             ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip
             ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip.sha256
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
