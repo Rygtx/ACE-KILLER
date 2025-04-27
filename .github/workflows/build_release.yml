@@ -31,6 +31,11 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'pip'
+          
+      - name: 安装MinGW-w64
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
 
       - name: 环境诊断
         run: |
@@ -40,6 +45,7 @@ jobs:
           echo "Python目录: $(Get-Command python | Select-Object -ExpandProperty Source)"
           echo "内存信息: $(Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory)"
           echo "Python编码: $(python -c 'import sys; print(sys.stdout.encoding)')"
+          echo "GCC版本: $(gcc --version)"
         shell: pwsh
 
       - name: 安装依赖
@@ -75,13 +81,31 @@ jobs:
           Get-Content $file | Select-String "zip_name ="
         shell: pwsh
 
+      - name: 修改Nuitka打包脚本
+        run: |
+          $file = "utils/build_exe.py"
+          $content = Get-Content $file -Raw
+          # 移除--mingw64选项，因为我们已经通过GitHub Action安装了MinGW
+          $newContent = $content -replace '--mingw64,', ''
+          Set-Content -Path $file -Value $newContent -NoNewline
+          
+          # 显示修改后的内容进行确认
+          Get-Content $file | Select-String "--mingw64" -SimpleMatch -Quiet
+          if ($?) {
+            Write-Host "警告: --mingw64选项仍然存在，可能导致冲突"
+          } else {
+            Write-Host "成功: 已移除--mingw64选项"
+          }
+        shell: pwsh
+
       - name: 构建应用程序
         run: python utils/build_exe.py
         env:
           PYTHONIOENCODING: utf-8
           PYTHONLEGACYWINDOWSSTDIO: 1
           NUITKA_DOWNLOAD_CONFIRMATION: 1
-          
+          PATH: ${{ env.PATH }}
+        
       - name: 验证构建结果
         run: |
           $zipFile = "ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip"
