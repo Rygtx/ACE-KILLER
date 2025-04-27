@@ -10,7 +10,7 @@
 <img alt="platform" src="https://img.shields.io/badge/platform-Windows-blueviolet">
 <img alt="python" src="https://img.shields.io/badge/Python-3.10+-blue.svg">
 <img alt="license" src="https://img.shields.io/badge/License-GPL--3.0-green.svg">
-<img alt="version" src="https://img.shields.io/badge/Version-1.0.2-orange.svg">
+<img alt="version" src="https://img.shields.io/badge/Version-1.0.3-orange.svg">
 </div>
 
 <div>
