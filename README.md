@@ -43,6 +43,10 @@
   <p>ACE-KILLER 应用界面</p>
 </div>
 <div align="center">
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_2.png" width="60%" alt="配置界面预览">
+  <p>ACE-KILLER 配置界面</p>
+</div>
+<div align="center">
   <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_3.png" width="60%" alt="内存清理界面预览">
   <p>ACE-KILLER 内存清理界面</p>
 </div>
