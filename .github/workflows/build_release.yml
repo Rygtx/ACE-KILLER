@@ -72,41 +72,74 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuitka-
 
-      - name: 更新版本号
+      - name: 直接使用Nuitka打包应用程序
         run: |
-          $file = "utils/build_exe.py"
-          $content = Get-Content $file -Raw
-          $newContent = $content -replace 'zip_name = "ACE-KILLER-v\d+\.\d+\.\d+.*-x64"', 'zip_name = "ACE-KILLER-v${{ github.event.inputs.version }}-x64"'
-          Set-Content -Path $file -Value $newContent -NoNewline
+          # 获取图标文件路径
+          $icon_path = "assets/icon/favicon.ico"
           
-          # 显示修改后的内容进行确认
-          Get-Content $file | Select-String "zip_name ="
-        shell: pwsh
-
-      - name: 修改Nuitka打包脚本
-        run: |
-          $file = "utils/build_exe.py"
-          $content = Get-Content $file -Raw
-          # 移除--mingw64选项，因为我们已经通过GitHub Action安装了MinGW
-          $newContent = $content -replace '--mingw64,', ''
-          Set-Content -Path $file -Value $newContent -NoNewline
-          
-          # 显示修改后的内容进行确认
-          Get-Content $file | Select-String "--mingw64" -SimpleMatch -Quiet
-          if ($?) {
-            Write-Host "警告: --mingw64选项仍然存在，可能导致冲突"
+          # 编译命令
+          python -m nuitka --standalone `
+            --windows-console-mode=disable `
+            --windows-icon-from-ico=$icon_path `
+            --include-data-files=$icon_path=favicon.ico `
+            --windows-uac-admin `
+            --remove-output `
+            --enable-plugin=pyside6 `
+            --lto=yes `
+            --jobs=4 `
+            --show-memory `
+            --disable-cache=all `
+            --clean-cache=all `
+            --show-progress `
+            --output-filename=ACE-KILLER.exe `
+            --nofollow-import-to=tkinter,PIL.ImageTk `
+            --prefer-source-code `
+            --python-flag=no_site `
+            --python-flag=no_warnings `
+            --low-memory `
+            main.py
+            
+          # 检查打包结果
+          $main_exe = "main.dist/ACE-KILLER.exe"
+          if (Test-Path $main_exe) {
+            $size_mb = (Get-Item $main_exe).Length / (1024 * 1024)
+            Write-Host "[SUCCESS] 打包成功! 生成的可执行文件: $main_exe"
+            Write-Host "[INFO] 可执行文件大小: $([math]::Round($size_mb, 2)) MB"
           } else {
-            Write-Host "成功: 已移除--mingw64选项"
+            Write-Host "[ERROR] 打包完成，但未找到可执行文件"
+            exit 1
           }
         shell: pwsh
-
-      - name: 构建应用程序
-        run: python utils/build_exe.py
         env:
           PYTHONIOENCODING: utf-8
           PYTHONLEGACYWINDOWSSTDIO: 1
           NUITKA_DOWNLOAD_CONFIRMATION: 1
-          PATH: ${{ env.PATH }}
+        
+      - name: 压缩可执行文件目录
+        run: |
+          $dist_dir = "main.dist"
+          $zip_name = "ACE-KILLER-v${{ github.event.inputs.version }}-x64"
+          $zip_path = "$zip_name.zip"
+          
+          # 检查可执行文件目录是否存在
+          if (Test-Path $dist_dir) {
+            Write-Host "[INFO] 正在压缩可执行文件目录..."
+            Compress-Archive -Path "$dist_dir/*" -DestinationPath $zip_path -Force
+            
+            # 检查ZIP文件是否创建成功
+            if (Test-Path $zip_path) {
+              $zip_size_mb = (Get-Item $zip_path).Length / (1024 * 1024)
+              Write-Host "[SUCCESS] 压缩完成! 生成的ZIP文件: $zip_path"
+              Write-Host "[INFO] ZIP文件大小: $([math]::Round($zip_size_mb, 2)) MB"
+            } else {
+              Write-Host "[ERROR] 压缩失败，未生成ZIP文件"
+              exit 1
+            }
+          } else {
+            Write-Host "[ERROR] 可执行文件目录不存在，无法压缩"
+            exit 1
+          }
+        shell: pwsh
         
       - name: 验证构建结果
         run: |
