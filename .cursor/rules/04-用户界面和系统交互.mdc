@@ -5,27 +5,74 @@ alwaysApply: false
 ---
 # 用户界面和系统交互
 
-ACE-KILLER 使用系统托盘图标作为主要用户界面，并通过 Windows 通知系统提供反馈。
+ACE-KILLER 使用 PySide6 构建图形界面，并通过系统托盘提供便捷访问。
+
+## 主窗口界面
+
+主窗口界面在 [ui/main_window.py](mdc:ui/main_window.py) 中实现：
+
+```python
+class MainWindow(QMainWindow):
+    """主窗口"""
+    
+    configChanged = Signal()
+    
+    def __init__(self, monitor, icon_path=None):
+        super().__init__()
+        self.monitor = monitor
+        self.icon_path = icon_path
+        self.tray_icon = None
+        self.setup_ui()
+        self.setup_tray()
+        self.load_settings()
+        self.update_status()
+        
+        # 设置定时器更新状态
+        self.status_timer = QTimer(self)
+        self.status_timer.timeout.connect(self.update_status)
+        self.status_timer.start(3000)  # 每3秒更新一次
+```
+
+主窗口包含多个标签页：
+1. **概览** - 显示程序状态和监控信息
+2. **游戏配置** - 管理游戏监控列表
+3. **内存清理** - 管理内存清理功能
+4. **高级设置** - 提供高级功能和服务管理
 
 ## 系统托盘实现
 
-系统托盘功能在 [ui/tray_icon.py](mdc:ui/tray_icon.py) 中的 `create_tray_icon()` 函数实现：
+系统托盘功能在 `MainWindow` 类的 `setup_tray()` 方法中实现：
 
 ```python
-def create_tray_icon(monitor, icon_path):
-    # 创建菜单项
-    menu = Menu(
-        MenuItem('状态信息', show_status, default=True),
-        MenuItem('开启通知', toggle_notifications, checked=is_notifications_enabled),
-        MenuItem('开机自启', toggle_auto_start, checked=is_auto_start_enabled),
-        # ... 游戏菜单项 ...
-        MenuItem('打开配置文件夹', open_config_dir),
-        MenuItem('退出', exit_app)
-    )
+def setup_tray(self):
+    """设置系统托盘图标"""
+    self.tray_icon = QSystemTrayIcon(self)
+    self.tray_icon.setIcon(QIcon(self.icon_path))
+    self.tray_icon.setToolTip("ACE-KILLER")
     
-    # 创建托盘图标
-    icon = Icon('ACE-KILLER', icon_img, 'ACE-KILLER', menu)
-    return icon
+    # 创建托盘菜单
+    tray_menu = QMenu()
+    
+    # 状态信息
+    status_action = QAction("状态信息", self)
+    status_action.triggered.connect(self.show_status)
+    tray_menu.addAction(status_action)
+    
+    tray_menu.addSeparator()
+    
+    # 通知设置
+    self.notification_action = QAction("开启通知", self)
+    self.notification_action.setCheckable(True)
+    self.notification_action.setChecked(self.monitor.show_notifications)
+    self.notification_action.triggered.connect(self.toggle_notifications_from_tray)
+    tray_menu.addAction(self.notification_action)
+    
+    # 开机自启设置
+    self.auto_start_action = QAction("开机自启", self)
+    self.auto_start_action.setCheckable(True)
+    self.auto_start_action.setChecked(self.monitor.auto_start)
+    self.auto_start_action.triggered.connect(self.toggle_auto_start_from_tray)
+    tray_menu.addAction(self.auto_start_action)
 ```
 
 ## 系统通知功能
@@ -35,14 +82,21 @@ def create_tray_icon(monitor, icon_path):
 ```python
 def send_notification(title, message, icon_path=None, buttons=None, silent=True):
     """发送 Windows 通知"""
-    notification_helper = Win11ToastNotificationHelper()
-    notification_helper.show_toast(
-        title=title,
-        message=message,
-        icon_path=icon_path,
-        buttons=buttons,
-        silent=silent
-    )
+    try:
+        from win11toast import toast
+        
+        # 显示通知
+        toast(
+            title,
+            message,
+            icon=icon_path,
+            buttons=buttons,
+            audio={"silent": silent}
+        )
+        return True
+    except Exception as e:
+        logger.error(f"发送通知失败: {str(e)}")
+        return False
 ```
 
 ## 进程监控和优化
@@ -52,6 +106,15 @@ ACE-KILLER 通过后台线程监控和优化游戏和反作弊程序的进程：
 1. 监控游戏进程 - 通过 `monitor_game_process()` 方法监控指定游戏进程
 2. 优化扫盘进程 - 使用 `set_process_priority_and_affinity()` 方法设置 `SGuard64.exe` 进程优先级和 CPU 亲和性
 3. 关闭反作弊弹窗 - 使用 `kill_process()` 方法关闭 `ACE-Tray.exe` 进程
+4. 设置进程I/O优先级 - 使用 `set_process_io_priority()` 方法优化进程I/O操作
+
+## 内存清理功能
+
+内存清理功能通过 `MemoryCleaner` 类实现，可手动或自动清理系统内存，提升性能。界面中提供多种清理选项：
+
+1. 清理工作集
+2. 清理系统缓存
+3. 全面清理
 
 ## 系统注册表交互
 
@@ -66,7 +129,7 @@ ACE-KILLER 通过注册表实现开机自启功能，在 [core/system_utils.py](
 日志系统在 [utils/logger.py](mdc:utils/logger.py) 中实现，使用 loguru 提供详细的日志记录：
 
 ```python
-def setup_logger(log_dir, retention_days='7 days', rotation='1 day'):
+def setup_logger(log_dir, retention_days='7 days', rotation='1 day', debug_mode=False):
     """设置日志系统"""
     # 确保日志目录存在
     os.makedirs(log_dir, exist_ok=True)
@@ -75,7 +138,7 @@ def setup_logger(log_dir, retention_days='7 days', rotation='1 day'):
     logger.configure(
         handlers=[
             {"sink": os.path.join(log_dir, "ace-killer.log"), "rotation": rotation, "retention": retention_days},
-            {"sink": sys.stderr, "level": "INFO"}
+            {"sink": sys.stderr, "level": "DEBUG" if debug_mode else "INFO"}
         ]
     )
 ```

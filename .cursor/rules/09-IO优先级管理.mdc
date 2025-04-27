@@ -1,0 +1,77 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# I/O优先级管理
+
+ACE-KILLER 提供I/O优先级管理功能，可以优化反作弊和游戏进程的磁盘访问优先级，减少系统资源占用。
+
+## 功能概述
+
+I/O优先级管理模块位于 [utils/process_io_priority.py](mdc:utils/process_io_priority.py)，主要功能包括：
+
+1. 设置进程I/O优先级级别
+2. 提供后台I/O优先级监控服务
+3. 自动优化指定进程的I/O操作
+4. 支持自定义进程优先级列表
+
+## I/O优先级级别
+
+Windows系统提供多个I/O优先级级别：
+
+1. **最低 (Very Low)** - 降低进程I/O操作对系统的影响
+2. **低 (Low)** - 适度减少I/O优先级
+3. **正常 (Normal)** - 默认系统I/O优先级
+4. **关键 (Critical)** - 提高I/O操作优先级
+
+ACE-KILLER 默认将反作弊进程设置为最低优先级，减轻扫盘操作对系统性能的影响。
+
+## 自动优化进程
+
+I/O优先级管理提供自动监控服务，主要特性：
+
+1. **定期扫描** - 定期检查配置的进程是否运行
+2. **自动应用** - 自动为匹配的进程设置指定的I/O优先级
+3. **持久化** - 即使进程重启也会重新应用设置
+4. **低资源占用** - 后台服务本身资源占用极低
+
+## 实现原理
+
+I/O优先级管理基于Windows NT API实现：
+
+```python
+def set_process_io_priority(pid, priority):
+    """设置进程I/O优先级"""
+    IO_PRIORITY_HINT = {
+        'very_low': 0,    # 最低
+        'low': 1,         # 低
+        'normal': 2,      # 正常
+        'critical': 3     # 关键
+    }
+    
+    # 获取进程句柄
+    process_handle = ctypes.windll.kernel32.OpenProcess(
+        PROCESS_SET_INFORMATION, False, pid
+    )
+    
+    if process_handle:
+        # 设置I/O优先级
+        result = ctypes.windll.kernel32.SetPriorityClass(
+            process_handle, IO_PRIORITY_HINT[priority]
+        )
+        
+        # 关闭句柄
+        ctypes.windll.kernel32.CloseHandle(process_handle)
+        return result
+    return False
+```
+
+## UI 集成
+
+I/O优先级管理在主界面的"高级设置"标签页中提供控制：
+
+1. **优化反作弊进程** - 一键优化当前运行的反作弊进程
+2. **优化当前游戏** - 优化当前运行游戏的I/O优先级
+3. **管理自动优化列表** - 配置需要自动优化的进程列表
+

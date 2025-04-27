@@ -34,13 +34,12 @@ class GameConfig:
 4. 处理系统通知
 
 主要方法：
-- `load_config()` - 加载配置文件
-- `save_config()` - 保存配置文件
 - `monitor_game_process()` - 监控游戏进程并实施优化
 - `set_process_priority_and_affinity()` - 设置进程优先级和 CPU 亲和性
 - `kill_process()` - 终止指定进程
 - `start_all_enabled_monitors()` - 启动所有已启用的游戏监控
 - `stop_all_monitors()` - 停止所有游戏监控
+- `check_service_status()` - 检查服务状态
 
 ## ConfigManager 类
 
@@ -49,10 +48,42 @@ class GameConfig:
 1. 管理程序配置
 2. 创建配置目录
 3. 设置日志和通知系统
+4. 管理游戏配置列表
+5. 管理内存清理设置
+6. 管理I/O优先级设置
 
 主要方法：
 - `load_config()` - 加载用户配置
 - `save_config()` - 保存用户配置
-- `get_config_path()` - 获取配置文件路径
-- `create_config_dir()` - 创建配置目录
+- `add_game_config()` - 添加游戏配置
+- `remove_game_config()` - 删除游戏配置
+- `get_game_config()` - 获取游戏配置
+
+## MemoryCleaner 类
+
+[utils/memory_cleaner.py](mdc:utils/memory_cleaner.py) 中的 `MemoryCleaner` 类负责：
+
+1. 实现系统内存清理功能
+2. 提供自动和手动内存清理方法
+3. 支持不同类型的内存清理选项
+
+主要方法：
+- `clean_working_sets()` - 清理工作集
+- `clean_system_cache()` - 清理系统缓存
+- `clean_all()` - 执行全面清理
+- `start_auto_clean()` - 开始自动清理
+- `stop_auto_clean()` - 停止自动清理
+
+## IOPriorityManager 类
+
+[utils/process_io_priority.py](mdc:utils/process_io_priority.py) 中的相关类负责：
+
+1. 管理进程I/O优先级
+2. 提供自动设置I/O优先级的服务
+3. 优化指定进程的系统I/O操作
+
+主要方法：
+- `set_process_io_priority()` - 设置进程I/O优先级
+- `start_service()` - 启动I/O优先级监控服务
+- `stop_service()` - 停止I/O优先级监控服务
 

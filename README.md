@@ -60,13 +60,14 @@
 
 | 文件/目录 | 描述 |
 | --- | --- |
-| `main.py` | 程序入口文件 |
+| `config/config_manager.py` | 配置管理器 |
 | `core/process_monitor.py` | 进程监控核心实现 |
 | `core/system_utils.py` | 系统工具函数 |
-| `config/config_manager.py` | 配置管理器 |
-| `ui/tray_icon.py` | 系统托盘界面 |
 | `utils/logger.py` | 日志工具 |
 | `utils/notification.py` | 通知系统 |
+| `utils/build_exe.py` | 打包工具 |
+| `utils/memory_cleaner.py` | 内存清理核心 |
+| `utils/process_io_priority.py` | 进程I/O优先级管理 |
 | `models/game_config.py` | 游戏配置数据模型 |
 | `requirements.txt` | 项目依赖列表 |
 

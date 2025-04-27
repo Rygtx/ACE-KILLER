@@ -1,0 +1,98 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 主题和UI设计
+
+ACE-KILLER 支持明暗主题切换功能，提供现代化的用户界面体验，适应不同的使用环境和用户偏好。
+
+## 主题支持
+
+主题系统使用 `qdarktheme` 和 `darkdetect` 库实现，支持：
+
+1. **自动主题** - 根据系统设置自动切换明暗主题
+2. **浅色主题** - 适合日间使用的明亮界面风格
+3. **深色主题** - 适合夜间使用的暗色界面风格
+
+## 主题配置
+
+主题切换功能在 [ui/main_window.py](mdc:ui/main_window.py) 中的 `MainWindow` 类实现：
+
+```python
+@Slot(str)
+def switch_theme(self, theme):
+    """切换应用主题"""
+    if theme == "auto":
+        # 自动检测系统主题
+        detected_theme = "dark" if darkdetect.isDark() else "light"
+        self.theme = detected_theme
+    else:
+        self.theme = theme
+    
+    # 应用主题
+    if self.theme == "dark":
+        qdarktheme.setup_theme("dark")
+    else:
+        qdarktheme.setup_theme("light")
+```
+
+## UI设计原则
+
+ACE-KILLER 的UI设计遵循以下原则：
+
+1. **简洁性** - 界面简洁直观，突出重要信息
+2. **可访问性** - 适应不同显示设置和用户需求
+3. **一致性** - 维持统一的视觉语言和交互模式
+4. **响应性** - 界面元素能及时反馈用户操作
+
+## 界面组件
+
+主界面由以下主要组件构成：
+
+1. **标签页导航** - 使用 `QTabWidget` 实现多功能区域切换
+2. **状态卡片** - 展示系统和进程状态信息
+3. **控制面板** - 包含各种设置和操作按钮
+4. **系统托盘** - 最小化后的快速访问入口
+
+## 自适应布局
+
+界面使用 Qt 的布局管理器实现自适应布局：
+
+```python
+def setup_ui(self):
+    """设置UI"""
+    self.setWindowTitle("ACE-KILLER")
+    self.setWindowIcon(QIcon(self.icon_path))
+    self.resize(800, 600)
+    
+    # 创建中央部件
+    central_widget = QWidget()
+    self.setCentralWidget(central_widget)
+    
+    # 主布局
+    main_layout = QVBoxLayout(central_widget)
+    
+    # 标签页
+    self.tabs = QTabWidget()
+    self.tabs.setDocumentMode(True)
+    
+    # 创建各标签页
+    self.create_overview_tab()
+    self.create_games_tab()
+    self.create_memory_tab()
+    self.create_settings_tab()
+    
+    # 添加标签页到布局
+    main_layout.addWidget(self.tabs)
+```
+
+## 通知系统集成
+
+界面与Windows通知系统集成，提供重要事件的提醒：
+
+1. 程序启动通知
+2. 游戏状态变化通知
+3. 反作弊优化通知
+4. 内存清理完成通知
+

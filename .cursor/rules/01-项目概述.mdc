@@ -15,6 +15,9 @@ ACE-KILLER 是一个游戏反作弊进程管理工具，专为无畏契约、三
 - 支持 Windows 系统通知
 - 支持开机自启动
 - 系统托盘常驻运行
+- 内存清理功能
+- 支持明暗主题切换
+- 支持一键卸载ACE反作弊服务
 
 ## 项目结构
 
@@ -22,9 +25,10 @@ ACE-KILLER 是一个游戏反作弊进程管理工具，专为无畏契约、三
 - [core/process_monitor.py](mdc:core/process_monitor.py) - 进程监控核心实现
 - [core/system_utils.py](mdc:core/system_utils.py) - 系统工具函数
 - [config/config_manager.py](mdc:config/config_manager.py) - 配置管理器
-- [ui/tray_icon.py](mdc:ui/tray_icon.py) - 系统托盘界面
+- [ui/main_window.py](mdc:ui/main_window.py) - 主窗口界面
 - [utils/logger.py](mdc:utils/logger.py) - 日志工具
 - [utils/notification.py](mdc:utils/notification.py) - 通知系统
+- [utils/memory_cleaner.py](mdc:utils/memory_cleaner.py) - 内存清理工具
 - [models/game_config.py](mdc:models/game_config.py) - 游戏配置数据模型
 - [requirements.txt](mdc:requirements.txt) - 项目依赖列表
 
@@ -39,4 +43,6 @@ games:
     main_game: 主游戏进程名.exe
     enabled: true/false
 ```
+
+配置文件位于 `%USERPROFILE%\.ace-killer\config.yaml`
 
