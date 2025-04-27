@@ -19,6 +19,7 @@ jobs:
     env:
       PYTHONIOENCODING: utf-8
       PYTHONLEGACYWINDOWSSTDIO: 1
+      NUITKA_DOWNLOAD_CONFIRMATION: 1
     steps:
       - name: 检出代码
         uses: actions/checkout@v3
@@ -79,7 +80,8 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONLEGACYWINDOWSSTDIO: 1
-        
+          NUITKA_DOWNLOAD_CONFIRMATION: 1
+          
       - name: 验证构建结果
         run: |
           $zipFile = "ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip"
