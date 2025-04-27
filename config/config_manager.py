@@ -8,7 +8,6 @@
 import os
 import yaml
 from loguru import logger
-from models.game_config import GameConfig
 from core.system_utils import check_auto_start, enable_auto_start, disable_auto_start
 
 
@@ -27,7 +26,6 @@ class ConfigManager:
         self.log_retention_days = 7  # 默认日志保留天数
         self.log_rotation = "1 day"  # 默认日志轮转周期
         self.debug_mode = False  # 调试模式默认值
-        self.game_configs = []  # 游戏配置列表
         
         # 内存清理设置
         self.memory_cleaner_enabled = False  # 内存清理开关默认值
@@ -96,21 +94,7 @@ class ConfigManager:
                     {'name': 'SGuard64.exe', 'priority': 0},
                     {'name': 'ACE-Tray.exe', 'priority': 0}
                 ]
-            },
-            'games': [
-                {
-                    'name': '无畏契约',
-                    'launcher': '无畏契约登录器.exe',
-                    'main_game': 'VALORANT-Win64-Shipping.exe',
-                    'enabled': True
-                },
-                {
-                    "name": "三角洲行动",
-                    "launcher": "delta_force_launcher.exe",
-                    "main_game": "DeltaForceClient-Win64-Shipping.exe",
-                    "enabled": False,
-                }
-            ]
+            }
         }
         
         # 如果配置文件存在，则读取
@@ -196,9 +180,6 @@ class ConfigManager:
                     self.io_priority_processes = config_data['io_priority']['processes']
                     logger.debug(f"已从配置文件加载I/O优先级设置，进程数量: {len(self.io_priority_processes)}")
                 
-                # 加载游戏配置
-                self._load_game_configs(config_data)
-                
                 logger.debug("配置文件加载成功")
                 return True
             except Exception as e:
@@ -211,27 +192,6 @@ class ConfigManager:
             logger.debug("配置文件不存在，将创建默认配置文件")
             self._create_default_config(default_config)
             return True
-    
-    def _load_game_configs(self, config_data):
-        """
-        从配置数据中加载游戏配置
-        
-        Args:
-            config_data (dict): 配置数据字典
-        """
-        self.game_configs.clear()
-        if 'games' in config_data and isinstance(config_data['games'], list):
-            for game_data in config_data['games']:
-                if all(k in game_data for k in ['name', 'launcher', 'main_game', 'enabled']):
-                    game_config = GameConfig(
-                        name=game_data['name'],
-                        launcher=game_data['launcher'],
-                        main_game=game_data['main_game'],
-                        enabled=game_data['enabled']
-                    )
-                    self.game_configs.append(game_config)
-            
-            logger.debug(f"已从配置文件加载 {len(self.game_configs)} 个游戏配置")
     
     def _create_default_config(self, default_config):
         """
@@ -270,9 +230,6 @@ class ConfigManager:
             if 'io_priority' in default_config and 'processes' in default_config['io_priority']:
                 self.io_priority_processes = default_config['io_priority']['processes']
             
-            # 加载默认游戏配置
-            self._load_game_configs(default_config)
-            
             logger.debug("已创建并加载默认配置")
         except Exception as e:
             logger.error(f"创建默认配置文件失败: {str(e)}")
@@ -308,15 +265,7 @@ class ConfigManager:
                 },
                 'io_priority': {
                     'processes': self.io_priority_processes
-                },
-                'games': [
-                    {
-                        'name': game.name,
-                        'launcher': game.launcher,
-                        'main_game': game.main_game,
-                        'enabled': game.enabled
-                    } for game in self.game_configs
-                ]
+                }
             }
             
             # 保存到文件
@@ -327,54 +276,4 @@ class ConfigManager:
             return True
         except Exception as e:
             logger.error(f"保存配置文件失败: {str(e)}")
-            return False
-    
-    def add_game_config(self, name, launcher, main_game, enabled=True):
-        """
-        添加新的游戏配置
-        
-        Args:
-            name (str): 游戏名称
-            launcher (str): 启动器进程名
-            main_game (str): 主游戏进程名
-            enabled (bool): 是否启用监控
-            
-        Returns:
-            GameConfig: 新添加的游戏配置对象
-        """
-        game_config = GameConfig(name, launcher, main_game, enabled)
-        self.game_configs.append(game_config)
-        self.save_config()
-        return game_config
-    
-    def remove_game_config(self, name):
-        """
-        删除游戏配置
-        
-        Args:
-            name (str): 游戏名称
-            
-        Returns:
-            bool: 是否成功删除
-        """
-        for i, config in enumerate(self.game_configs):
-            if config.name == name:
-                self.game_configs.pop(i)
-                self.save_config()
-                return True
-        return False
-    
-    def get_game_config(self, name):
-        """
-        通过名称获取游戏配置
-        
-        Args:
-            name (str): 游戏名称
-            
-        Returns:
-            GameConfig or None: 游戏配置对象，未找到则返回None
-        """
-        for config in self.game_configs:
-            if config.name == name:
-                return config
-        return None 
+            return False 

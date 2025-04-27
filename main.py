@@ -38,7 +38,7 @@ def main():
         config_manager.log_dir,
         config_manager.log_retention_days,
         config_manager.log_rotation,
-        config_manager.debug_mode  # 传递调试模式设置
+        config_manager.debug_mode
     )
     
     # 创建进程监控器
@@ -77,15 +77,7 @@ def main():
         silent=False
     )
     
-    # 启动已启用的游戏监控线程
-    if any(game.enabled for game in monitor.game_configs):
-        monitor.running = True  # 显式设置为True
-        logger.debug("监控程序已启动")
-        monitor.start_all_enabled_monitors()
-    else:
-        monitor.running = False  # 显式设置为False
-        logger.debug("未启用任何游戏监控，不启动监控线程")
-    
+
     try:
         # 显示窗口
         window.show()

@@ -1,0 +1,127 @@
+name: 构建和发布ACE-KILLER
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (例如: 1.0.0)'
+        required: true
+        default: '1.0.0'
+      release_notes:
+        description: '发布说明'
+        required: false
+        default: '此版本包含性能改进和错误修复'
+
+jobs:
+  build:
+    name: 构建Windows应用
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 设置Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: 环境诊断
+        run: |
+          python --version
+          pip --version
+          echo "当前工作目录: $(Get-Location)"
+          echo "Python目录: $(Get-Command python | Select-Object -ExpandProperty Source)"
+          echo "内存信息: $(Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory)"
+        shell: pwsh
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # 确保Nuitka和其他打包所需依赖已安装
+          pip install nuitka zstandard ordered-set
+          # 安装PySide6
+          pip install PySide6==6.9.0
+        
+      - name: 列出已安装包
+        run: pip list
+        
+      - name: 缓存Nuitka构建文件
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/Nuitka
+            ~/.local/share/Nuitka
+          key: ${{ runner.os }}-nuitka-${{ hashFiles('**/*.py') }}
+          restore-keys: |
+            ${{ runner.os }}-nuitka-
+
+      - name: 更新版本号
+        run: |
+          $file = "utils/build_exe.py"
+          $content = Get-Content $file -Raw
+          $newContent = $content -replace 'zip_name = "ACE-KILLER-v\d+\.\d+\.\d+.*-x64"', 'zip_name = "ACE-KILLER-v${{ github.event.inputs.version }}-x64"'
+          Set-Content -Path $file -Value $newContent -NoNewline
+          
+          # 显示修改后的内容进行确认
+          Get-Content $file | Select-String "zip_name ="
+        shell: pwsh
+
+      - name: 构建应用程序
+        run: python utils/build_exe.py
+        
+      - name: 验证构建结果
+        run: |
+          $zipFile = "ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip"
+          if (Test-Path $zipFile) {
+            $size = (Get-Item $zipFile).Length / 1MB
+            Write-Host "✅ 构建成功: $zipFile (大小: $([math]::Round($size, 2)) MB)"
+            # 计算SHA256哈希值用于验证
+            $hash = (Get-FileHash -Algorithm SHA256 $zipFile).Hash
+            Write-Host "文件哈希值 (SHA256): $hash"
+            # 写入哈希值到文件以便发布
+            $hash | Out-File -FilePath "$zipFile.sha256" -Encoding utf8
+          } else {
+            Write-Host "❌ 构建失败: 未找到 $zipFile"
+            exit 1
+          }
+        shell: pwsh
+        
+      - name: 保存构建产物
+        uses: actions/upload-artifact@v3
+        with:
+          name: ACE-KILLER-v${{ github.event.inputs.version }}
+          path: |
+            ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip
+            ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip.sha256
+          retention-days: 7
+          
+      - name: 创建发布
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: ACE-KILLER v${{ github.event.inputs.version }}
+          body: |
+            ## ACE-KILLER v${{ github.event.inputs.version }}
+            
+            ${{ github.event.inputs.release_notes }}
+            
+            ### SHA-256 校验和
+            ```
+            ${{ runner.os == 'Windows' && '$((Get-FileHash -Algorithm SHA256 -Path ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip).Hash)' || '$(sha256sum ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip | cut -d " " -f 1)' }}
+            ```
+            
+            ### 安装说明
+            1. 下载ZIP文件并解压
+            2. 运行ACE-KILLER.exe
+          draft: false
+          prerelease: false
+          files: |
+            ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip
+            ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

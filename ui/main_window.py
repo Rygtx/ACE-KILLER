@@ -30,95 +30,6 @@ from utils.memory_cleaner import get_memory_cleaner
 from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT
 
 
-class GameListItem(QWidget):
-    """游戏列表项组件"""
-    
-    statusChanged = Signal(str, bool)
-    
-    def __init__(self, game_name, enabled=False, parent=None):
-        super().__init__(parent)
-        self.game_name = game_name
-        
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(5, 2, 5, 2)
-        
-        self.checkbox = QCheckBox(game_name)
-        self.checkbox.setChecked(enabled)
-        self.checkbox.stateChanged.connect(self._on_state_changed)
-        
-        layout.addWidget(self.checkbox)
-        layout.addStretch()
-    
-    def _on_state_changed(self, state):
-        self.statusChanged.emit(self.game_name, bool(state))
-    
-    def set_checked(self, checked):
-        """设置复选框状态，但不触发信号"""
-        self.checkbox.blockSignals(True)
-        self.checkbox.setChecked(checked)
-        self.checkbox.blockSignals(False)
-
-
-class GameConfigDialog(QDialog):
-    """游戏配置对话框"""
-    
-    def __init__(self, parent=None, game_config=None):
-        super().__init__(parent)
-        self.game_config = game_config
-        self.is_edit_mode = game_config is not None
-        
-        self.setup_ui()
-        
-        if self.is_edit_mode:
-            self.setWindowTitle("编辑游戏配置")
-            self.name_edit.setText(game_config.name)
-            self.launcher_edit.setText(game_config.launcher)
-            self.main_game_edit.setText(game_config.main_game)
-            # 编辑模式下不允许修改名称
-            self.name_edit.setReadOnly(True)
-        else:
-            self.setWindowTitle("添加游戏配置")
-    
-    def setup_ui(self):
-        """设置对话框UI"""
-        layout = QVBoxLayout(self)
-        
-        # 表单布局
-        form_layout = QFormLayout()
-        
-        # 游戏名称
-        self.name_edit = QLineEdit()
-        form_layout.addRow("游戏名称:", self.name_edit)
-        
-        # 启动器进程名
-        self.launcher_edit = QLineEdit()
-        form_layout.addRow("启动器进程名:", self.launcher_edit)
-        
-        # 游戏主进程名
-        self.main_game_edit = QLineEdit()
-        form_layout.addRow("游戏主进程名:", self.main_game_edit)
-        
-        layout.addLayout(form_layout)
-        
-        # 按钮布局
-        button_layout = QHBoxLayout()
-        
-        # 确定按钮
-        self.ok_button = QPushButton("确定")
-        self.ok_button.clicked.connect(self.accept)
-        
-        # 取消按钮
-        self.cancel_button = QPushButton("取消")
-        self.cancel_button.clicked.connect(self.reject)
-        
-        button_layout.addWidget(self.ok_button)
-        button_layout.addWidget(self.cancel_button)
-        
-        layout.addLayout(button_layout)
-        
-        self.setMinimumWidth(300)
-
-
 class ProcessIoPriorityListDialog(QDialog):
     """I/O优先级进程列表管理对话框"""
     
@@ -314,21 +225,31 @@ class MainWindow(QMainWindow):
         status_group.setLayout(status_box_layout)
         status_layout.addWidget(status_group)
         
-        # 游戏监控选项卡
-        games_tab = QWidget()
-        games_layout = QVBoxLayout(games_tab)
+        # 进程监控选项卡
+        process_tab = QWidget()
+        process_layout = QVBoxLayout(process_tab)
         
-        # 游戏列表
-        games_group = QGroupBox("游戏监控")
-        games_box_layout = QVBoxLayout()
-        self.games_list = QListWidget()
-        self.games_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.games_list.customContextMenuRequested.connect(self.show_games_context_menu)
-        games_box_layout.addWidget(self.games_list)
-        games_group.setLayout(games_box_layout)
-        games_layout.addWidget(games_group)
+        # 进程监控组
+        process_group = QGroupBox("反作弊进程监控")
+        process_box_layout = QVBoxLayout()
         
-        # 添加I/O优先级设置功能到游戏监控选项卡
+        # 添加ACE反作弊说明标签
+        ace_info_label = QLabel("本程序会监控ACE反作弊安装弹窗，当出现时会自动终止。"
+                                "同时会优化SGuard64扫盘进程，降低其对系统性能的影响。")
+        ace_info_label.setWordWrap(True)
+        ace_info_label.setStyleSheet("color: #0066cc; background-color: #f0f8ff; padding: 8px; border-radius: 4px;")
+        process_box_layout.addWidget(ace_info_label)
+        
+        # 添加监控开关
+        self.monitor_checkbox = QCheckBox("启用反作弊进程监控")
+        self.monitor_checkbox.setChecked(self.monitor.running)
+        self.monitor_checkbox.stateChanged.connect(self.toggle_process_monitor)
+        process_box_layout.addWidget(self.monitor_checkbox)
+        
+        process_group.setLayout(process_box_layout)
+        process_layout.addWidget(process_group)
+        
+        # 添加I/O优先级设置功能到进程监控选项卡
         io_priority_group = QGroupBox("进程I/O优先级")
         io_priority_layout = QVBoxLayout()
         
@@ -339,15 +260,15 @@ class MainWindow(QMainWindow):
         io_priority_layout.addWidget(io_priority_label)
         
         # 进程选择和优先级设置区域
-        process_layout = QHBoxLayout()
+        io_process_layout = QHBoxLayout()
         
         # 进程选择下拉框
         self.process_combo = QComboBox()
         self.process_combo.addItem("SGuard64.exe", "SGuard64.exe")  # 存储进程名称作为userData
         self.process_combo.addItem("ACE-Tray.exe", "ACE-Tray.exe")
         self.process_combo.setEditable(True)  # 允许用户输入自定义进程名
-        process_layout.addWidget(QLabel("目标进程:"))
-        process_layout.addWidget(self.process_combo, 1)  # 1是stretch因子
+        io_process_layout.addWidget(QLabel("目标进程:"))
+        io_process_layout.addWidget(self.process_combo, 1)  # 1是stretch因子
         
         # 优先级选择下拉框
         self.priority_combo = QComboBox()
@@ -355,10 +276,10 @@ class MainWindow(QMainWindow):
         self.priority_combo.addItem("低", IO_PRIORITY_HINT.IoPriorityLow)
         self.priority_combo.addItem("正常", IO_PRIORITY_HINT.IoPriorityNormal)
         self.priority_combo.addItem("关键", IO_PRIORITY_HINT.IoPriorityCritical)
-        process_layout.addWidget(QLabel("优先级:"))
-        process_layout.addWidget(self.priority_combo)
+        io_process_layout.addWidget(QLabel("优先级:"))
+        io_process_layout.addWidget(self.priority_combo)
         
-        io_priority_layout.addLayout(process_layout)
+        io_priority_layout.addLayout(io_process_layout)
         
         # 应用按钮
         self.apply_io_priority_btn = QPushButton("应用I/O优先级设置")
@@ -369,12 +290,12 @@ class MainWindow(QMainWindow):
         preset_layout = QHBoxLayout()
         
         # 预设：优化所有反作弊进程
-        self.optimize_anticheat_btn = QPushButton("一键优化所有反作弊进程")
+        self.optimize_anticheat_btn = QPushButton("优化所有反作弊进程")
         self.optimize_anticheat_btn.clicked.connect(self.optimize_anticheat_processes)
         preset_layout.addWidget(self.optimize_anticheat_btn)
         
-        # 预设：优化当前游戏相关进程
-        self.optimize_current_game_btn = QPushButton("优化当前游戏体验")
+        # 预设：优化系统体验
+        self.optimize_current_game_btn = QPushButton("优化系统体验")
         self.optimize_current_game_btn.clicked.connect(self.optimize_current_game)
         preset_layout.addWidget(self.optimize_current_game_btn)
         
@@ -391,13 +312,7 @@ class MainWindow(QMainWindow):
         io_priority_layout.addWidget(note_label)
         
         io_priority_group.setLayout(io_priority_layout)
-        games_layout.addWidget(io_priority_group)
-        
-        # 增加提示性文本
-        games_tip_label = QLabel("提示：右键游戏列表可自定义添加、编辑或删除游戏配置")
-        games_tip_label.setStyleSheet("color: #888888; font-size: 13px;")
-        games_tip_label.setWordWrap(True)
-        games_layout.addWidget(games_tip_label)
+        process_layout.addWidget(io_priority_group)
         
         # 内存清理选项卡
         memory_tab = QWidget()
@@ -677,7 +592,7 @@ class MainWindow(QMainWindow):
         
         # 添加选项卡
         tabs.addTab(status_tab, "  程序状态  ")
-        tabs.addTab(games_tab, "  游戏监控  ")
+        tabs.addTab(process_tab, "  进程监控  ")
         tabs.addTab(memory_tab, "  内存清理  ")
         tabs.addTab(settings_tab, "  设置  ")
     
@@ -717,6 +632,15 @@ class MainWindow(QMainWindow):
         self.startup_action.triggered.connect(self.toggle_auto_start_from_tray)
         tray_menu.addAction(self.startup_action)
         
+        # 进程监控菜单项
+        self.monitor_action = QAction("启用反作弊进程监控", self)
+        self.monitor_action.setCheckable(True)
+        self.monitor_action.setChecked(self.monitor.running)
+        self.monitor_action.triggered.connect(self.toggle_process_monitor_from_tray)
+        tray_menu.addAction(self.monitor_action)
+        
+        tray_menu.addSeparator()
+
         # 主题切换子菜单
         theme_menu = QMenu("主题设置")
         
@@ -738,18 +662,13 @@ class MainWindow(QMainWindow):
         tray_menu.addMenu(theme_menu)
         
         tray_menu.addSeparator()
-        
-        # 游戏监控子菜单
-        self.games_menu = QMenu("游戏监控")
-        self.update_games_menu()  # 初始添加游戏菜单项
-        tray_menu.addMenu(self.games_menu)
-        
-        tray_menu.addSeparator()
-        
+      
         # 删除ACE服务菜单项
         delete_service_action = QAction("删除ACE服务", self)
         delete_service_action.triggered.connect(self.delete_ace_services)
         tray_menu.addAction(delete_service_action)
+
+        tray_menu.addSeparator()
         
         # 打开配置目录动作
         config_dir_action = QAction("打开配置目录", self)
@@ -758,17 +677,21 @@ class MainWindow(QMainWindow):
         
         tray_menu.addSeparator()
         
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self.tray_icon_activated)
+        self.tray_icon.show()
+        
+        # # 设置工具提示
+        # self.tray_icon.setToolTip("ACE-KILLER")
+        
+        tray_menu.addSeparator()
+        
         # 退出动作
         exit_action = QAction("退出", self)
         exit_action.triggered.connect(self.confirm_exit)
         tray_menu.addAction(exit_action)
         
-        self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.activated.connect(self.tray_icon_activated)
-        self.tray_icon.show()
-        
-        # 设置工具提示
-        self.tray_icon.setToolTip("ACE-KILLER")
+        # tray_menu.addMenu(theme_menu)
     
     @Slot(str)
     def switch_theme(self, theme):
@@ -871,40 +794,38 @@ class MainWindow(QMainWindow):
         else:
             html.append('<p class="status-item"><span class="status-error">🟥 监控程序已停止</span></p>')
         
-        # 检查是否有任何游戏在运行
-        running_games = []
-        for game_config in self.monitor.game_configs:
-            if game_config.enabled and game_config.main_game_running:
-                running_games.append(game_config.name)
-        
-        if running_games:
-            html.append(f'<p class="status-item">🎮 游戏运行中: <span class="status-success">{", ".join(running_games)}</span></p>')
-        else:
-            html.append('<p class="status-item">🎮 <span class="status-disabled">无游戏运行中</span></p>')
-        
         html.append('</div>')
         
         # 进程状态卡片
         html.append('<div class="card">')
         html.append('<div class="section-title">进程状态</div>')
         
-        # ACE进程状态(ACE反作弊程序是否安装提示弹窗)
+        # ACE进程状态(ACE反作弊程序是否安装提示弹窗) - 移动到程序状态区域
         ace_running = self.monitor.is_process_running(self.monitor.anticheat_name) is not None
+        
         if ace_running and self.monitor.anticheat_killed:
-            html.append('<p class="status-item">✅ ACE-Tray进程: <span class="status-success">已被优化</span></p>')
+            html.append('<p class="status-item">✅ ACE-Tray进程: <span class="status-success">已被终止</span>  (反作弊安装弹窗进程)</p>')
         elif ace_running:
-            html.append('<p class="status-item">🔄 ACE-Tray进程: <span class="status-warning">正在运行</span></p>')
+            html.append('<p class="status-item">🔄 ACE-Tray进程: <span class="status-warning">正在处理</span>  (反作弊安装弹窗进程)</p>')
         else:
-            html.append('<p class="status-item">⚠️ ACE-Tray进程: <span class="status-error">未在运行</span>  (ACE反作弊程序是否安装提示弹窗)</p>')
+            html.append('<p class="status-item">ℹ️ ACE-Tray进程: <span class="status-normal">未处理</span>  (反作弊安装弹窗进程)</p>')
         
         # SGuard64进程状态
         scan_running = self.monitor.is_process_running(self.monitor.scanprocess_name) is not None
-        if scan_running and self.monitor.scanprocess_optimized:
-            html.append('<p class="status-item">✅ SGuard64进程: <span class="status-success">已被优化</span></p>')
-        elif scan_running:
-            html.append('<p class="status-item">🔄 SGuard64进程: <span class="status-warning">正在运行 (未优化)</span></p>')
+        
+        # 如果进程在运行，直接检查其优化状态并更新全局标志
+        if scan_running:
+            # 直接检查当前进程的真实优化状态
+            _, is_optimized = self.monitor.check_process_status(self.monitor.scanprocess_name)
+            # 强制更新全局状态标志
+            self.monitor.scanprocess_optimized = is_optimized
+            
+            if self.monitor.scanprocess_optimized:
+                html.append('<p class="status-item">✅ SGuard64进程: <span class="status-success">已被优化</span>  (反作弊扫盘进程)</p>')
+            else:
+                html.append('<p class="status-item">🔄 SGuard64进程: <span class="status-warning">正在运行 (未优化)</span>  (反作弊扫盘进程)</p>')
         else:
-            html.append('<p class="status-item">⚠️ SGuard64进程: <span class="status-error">未在运行</span>  (SGuard64反作弊扫盘进程)</p>')
+            html.append('<p class="status-item">⚠️ SGuard64进程: <span class="status-error">未在运行</span>  (反作弊扫盘进程)</p>')
         
         # AntiCheatExpert Service服务状态
         service_exists, status, start_type = self.monitor.check_service_status(self.monitor.anticheat_service_name)
@@ -1013,31 +934,6 @@ class MainWindow(QMainWindow):
         else:  # auto
             return "跟随系统"
     
-    def update_games_menu(self):
-        """更新游戏监控子菜单"""
-        self.games_menu.clear()
-        
-        # 清空游戏列表
-        self.games_list.clear()
-        
-        # 添加所有游戏配置
-        for game_config in self.monitor.game_configs:
-            # 添加到GUI列表
-            list_item = QListWidgetItem(self.games_list)
-            game_widget = GameListItem(game_config.name, game_config.enabled)
-            game_widget.statusChanged.connect(self.on_game_status_changed)
-            list_item.setSizeHint(game_widget.sizeHint())
-            self.games_list.addItem(list_item)
-            self.games_list.setItemWidget(list_item, game_widget)
-            
-            # 添加到托盘菜单
-            game_action = QAction(game_config.name, self)
-            game_action.setCheckable(True)
-            game_action.setChecked(game_config.enabled)
-            game_action.setData(game_config.name)
-            game_action.triggered.connect(self.toggle_game_from_tray)
-            self.games_menu.addAction(game_action)
-    
     def load_settings(self):
         """加载设置到UI"""
         # 阻塞信号避免双重触发
@@ -1050,6 +946,10 @@ class MainWindow(QMainWindow):
         # 更新自启动设置
         self.startup_checkbox.setChecked(self.monitor.auto_start)
         self.startup_action.setChecked(self.monitor.auto_start)
+        
+        # 更新监控状态设置
+        self.monitor_checkbox.setChecked(self.monitor.running)
+        self.monitor_action.setChecked(self.monitor.running)
         
         # 更新调试模式设置
         self.debug_checkbox.setChecked(self.monitor.config_manager.debug_mode)
@@ -1109,25 +1009,6 @@ class MainWindow(QMainWindow):
             mem_info = self.memory_cleaner.get_memory_info() if self.memory_cleaner.running else None
             mem_usage = f" - 内存: {mem_info['percent']:.1f}%" if mem_info else ""
             self.tray_icon.setToolTip(f"ACE-KILLER - {'运行中' if self.monitor.running else '已停止'}{mem_usage}")
-        
-        # 更新游戏列表状态，避免重复触发事件
-        for i in range(self.games_list.count()):
-            item = self.games_list.item(i)
-            widget = self.games_list.itemWidget(item)
-            for game_config in self.monitor.game_configs:
-                if game_config.name == widget.game_name:
-                    widget.set_checked(game_config.enabled)
-                    break
-        
-        # 更新托盘菜单游戏状态
-        for action in self.games_menu.actions():
-            game_name = action.data()
-            for game_config in self.monitor.game_configs:
-                if game_config.name == game_name:
-                    action.blockSignals(True)
-                    action.setChecked(game_config.enabled)
-                    action.blockSignals(False)
-                    break
     
     def update_memory_status(self):
         """更新内存状态显示"""
@@ -1275,98 +1156,57 @@ class MainWindow(QMainWindow):
         # 立即更新状态显示
         self.update_status()
     
-    @Slot(str, bool)
-    def on_game_status_changed(self, game_name, enabled):
-        """游戏监控状态改变处理函数"""
-        for game_config in self.monitor.game_configs:
-            if game_config.name == game_name:
-                if game_config.enabled != enabled:
-                    game_config.enabled = enabled
-                    if enabled:
-                        # 如果是从无启用游戏到有启用游戏，设置running为True
-                        was_running = self.monitor.running
-                        if not was_running:
-                            self.monitor.running = True
-                            logger.debug("监控程序已启动")
-                        
-                        # 启用游戏监控
-                        self.monitor.start_monitor_thread(game_config)
-                    else:
-                        # 停止该游戏的监控
-                        self.monitor.stop_monitor_thread(game_config)
-                        
-                        # 检查是否还有其他启用的游戏
-                        if not any(g.enabled for g in self.monitor.game_configs):
-                            # 如果没有任何启用的游戏，重置监控器状态
-                            logger.debug("所有游戏监控已关闭")
-                            self.monitor.running = False
-                            self.monitor.anticheat_killed = False
-                            self.monitor.scanprocess_optimized = False
-                            logger.debug("监控程序已停止")
-                    
-                    # 保存配置
-                    self.monitor.config_manager.save_config()
-                    
-                    # 立即更新状态显示
-                    self.update_status()
-                break
+    @Slot()
+    def toggle_process_monitor(self):
+        """切换进程监控开关"""
+        enabled = self.monitor_checkbox.isChecked()
+        if enabled:
+            self.monitor.running = True
+            self.monitor.start_monitors()
+            logger.debug("监控程序已启动")
+        else:
+            self.monitor.running = False
+            self.monitor.stop_monitors()
+            self.monitor.anticheat_killed = False
+            self.monitor.scanprocess_optimized = False
+            logger.debug("监控程序已停止")
         
-        # 更新托盘菜单
-        for action in self.games_menu.actions():
-            if action.data() == game_name:
-                action.blockSignals(True)
-                action.setChecked(enabled)
-                action.blockSignals(False)
-                break
+        # 同步托盘菜单状态
+        self.monitor_action.blockSignals(True)
+        self.monitor_action.setChecked(enabled)
+        self.monitor_action.blockSignals(False)
+        
+        # 保存配置
+        self.monitor.config_manager.save_config()
+        
+        # 立即更新状态显示
+        self.update_status()
     
     @Slot()
-    def toggle_game_from_tray(self):
-        """从托盘菜单切换游戏监控状态"""
-        action = self.sender()
-        if action:
-            game_name = action.data()
-            enabled = action.isChecked()
-            
-            for game_config in self.monitor.game_configs:
-                if game_config.name == game_name:
-                    if game_config.enabled != enabled:
-                        game_config.enabled = enabled
-                        if enabled:
-                            # 如果是从无启用游戏到有启用游戏，设置running为True
-                            was_running = self.monitor.running
-                            if not was_running:
-                                self.monitor.running = True
-                                logger.debug("监控程序已启动")
-                            
-                            # 启用游戏监控
-                            self.monitor.start_monitor_thread(game_config)
-                        else:
-                            # 停止该游戏的监控
-                            self.monitor.stop_monitor_thread(game_config)
-                            
-                            # 检查是否还有其他启用的游戏
-                            if not any(g.enabled for g in self.monitor.game_configs):
-                                # 如果没有任何启用的游戏，重置监控器状态
-                                logger.debug("所有游戏监控已关闭")
-                                self.monitor.running = False
-                                self.monitor.anticheat_killed = False
-                                self.monitor.scanprocess_optimized = False
-                                logger.debug("监控程序已停止")
-                        
-                        # 保存配置
-                        self.monitor.config_manager.save_config()
-                        
-                        # 立即更新状态显示
-                        self.update_status()
-                    
-                    # 更新主窗口游戏列表
-                    for i in range(self.games_list.count()):
-                        item = self.games_list.item(i)
-                        widget = self.games_list.itemWidget(item)
-                        if widget.game_name == game_name:
-                            widget.set_checked(enabled)
-                            break
-                    break
+    def toggle_process_monitor_from_tray(self):
+        """从托盘菜单切换进程监控开关"""
+        enabled = self.monitor_action.isChecked()
+        if enabled:
+            self.monitor.running = True
+            self.monitor.start_monitors()
+            logger.debug("监控程序已启动")
+        else:
+            self.monitor.running = False
+            self.monitor.stop_monitors()
+            self.monitor.anticheat_killed = False
+            self.monitor.scanprocess_optimized = False
+            logger.debug("监控程序已停止")
+        
+        # 同步主窗口状态
+        self.monitor_checkbox.blockSignals(True)
+        self.monitor_checkbox.setChecked(enabled)
+        self.monitor_checkbox.blockSignals(False)
+        
+        # 保存配置
+        self.monitor.config_manager.save_config()
+        
+        # 立即更新状态显示
+        self.update_status()
     
     @Slot()
     def open_config_dir(self):
@@ -1440,6 +1280,7 @@ class MainWindow(QMainWindow):
         """退出应用程序"""
         # 停止所有监控
         if self.monitor.running:
+            self.monitor.stop_monitors()
             self.monitor.running = False
         
         # 确保在主线程中停止定时器
@@ -1474,148 +1315,6 @@ class MainWindow(QMainWindow):
         """直接退出程序"""
         event.accept()
         self.exit_app()
-
-    @Slot(object)
-    def show_games_context_menu(self, pos):
-        """显示游戏列表右键菜单"""
-        context_menu = QMenu(self)
-        
-        # 添加游戏配置
-        add_action = QAction("添加游戏配置", self)
-        add_action.triggered.connect(self.add_game_config)
-        context_menu.addAction(add_action)
-        
-        # 获取当前选中项
-        current_item = self.games_list.itemAt(pos)
-        
-        if current_item:
-            # 编辑菜单项
-            edit_action = QAction("编辑游戏配置", self)
-            edit_action.triggered.connect(lambda: self.edit_game_config(current_item))
-            context_menu.addAction(edit_action)
-            
-            # 删除菜单项
-            delete_action = QAction("删除游戏配置", self)
-            delete_action.triggered.connect(lambda: self.delete_game_config(current_item))
-            context_menu.addAction(delete_action)
-        
-        context_menu.exec(self.games_list.mapToGlobal(pos))
-    
-    @Slot()
-    def add_game_config(self):
-        """添加游戏配置"""
-        dialog = GameConfigDialog(self)
-        if dialog.exec():
-            name = dialog.name_edit.text().strip()
-            launcher = dialog.launcher_edit.text().strip()
-            main_game = dialog.main_game_edit.text().strip()
-            
-            # 验证输入
-            if not name or not launcher or not main_game:
-                QMessageBox.warning(self, "输入错误", "请填写所有字段")
-                return
-            
-            # 检查名称是否已存在
-            if any(config.name == name for config in self.monitor.game_configs):
-                QMessageBox.warning(self, "输入错误", f"游戏配置 '{name}' 已存在")
-                return
-            
-            # 添加游戏配置
-            self.monitor.config_manager.add_game_config(name, launcher, main_game, True)
-            
-            # 更新游戏列表和菜单
-            self.update_games_menu()
-            
-            logger.debug(f"已添加游戏配置: {name}")
-    
-    @Slot(QListWidgetItem)
-    def edit_game_config(self, list_item):
-        """编辑游戏配置"""
-        # 获取游戏名称
-        widget = self.games_list.itemWidget(list_item)
-        if not widget:
-            return
-        
-        game_name = widget.game_name
-        
-        # 获取游戏配置
-        game_config = self.monitor.config_manager.get_game_config(game_name)
-        if not game_config:
-            return
-        
-        dialog = GameConfigDialog(self, game_config)
-        if dialog.exec():
-            launcher = dialog.launcher_edit.text().strip()
-            main_game = dialog.main_game_edit.text().strip()
-            
-            # 验证输入
-            if not launcher or not main_game:
-                QMessageBox.warning(self, "输入错误", "请填写所有字段")
-                return
-            
-            # 更新配置
-            game_config.launcher = launcher
-            game_config.main_game = main_game
-            
-            # 保存配置
-            self.monitor.config_manager.save_config()
-            
-            logger.debug(f"已更新游戏配置: {game_name}")
-    
-    @Slot(QListWidgetItem)
-    def delete_game_config(self, list_item):
-        """删除游戏配置"""
-        # 获取游戏名称
-        widget = self.games_list.itemWidget(list_item)
-        if not widget:
-            return
-        
-        game_name = widget.game_name
-        
-        # 确认删除
-        reply = QMessageBox.question(
-            self, "确认删除", 
-            f"确定要删除游戏配置 '{game_name}' 吗？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply == QMessageBox.Yes:
-            # 查找游戏配置
-            game_config = None
-            for config in self.monitor.game_configs:
-                if config.name == game_name:
-                    game_config = config
-                    break
-            
-            if game_config:
-                # 如果游戏正在监控中，先停止监控
-                if game_config.enabled:
-                    # 先将enabled设置为False以便线程退出循环
-                    game_config.enabled = False
-                    # 停止监控线程
-                    self.monitor.stop_monitor_thread(game_config)
-                    logger.debug(f"已停止游戏 '{game_name}' 的监控线程")
-                    
-                    # 检查是否还有其他启用的游戏
-                    if not any(g.enabled for g in self.monitor.game_configs if g.name != game_name):
-                        # 如果没有其他启用的游戏，重置监控器状态
-                        logger.debug("所有游戏监控已关闭")
-                        self.monitor.running = False
-                        self.monitor.anticheat_killed = False
-                        self.monitor.scanprocess_optimized = False
-                        logger.debug("监控程序已停止")
-            
-            # 删除游戏配置
-            self.monitor.config_manager.remove_game_config(game_name)
-            
-            # 更新游戏列表和菜单
-            self.update_games_menu()
-            
-            # 更新状态显示
-            self.update_status()
-            
-            logger.debug(f"已删除游戏配置: {game_name}")
 
     @Slot()
     def toggle_debug_mode(self):
@@ -2078,21 +1777,11 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def optimize_current_game(self):
-        """优化当前游戏体验"""
-        # 检查是否有游戏正在运行
-        running_games = []
-        for game_config in self.monitor.game_configs:
-            if game_config.enabled and game_config.main_game_running:
-                running_games.append(game_config)
-        
-        if not running_games:
-            QMessageBox.information(self, "提示", "当前没有游戏在运行")
-            return
-        
+        """优化系统体验"""
         # 获取I/O优先级管理器
         io_manager = get_io_priority_manager()
         
-        # 提高游戏进程优先级，降低其他进程优先级的逻辑
+        # 降低反作弊进程优先级的逻辑
         result_messages = []
         
         # 确认操作
@@ -2101,8 +1790,7 @@ class MainWindow(QMainWindow):
             "确认操作",
             "此操作将：\n"
             "1. 降低所有反作弊进程的I/O优先级\n"
-            "2. 尽可能提高游戏主进程的响应性\n\n"
-            f"检测到正在运行的游戏: {', '.join([g.name for g in running_games])}\n\n"
+            "2. 优化系统响应性\n\n"
             "确定要继续吗？",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.Yes
@@ -2112,8 +1800,8 @@ class MainWindow(QMainWindow):
             return
         
         # 显示进度对话框
-        progress = QProgressDialog("正在优化游戏体验...", "取消", 0, 2, self)
-        progress.setWindowTitle("优化游戏体验")
+        progress = QProgressDialog("正在优化系统体验...", "取消", 0, 2, self)
+        progress.setWindowTitle("优化系统体验")
         progress.setMinimumDuration(0)
         progress.setValue(0)
         progress.show()
@@ -2145,21 +1833,7 @@ class MainWindow(QMainWindow):
         if progress.wasCanceled():
             return
         
-        # 2. 对于当前运行的游戏，确保其主进程有正常或更高的I/O优先级
-        game_total = 0
-        game_success = 0
-        for game in running_games:
-            if game.main_game:
-                success, total = io_manager.set_process_io_priority_by_name(
-                    game.main_game, 
-                    IO_PRIORITY_HINT.IoPriorityNormal  # 使用正常优先级
-                )
-                game_total += total
-                game_success += success
-        
-        if game_total > 0:
-            result_messages.append(f"已为 {game_success}/{game_total} 个游戏进程设置正常I/O优先级")
-        
+        # 2. 优化系统进程
         progress.setValue(2)
         
         # 显示结果
@@ -2180,7 +1854,7 @@ class MainWindow(QMainWindow):
 
 def get_status_info(monitor):
     """
-    获取程序状态信息
+    获取程序状态信息（托盘通知显示状态文本）
     
     Args:
         monitor: 进程监控器对象
@@ -2192,71 +1866,51 @@ def get_status_info(monitor):
         return "程序未启动"
     
     status_lines = []
-    status_lines.append("🟢 监控程序运行中" if monitor.running else "🔴 监控程序已停止")
-    
-    # 检查是否有任何游戏在运行
-    running_games = [game_config.name for game_config in monitor.game_configs 
-                     if game_config.enabled and game_config.main_game_running]
-    any_game_running = bool(running_games)
-    
-    # 如果至少有一个游戏在运行，也更新monitor的状态
-    if any_game_running and not monitor.main_game_running:
-        monitor.main_game_running = True
-    # 如果没有游戏在运行但monitor状态显示有游戏在运行，更新monitor状态
-    elif not any_game_running and monitor.main_game_running:
-        monitor.main_game_running = False
-    
-    # 检查进程状态
-    if any_game_running:
-        status_lines.append(f"🎮 游戏主程序：运行中 ({', '.join(running_games)})")
-        
-        # 检查 ACE-Tray.exe 是否存在 (ACE反作弊程序是否安装提示弹窗)
-        ace_proc = monitor.is_process_running(monitor.anticheat_name)
-        if not ace_proc and monitor.anticheat_killed:
-            status_lines.append("✅ ACE-Tray进程：已终止")
-        elif not ace_proc:
-            status_lines.append("ℹ️ ACE-Tray进程：未运行")
-        elif ace_proc and monitor.anticheat_killed:
-            status_lines.append("⏳ ACE-Tray进程：处理中")
-        else:
-            status_lines.append("❗ ACE-Tray进程：需要处理")
-        
-        # 检查 SGuard64.exe 是否存在
-        scan_proc = monitor.is_process_running(monitor.scanprocess_name)
-        if not scan_proc and monitor.scanprocess_optimized:
-            status_lines.append("✅ SGuard64进程：已优化")
-        elif not scan_proc:
-            status_lines.append("ℹ️ SGuard64进程：未运行")
-        elif scan_proc and monitor.scanprocess_optimized:
-            # 验证是否真的优化了
-            try:
-                is_running, is_optimized = monitor.check_process_status(monitor.scanprocess_name)
-                if is_running and is_optimized:
-                    status_lines.append("✅ SGuard64进程：已优化")
-                else:
-                    status_lines.append("⏳ SGuard64进程：优化中")
-            except Exception:
-                # 如果无法检查状态，显示处理中
-                status_lines.append("⏳ SGuard64进程：优化中") 
-        else:
-            status_lines.append("❗ SGuard64进程：需要优化")
-        
-        # 检查 AntiCheatExpert Service 服务状态
-        service_exists, status, start_type = monitor.check_service_status(monitor.anticheat_service_name)
-        if service_exists:
-            if status == 'running':
-                status_lines.append("✅ AntiCheatExpert服务：正在运行")
-            elif status == 'stopped':
-                status_lines.append("⚠️ AntiCheatExpert服务：已停止")
-            else:
-                status_lines.append(f"ℹ️ AntiCheatExpert服务：{status}")
-            
-            # 显示启动类型
-            status_lines.append(f"⚙️ 服务启动类型：{get_start_type_display(start_type)}")
-        else:
-            status_lines.append("❓ AntiCheatExpert服务：未找到")
+    # 检查 ACE-Tray.exe 是否存在 (ACE反作弊程序是否安装提示弹窗)
+    ace_proc = monitor.is_process_running(monitor.anticheat_name)
+    if not ace_proc and monitor.anticheat_killed:
+        status_lines.append("✅ ACE-Tray进程：已终止")
+    elif not ace_proc:
+        status_lines.append("ℹ️ ACE-Tray进程：未运行")
+    elif ace_proc and monitor.anticheat_killed:
+        status_lines.append("⏳ ACE-Tray进程：处理中")
     else:
-        status_lines.append("🎮 游戏主程序：未运行")
+        status_lines.append("❗ ACE-Tray进程：需要处理")
+    
+    # 检查 SGuard64.exe 是否存在
+    scan_proc = monitor.is_process_running(monitor.scanprocess_name)
+    if not scan_proc and monitor.scanprocess_optimized:
+        status_lines.append("✅ SGuard64进程：已优化")
+    elif not scan_proc:
+        status_lines.append("ℹ️ SGuard64进程：未运行")
+    elif scan_proc and monitor.scanprocess_optimized:
+        # 验证是否真的优化了
+        try:
+            is_running, is_optimized = monitor.check_process_status(monitor.scanprocess_name)
+            if is_running and is_optimized:
+                status_lines.append("✅ SGuard64进程：已优化")
+            else:
+                status_lines.append("⏳ SGuard64进程：优化中")
+        except Exception:
+            # 如果无法检查状态，显示处理中
+            status_lines.append("⏳ SGuard64进程：优化中") 
+    else:
+        status_lines.append("❗ SGuard64进程：需要优化")
+    
+    # 检查 AntiCheatExpert Service 服务状态
+    service_exists, status, start_type = monitor.check_service_status(monitor.anticheat_service_name)
+    if service_exists:
+        if status == 'running':
+            status_lines.append("✅ AntiCheatExpert服务：正在运行")
+        elif status == 'stopped':
+            status_lines.append("⚠️ AntiCheatExpert服务：已停止")
+        else:
+            status_lines.append(f"ℹ️ AntiCheatExpert服务：{status}")
+        
+        # 显示启动类型
+        status_lines.append(f"⚙️ 服务启动类型：{get_start_type_display(start_type)}")
+    else:
+        status_lines.append("❓ AntiCheatExpert服务：未找到")
     
     status_lines.append("\n⚙️ 系统设置：")
     status_lines.append("  🔔 通知状态：" + ("开启" if monitor.show_notifications else "关闭"))

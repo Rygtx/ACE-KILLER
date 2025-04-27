@@ -10,7 +10,7 @@
 <img alt="platform" src="https://img.shields.io/badge/platform-Windows-blueviolet">
 <img alt="python" src="https://img.shields.io/badge/Python-3.10+-blue.svg">
 <img alt="license" src="https://img.shields.io/badge/License-GPL--3.0-green.svg">
-<img alt="version" src="https://img.shields.io/badge/Version-1.0.3-orange.svg">
+<img alt="version" src="https://img.shields.io/github/v/release/Cassianvale/ACE-KILLER?color=orange&label=Version">
 </div>
 
 <div>
@@ -68,7 +68,6 @@
 | `utils/build_exe.py` | 打包工具 |
 | `utils/memory_cleaner.py` | 内存清理核心 |
 | `utils/process_io_priority.py` | 进程I/O优先级管理 |
-| `models/game_config.py` | 游戏配置数据模型 |
 | `requirements.txt` | 项目依赖列表 |
 
 ## 💻 技术栈

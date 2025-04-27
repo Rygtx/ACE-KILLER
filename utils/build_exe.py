@@ -88,7 +88,7 @@ except subprocess.CalledProcessError as e:
 
 # 压缩可执行文件目录
 dist_dir = os.path.join(root_dir, "main.dist")
-zip_name = "ACE-KILLER-1.0.3-x64"
+zip_name = "ACE-KILLER-v1.0.0-x64"
 zip_path = os.path.join(root_dir, zip_name + ".zip")
 if os.path.exists(dist_dir):
     print("📦 正在压缩可执行文件目录...")
