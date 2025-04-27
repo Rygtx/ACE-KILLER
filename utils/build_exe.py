@@ -24,9 +24,9 @@ try:
     qt_plugins_path = QLibraryInfo.path(QLibraryInfo.PluginsPath)
     qt_translations_path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
     qt_binaries_path = QLibraryInfo.path(QLibraryInfo.BinariesPath)
-    print(f"✅ 已找到Qt插件路径: {qt_plugins_path}")
+    print(f"[OK] 已找到Qt插件路径: {qt_plugins_path}")
 except ImportError:
-    print("❌ 无法导入PySide6，请确保已安装")
+    print("[ERROR] 无法导入PySide6，请确保已安装")
     sys.exit(1)
 
 # 构建Nuitka打包命令
@@ -60,8 +60,8 @@ cmd = [
     "main.py"
 ]
 
-print("🚀 开始使用Nuitka打包...")
-print("⏱️ 打包过程可能需要几分钟，请耐心等待...")
+print("[START] 开始使用Nuitka打包...")
+print("[INFO] 打包过程可能需要几分钟，请耐心等待...")
 
 # 执行打包命令
 try:
@@ -74,16 +74,16 @@ try:
     
     # 首先判断main_exe是否存在
     if os.path.exists(main_exe):
-        print(f"✅ 打包成功！可执行文件已生成: {(main_exe)}")
+        print(f"[SUCCESS] 打包成功！可执行文件已生成: {(main_exe)}")
         
         # 输出文件大小信息
         size_mb = os.path.getsize(main_exe) / (1024 * 1024)
-        print(f"📦 可执行文件大小: {size_mb:.2f} MB")
+        print(f"[INFO] 可执行文件大小: {size_mb:.2f} MB")
     else:
-        print("❌ 打包完成，但未找到生成的可执行文件")
+        print("[ERROR] 打包完成，但未找到生成的可执行文件")
         
 except subprocess.CalledProcessError as e:
-    print(f"❌ 打包失败: {e}")
+    print(f"[ERROR] 打包失败: {e}")
     sys.exit(1)
 
 # 压缩可执行文件目录
@@ -91,12 +91,12 @@ dist_dir = os.path.join(root_dir, "main.dist")
 zip_name = "ACE-KILLER-v1.0.0-x64"
 zip_path = os.path.join(root_dir, zip_name + ".zip")
 if os.path.exists(dist_dir):
-    print("📦 正在压缩可执行文件目录...")
+    print("[INFO] 正在压缩可执行文件目录...")
     # 确保在正确的位置创建zip文件
     shutil.make_archive(os.path.join(root_dir, zip_name), 'zip', dist_dir)
-    print(f"✅ 压缩完成！已生成压缩文件: {zip_path}")
+    print(f"[SUCCESS] 压缩完成！已生成压缩文件: {zip_path}")
 else:
-    print("❌ 未找到可执行文件目录，无法压缩。")
+    print("[ERROR] 未找到可执行文件目录，无法压缩。")
     sys.exit(1)
 
-print("✅ ACE-KILLER 使用Nuitka打包并压缩完成！")
+print("[SUCCESS] ACE-KILLER 使用Nuitka打包并压缩完成！")
