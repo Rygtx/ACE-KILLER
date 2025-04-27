@@ -36,6 +36,7 @@ jobs:
         uses: egor-tensin/setup-mingw@v2
         with:
           platform: x64
+          static: 0
 
       - name: 环境诊断
         run: |
@@ -46,6 +47,7 @@ jobs:
           echo "内存信息: $(Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory)"
           echo "Python编码: $(python -c 'import sys; print(sys.stdout.encoding)')"
           echo "GCC版本: $(gcc --version)"
+          echo "MinGW目录: $(Get-Command gcc | Select-Object -ExpandProperty Source)"
         shell: pwsh
 
       - name: 安装依赖
