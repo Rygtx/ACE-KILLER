@@ -33,6 +33,9 @@ class ConfigManager:
         self.memory_cleaner_enabled = False  # 内存清理开关默认值
         self.memory_cleaner_brute_mode = True  # 内存清理暴力模式默认值
         self.memory_cleaner_switches = [False] * 6  # 内存清理选项默认值
+        self.memory_cleaner_interval = 300  # 内存清理间隔默认值(秒)
+        self.memory_cleaner_threshold = 80.0  # 内存占用触发阈值默认值(百分比)
+        self.memory_cleaner_cooldown = 60  # 内存清理冷却时间默认值(秒)
         
         # I/O优先级设置
         self.io_priority_processes = []  # 需要自动设置I/O优先级的进程名列表，格式为[{"name": "进程名", "priority": 0}]
@@ -83,7 +86,10 @@ class ConfigManager:
             'memory_cleaner': {
                 'enabled': False,
                 'brute_mode': True,
-                'switches': [False, False, False, True, True, False]
+                'switches': [False, False, False, True, True, False],
+                'interval': 300,
+                'threshold': 80.0,
+                'cooldown': 60
             },
             'io_priority': {
                 'processes': [
@@ -166,6 +172,23 @@ class ConfigManager:
                         for i, switch in enumerate(config_data['memory_cleaner']['switches']):
                             if i < len(self.memory_cleaner_switches):
                                 self.memory_cleaner_switches[i] = bool(switch)
+                    if 'interval' in config_data['memory_cleaner']:
+                        self.memory_cleaner_interval = int(config_data['memory_cleaner']['interval'])
+                        # 确保配置值合法
+                        if self.memory_cleaner_interval < 60:
+                            self.memory_cleaner_interval = 60
+                    if 'threshold' in config_data['memory_cleaner']:
+                        self.memory_cleaner_threshold = float(config_data['memory_cleaner']['threshold'])
+                        # 确保配置值在合法范围
+                        if self.memory_cleaner_threshold < 30:
+                            self.memory_cleaner_threshold = 30
+                        elif self.memory_cleaner_threshold > 95:
+                            self.memory_cleaner_threshold = 95
+                    if 'cooldown' in config_data['memory_cleaner']:
+                        self.memory_cleaner_cooldown = int(config_data['memory_cleaner']['cooldown'])
+                        # 确保配置值合法
+                        if self.memory_cleaner_cooldown < 30:
+                            self.memory_cleaner_cooldown = 30
                     logger.debug("已从配置文件加载内存清理设置")
                 
                 # 读取I/O优先级设置
@@ -236,6 +259,12 @@ class ConfigManager:
                 for i, switch in enumerate(default_config['memory_cleaner']['switches']):
                     if i < len(self.memory_cleaner_switches):
                         self.memory_cleaner_switches[i] = switch
+                if 'interval' in default_config['memory_cleaner']:
+                    self.memory_cleaner_interval = default_config['memory_cleaner']['interval']
+                if 'threshold' in default_config['memory_cleaner']:
+                    self.memory_cleaner_threshold = default_config['memory_cleaner']['threshold']
+                if 'cooldown' in default_config['memory_cleaner']:
+                    self.memory_cleaner_cooldown = default_config['memory_cleaner']['cooldown']
             
             # 加载I/O优先级默认设置
             if 'io_priority' in default_config and 'processes' in default_config['io_priority']:
@@ -272,7 +301,10 @@ class ConfigManager:
                 'memory_cleaner': {
                     'enabled': self.memory_cleaner_enabled,
                     'brute_mode': self.memory_cleaner_brute_mode,
-                    'switches': self.memory_cleaner_switches
+                    'switches': self.memory_cleaner_switches,
+                    'interval': self.memory_cleaner_interval,
+                    'threshold': self.memory_cleaner_threshold,
+                    'cooldown': self.memory_cleaner_cooldown
                 },
                 'io_priority': {
                     'processes': self.io_priority_processes

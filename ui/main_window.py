@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QGroupBox, QTabWidget, QFrame,
     QMessageBox, QScrollArea, QStyle, QDialog, QLineEdit, QFormLayout,
     QGridLayout, QProgressDialog, QProgressBar, QComboBox, QTableWidget,
-    QTableWidgetItem, QHeaderView, QAbstractItemView
+    QTableWidgetItem, QHeaderView, QAbstractItemView, QSpinBox
 )
 from PySide6.QtCore import Qt, Signal, QSize, QObject, Slot, QTimer, QEvent, QThread, QMetaObject, QGenericArgument
 from PySide6.QtGui import QIcon, QPixmap, QColor, QAction
@@ -408,15 +408,15 @@ class MainWindow(QMainWindow):
         auto_layout = QVBoxLayout()
         
         # 定时选项
-        self.clean_option1 = QCheckBox("每过5分钟，截取进程工作集")
+        self.clean_option1 = QCheckBox("定时清理(每5分钟)，截取进程工作集")
         self.clean_option1.stateChanged.connect(lambda state: self.toggle_clean_option(0, state))
         auto_layout.addWidget(self.clean_option1)
         
-        self.clean_option2 = QCheckBox("每过5分钟，清理系统缓存")
+        self.clean_option2 = QCheckBox("定时清理(每5分钟)，清理系统缓存")
         self.clean_option2.stateChanged.connect(lambda state: self.toggle_clean_option(1, state))
         auto_layout.addWidget(self.clean_option2)
         
-        self.clean_option3 = QCheckBox("每过5分钟，用全部可能的方法清理内存")
+        self.clean_option3 = QCheckBox("定时清理(每5分钟)，用全部可能的方法清理内存")
         self.clean_option3.stateChanged.connect(lambda state: self.toggle_clean_option(2, state))
         auto_layout.addWidget(self.clean_option3)
         
@@ -457,10 +457,58 @@ class MainWindow(QMainWindow):
         options_group.setLayout(options_layout)
         memory_layout.addWidget(options_group)
         
+        # 自定义配置选项
+        custom_group = QGroupBox("自定义配置")
+        custom_layout = QGridLayout()
+        
+        # 清理间隔设置
+        interval_label = QLabel("清理间隔(秒):")
+        self.interval_spinbox = QSpinBox()
+        self.interval_spinbox.setMinimum(60)  # 最小1分钟
+        self.interval_spinbox.setMaximum(3600)  # 最大1小时
+        self.interval_spinbox.setSingleStep(30)  # 步长30秒
+        self.interval_spinbox.setValue(300)  # 默认5分钟
+        self.interval_spinbox.valueChanged.connect(self.update_clean_interval)
+        self.interval_spinbox.setToolTip("定时清理的时间间隔，最小60秒")
+        custom_layout.addWidget(interval_label, 0, 0)
+        custom_layout.addWidget(self.interval_spinbox, 0, 1)
+        
+        # 内存占用阈值设置
+        threshold_label = QLabel("内存阈值(%):")
+        self.threshold_spinbox = QSpinBox()
+        self.threshold_spinbox.setMinimum(15)  # 最小30%
+        self.threshold_spinbox.setMaximum(95)  # 最大95%
+        self.threshold_spinbox.setSingleStep(5)  # 步长5%
+        self.threshold_spinbox.setValue(80)  # 默认80%
+        self.threshold_spinbox.valueChanged.connect(self.update_memory_threshold)
+        self.threshold_spinbox.setToolTip("当内存使用率超过此阈值时触发清理")
+        custom_layout.addWidget(threshold_label, 0, 2)
+        custom_layout.addWidget(self.threshold_spinbox, 0, 3)
+        
+        # 冷却时间设置
+        cooldown_label = QLabel("冷却时间(秒):")
+        self.cooldown_spinbox = QSpinBox()
+        self.cooldown_spinbox.setMinimum(30)  # 最小30秒
+        self.cooldown_spinbox.setMaximum(300)  # 最大5分钟
+        self.cooldown_spinbox.setSingleStep(10)  # 步长10秒
+        self.cooldown_spinbox.setValue(60)  # 默认60秒
+        self.cooldown_spinbox.valueChanged.connect(self.update_cooldown_time)
+        self.cooldown_spinbox.setToolTip("两次内存占用触发清理之间的最小时间间隔，防止短时间内频繁清理")
+        custom_layout.addWidget(cooldown_label, 1, 0)
+        custom_layout.addWidget(self.cooldown_spinbox, 1, 1)
+        
+        # 添加描述标签
+        description_label = QLabel("注意: 清理间隔不能小于1分钟，冷却时间用于防止短时间内重复触发清理")
+        description_label.setWordWrap(True)
+        custom_layout.addWidget(description_label, 1, 2, 1, 2)
+        
+        custom_group.setLayout(custom_layout)
+        memory_layout.addWidget(custom_group)
+        
         # 手动清理按钮
         buttons_group = QGroupBox("手动清理")
         buttons_layout = QVBoxLayout()
-        
+
         # 按钮水平布局
         btn_row_layout = QHBoxLayout()
         
@@ -503,6 +551,11 @@ class MainWindow(QMainWindow):
         self.cache_info_label = QLabel("系统缓存: 加载中...")
         self.cache_info_label.setAlignment(Qt.AlignCenter)
         memory_status_layout.addWidget(self.cache_info_label)
+        
+        # 创建配置信息标签
+        self.config_info_label = QLabel("配置信息: 加载中...")
+        self.config_info_label.setAlignment(Qt.AlignCenter)
+        memory_status_layout.addWidget(self.config_info_label)
         
         # 创建内存使用进度条
         self.memory_progress = QProgressBar()
@@ -901,6 +954,11 @@ class MainWindow(QMainWindow):
                 html.append(f'<p class="status-item">🛡️ 内存清理: <span class="status-success">已启用</span></p>')
                 html.append(f'<p class="status-item">🍋‍🟩 内存使用: <span class="{status_class}">{used_percent:.1f}%</span> ({used_gb:.1f}GB / {total_gb:.1f}GB)</p>')
                 
+                # 添加自定义清理配置信息
+                html.append(f'<p class="status-item">⏱️ 清理间隔: <span class="status-normal">{self.memory_cleaner.clean_interval}秒</span></p>')
+                html.append(f'<p class="status-item">📊 触发阈值: <span class="status-normal">{self.memory_cleaner.threshold}%</span></p>')
+                html.append(f'<p class="status-item">⏲️ 冷却时间: <span class="status-normal">{self.memory_cleaner.cooldown_time}秒</span></p>')
+                
                 # 系统缓存信息
                 cache_info = self.memory_cleaner.get_system_cache_info()
                 if cache_info:
@@ -1007,6 +1065,19 @@ class MainWindow(QMainWindow):
         # 加载暴力模式设置
         self.brute_mode_checkbox.setChecked(self.memory_cleaner.brute_mode)
         
+        # 加载自定义配置设置
+        self.interval_spinbox.setValue(self.memory_cleaner.clean_interval)
+        self.threshold_spinbox.setValue(self.memory_cleaner.threshold)
+        self.cooldown_spinbox.setValue(self.memory_cleaner.cooldown_time)
+        
+        # 更新清理选项标签文本
+        self.clean_option1.setText(f"定时清理(每{self.memory_cleaner.clean_interval}秒)，截取进程工作集")
+        self.clean_option2.setText(f"定时清理(每{self.memory_cleaner.clean_interval}秒)，清理系统缓存")
+        self.clean_option3.setText(f"定时清理(每{self.memory_cleaner.clean_interval}秒)，用全部可能的方法清理内存")
+        self.clean_option4.setText(f"若内存使用量超出{self.memory_cleaner.threshold}%，截取进程工作集")
+        self.clean_option5.setText(f"若内存使用量超出{self.memory_cleaner.threshold}%，清理系统缓存")
+        self.clean_option6.setText(f"若内存使用量超出{self.memory_cleaner.threshold}%，用全部可能的方法清理内存")
+        
         # 加载清理选项设置
         self.clean_option1.setChecked(self.memory_cleaner.clean_switches[0])
         self.clean_option2.setChecked(self.memory_cleaner.clean_switches[1])
@@ -1065,6 +1136,7 @@ class MainWindow(QMainWindow):
         if not mem_info:
             self.memory_info_label.setText("无法获取内存信息")
             self.cache_info_label.setText("系统缓存: 无法获取信息")
+            self.config_info_label.setText("配置信息: 无法获取信息")
             self.memory_progress.setValue(0)
             return
             
@@ -1095,6 +1167,12 @@ class MainWindow(QMainWindow):
         else:
             self.cache_info_label.setText("系统缓存: 无法获取信息")
             self.cache_info_label.setStyleSheet("")
+        
+        # 更新配置信息标签
+        config_text = (f"配置: 清理间隔 {self.memory_cleaner.clean_interval}秒 | "
+                      f"触发阈值 {self.memory_cleaner.threshold}% | "
+                      f"冷却时间 {self.memory_cleaner.cooldown_time}秒")
+        self.config_info_label.setText(config_text)
         
         # 更新进度条
         self.memory_progress.setValue(int(used_percent))
@@ -1572,19 +1650,29 @@ class MainWindow(QMainWindow):
         # 更新内存清理器的enabled属性
         self.memory_cleaner.enabled = enabled
         
-        if enabled and not self.memory_cleaner.running:
-            # 启动内存清理线程
-            self.memory_cleaner.start_cleaner_thread()
-            logger.debug("内存清理功能已启用")
-        elif not enabled and self.memory_cleaner.running:
-            # 停止内存清理线程 - 非阻塞方式
-            self.memory_cleaner.stop_cleaner_thread()
-            logger.debug("内存清理功能正在停止")
-        
         # 将设置同步到配置管理器
         self.memory_cleaner.sync_to_config_manager()
         
-        # 立即更新UI状态，而不等待线程完全停止
+        # 检查是否应该启动或停止清理线程
+        self.memory_cleaner._check_should_run_thread()
+        
+        if enabled:
+            # 检查是否有任何清理选项被启用
+            if not any(self.memory_cleaner.clean_switches):
+                # 显示提示消息
+                QMessageBox.information(
+                    self,
+                    "内存清理提示",
+                    "您已启用内存清理功能，但未勾选任何清理选项。\n请勾选至少一个清理选项以使清理功能生效。",
+                    QMessageBox.Ok
+                )
+                logger.debug("内存清理已启用，但未勾选任何清理选项")
+            else:
+                logger.debug("内存清理功能已启用")
+        else:
+            logger.debug("内存清理功能已禁用")
+        
+        # 立即更新UI状态
         self.update_memory_status()
     
     @Slot()
@@ -1606,14 +1694,42 @@ class MainWindow(QMainWindow):
         # PySide6中Qt.Checked的值为2
         enabled = (state == 2)
         
-        self.memory_cleaner.clean_switches[option_index] = enabled
-        
-        # 将设置同步到配置管理器
-        self.memory_cleaner.sync_to_config_manager()
+        # 使用内存清理管理器的方法更新选项状态
+        self.memory_cleaner.set_clean_option(option_index, enabled)
         
         # 将索引转换为实际的选项编号
         option_number = option_index + 1
         logger.debug(f"内存清理选项 {option_number} 已{'启用' if enabled else '禁用'}")
+    
+    @Slot(int)
+    def update_clean_interval(self, value):
+        """更新清理间隔时间"""
+        self.memory_cleaner.set_clean_interval(value)
+        
+        # 更新选项文本
+        self.clean_option1.setText(f"定时清理(每{value}秒)，截取进程工作集")
+        self.clean_option2.setText(f"定时清理(每{value}秒)，清理系统缓存")
+        self.clean_option3.setText(f"定时清理(每{value}秒)，用全部可能的方法清理内存")
+        
+        logger.debug(f"内存清理间隔已设置为 {value} 秒")
+    
+    @Slot(int)
+    def update_memory_threshold(self, value):
+        """更新内存占用触发阈值"""
+        self.memory_cleaner.set_memory_threshold(value)
+        
+        # 更新选项文本
+        self.clean_option4.setText(f"若内存使用量超出{value}%，截取进程工作集")
+        self.clean_option5.setText(f"若内存使用量超出{value}%，清理系统缓存")
+        self.clean_option6.setText(f"若内存使用量超出{value}%，用全部可能的方法清理内存")
+        
+        logger.debug(f"内存占用触发阈值已设置为 {value}%")
+    
+    @Slot(int)
+    def update_cooldown_time(self, value):
+        """更新清理冷却时间"""
+        self.memory_cleaner.set_cooldown_time(value)
+        logger.debug(f"内存清理冷却时间已设置为 {value} 秒")
     
     @Slot()
     def _update_progress_dialog_value(self, value):

@@ -80,9 +80,15 @@ class MemoryCleanerManager:
         self.brute_mode = True
         self.enabled = False  # 添加内存清理开关状态
         
+        # 自定义配置项
+        self.clean_interval = 300  # 清理间隔，默认300秒
+        self.threshold = 80.0  # 内存占用触发阈值，默认80%
+        self.cooldown_time = 60  # 清理冷却时间，默认60秒
+        
         # 状态
         self.running = False
         self._clean_thread = None
+        self._last_threshold_clean = 0  # 最后一次基于阈值的清理时间
         
         # 清理统计
         self.total_cleaned_mb = 0
@@ -308,11 +314,35 @@ class MemoryCleanerManager:
         self.brute_mode = self.config_manager.memory_cleaner_brute_mode
         self.clean_switches = self.config_manager.memory_cleaner_switches.copy()
         
-        # 如果设置为启用但当前未运行，则启动清理线程
-        if self.enabled and not self.running:
-            self.start_cleaner_thread()
+        # 加载自定义配置
+        self.clean_interval = self.config_manager.memory_cleaner_interval
+        self.threshold = self.config_manager.memory_cleaner_threshold
+        self.cooldown_time = self.config_manager.memory_cleaner_cooldown
+        
+        # 确保清理间隔不低于60秒
+        if self.clean_interval < 60:
+            logger.warning(f"配置的清理间隔({self.clean_interval}秒)小于最小值60秒，将重置为60秒")
+            self.clean_interval = 60
+            self.config_manager.memory_cleaner_interval = 60
+            self.config_manager.save_config()
+        
+        # 检查是否应该启动或停止清理线程
+        self._check_should_run_thread()
         
         logger.debug("已从配置管理器更新内存清理设置")
+    
+    def _check_should_run_thread(self):
+        """检查是否应该运行清理线程"""
+        should_run = self.enabled and any(self.clean_switches)
+        
+        if should_run and not self.running:
+            # 如果应该运行但未运行，则启动线程
+            self.start_cleaner_thread()
+            logger.debug("已启动内存清理线程")
+        elif not should_run and self.running:
+            # 如果不应该运行但正在运行，则停止线程
+            self.stop_cleaner_thread()
+            logger.debug("已停止内存清理线程，因为未启用任何清理选项")
     
     def sync_to_config_manager(self):
         """将当前设置同步到配置管理器"""
@@ -322,6 +352,11 @@ class MemoryCleanerManager:
         self.config_manager.memory_cleaner_enabled = self.enabled
         self.config_manager.memory_cleaner_brute_mode = self.brute_mode
         self.config_manager.memory_cleaner_switches = self.clean_switches.copy()
+        
+        # 同步自定义配置
+        self.config_manager.memory_cleaner_interval = self.clean_interval
+        self.config_manager.memory_cleaner_threshold = self.threshold
+        self.config_manager.memory_cleaner_cooldown = self.cooldown_time
         
         # 保存配置
         self.config_manager.save_config()
@@ -602,6 +637,11 @@ class MemoryCleanerManager:
             logger.debug("内存清理线程已在运行")
             return
         
+        # 检查是否有任何清理选项被启用
+        if not any(self.clean_switches):
+            logger.debug("未启动内存清理线程，因为未启用任何清理选项")
+            return
+        
         self.running = True
         self._clean_thread = threading.Thread(target=self._cleaner_thread_func, daemon=True)
         self._clean_thread.start()
@@ -625,43 +665,64 @@ class MemoryCleanerManager:
         while self.running:
             try:
                 cleaned = False
+                current_time = time.time()
                 
-                # 定时清理 (每5分钟)
-                if self.clean_switches[0] or self.clean_switches[1] or self.clean_switches[2]:
-                    current_time = time.time()
-                    if current_time - last_clean_time > 300:  # 每5分钟
-                        
-                        # 清理进程工作集
-                        if self.clean_switches[0]:
-                            self.trim_process_working_set()
-                        
-                        # 清理系统缓存
-                        if self.clean_switches[1]:
-                            self.flush_system_buffer()
-                        
-                        # 全面清理
-                        if self.clean_switches[2]:
-                            self.clean_memory_all()
-                        
-                        last_clean_time = current_time
-                        cleaned = True
+                # 检查是否有任何清理选项被启用
+                any_option_enabled = any(self.clean_switches)
                 
-                # 内存使用率触发清理 (超过80%)
-                if not cleaned and (self.clean_switches[3] or self.clean_switches[4] or self.clean_switches[5]):
-                    mem_info = self.get_memory_info()
+                # 只有在至少启用了一个清理选项的情况下才执行清理
+                if any_option_enabled:
+                    # 定时清理
+                    if self.clean_switches[0] or self.clean_switches[1] or self.clean_switches[2]:
+                        if current_time - last_clean_time > self.clean_interval:
+                            logger.debug(f"定时内存清理触发，距上次清理: {int(current_time - last_clean_time)}秒")
+                            
+                            # 清理进程工作集
+                            if self.clean_switches[0]:
+                                self.trim_process_working_set()
+                            
+                            # 清理系统缓存
+                            if self.clean_switches[1]:
+                                self.flush_system_buffer()
+                            
+                            # 全面清理
+                            if self.clean_switches[2]:
+                                self.clean_memory_all()
+                            
+                            last_clean_time = current_time
+                            cleaned = True
                     
-                    if mem_info and mem_info['percent'] >= 80.0:
-                        # 清理进程工作集
-                        if self.clean_switches[3]:
-                            self.trim_process_working_set()
+                    # 内存使用率触发清理
+                    if (not cleaned and 
+                        (self.clean_switches[3] or self.clean_switches[4] or self.clean_switches[5]) and
+                        (current_time - self._last_threshold_clean > self.cooldown_time)):  # 确保冷却时间已过
                         
-                        # 清理系统缓存
-                        if self.clean_switches[4]:
-                            self.flush_system_buffer()
+                        mem_info = self.get_memory_info()
                         
-                        # 全面清理
-                        if self.clean_switches[5]:
-                            self.clean_memory_all()
+                        if mem_info and mem_info['percent'] >= self.threshold:
+                            logger.debug(f"内存使用率触发清理，当前使用率: {mem_info['percent']}%，阈值: {self.threshold}%")
+                            
+                            # 清理进程工作集
+                            if self.clean_switches[3]:
+                                self.trim_process_working_set()
+                            
+                            # 清理系统缓存
+                            if self.clean_switches[4]:
+                                self.flush_system_buffer()
+                            
+                            # 全面清理
+                            if self.clean_switches[5]:
+                                self.clean_memory_all()
+                            
+                            # 更新最后一次基于阈值的清理时间
+                            self._last_threshold_clean = current_time
+                else:
+                    # 没有启用任何清理选项，记录日志并等待
+                    if hasattr(self, '_last_no_option_warning') and current_time - self._last_no_option_warning < 60:
+                        pass  # 一分钟内不重复记录日志
+                    else:
+                        logger.debug("内存清理已启用，但未勾选任何清理选项，清理线程处于空闲状态")
+                        self._last_no_option_warning = current_time
                 
                 # 使用短时间的多次休眠替代长时间休眠，以便能更快响应停止命令
                 for _ in range(15):
@@ -696,6 +757,45 @@ class MemoryCleanerManager:
             logger.error(f"手动内存清理失败: {str(e)}")
             return False
     
+    def set_clean_interval(self, seconds):
+        """设置清理间隔时间"""
+        # 确保时间不小于60秒
+        if seconds < 60:
+            seconds = 60
+            logger.warning("清理间隔不能小于60秒，已自动调整为60秒")
+        
+        self.clean_interval = seconds
+        logger.debug(f"内存清理间隔已设置为 {seconds} 秒")
+        self.sync_to_config_manager()
+        return True
+    
+    def set_memory_threshold(self, percent):
+        """设置内存占用触发阈值"""
+        # 确保百分比在有效范围内
+        if percent < 15:
+            percent = 15
+            logger.warning("内存占用触发阈值不能小于15%，已自动调整为15%")
+        elif percent > 95:
+            percent = 95
+            logger.warning("内存占用触发阈值不能大于95%，已自动调整为95%")
+            
+        self.threshold = percent
+        logger.debug(f"内存占用触发阈值已设置为 {percent}%")
+        self.sync_to_config_manager()
+        return True
+    
+    def set_cooldown_time(self, seconds):
+        """设置清理冷却时间"""
+        # 确保冷却时间不小于30秒
+        if seconds < 30:
+            seconds = 30
+            logger.warning("清理冷却时间不能小于30秒，已自动调整为30秒")
+        
+        self.cooldown_time = seconds
+        logger.debug(f"内存清理冷却时间已设置为 {seconds} 秒")
+        self.sync_to_config_manager()
+        return True
+    
     def get_clean_stats(self):
         """获取内存清理统计信息"""
         import datetime
@@ -709,6 +809,21 @@ class MemoryCleanerManager:
             "clean_count": self.clean_count,
             "last_clean_time": last_time_str
         }
+    
+    def set_clean_option(self, option_index, enabled):
+        """设置清理选项状态"""
+        if 0 <= option_index < len(self.clean_switches):
+            self.clean_switches[option_index] = enabled
+            logger.debug(f"内存清理选项 {option_index + 1} 已{'启用' if enabled else '禁用'}")
+            
+            # 同步到配置
+            self.sync_to_config_manager()
+            
+            # 检查是否需要启动或停止线程
+            self._check_should_run_thread()
+            
+            return True
+        return False
 
 # 提供一个获取单例实例的函数
 def get_memory_cleaner():
