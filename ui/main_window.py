@@ -499,6 +499,11 @@ class MainWindow(QMainWindow):
         self.memory_info_label.setAlignment(Qt.AlignCenter)
         memory_status_layout.addWidget(self.memory_info_label)
         
+        # 创建系统缓存信息标签
+        self.cache_info_label = QLabel("系统缓存: 加载中...")
+        self.cache_info_label.setAlignment(Qt.AlignCenter)
+        memory_status_layout.addWidget(self.cache_info_label)
+        
         # 创建内存使用进度条
         self.memory_progress = QProgressBar()
         self.memory_progress.setMinimum(0)
@@ -896,11 +901,6 @@ class MainWindow(QMainWindow):
                 html.append(f'<p class="status-item">🛡️ 内存清理: <span class="status-success">已启用</span></p>')
                 html.append(f'<p class="status-item">🍋‍🟩 内存使用: <span class="{status_class}">{used_percent:.1f}%</span> ({used_gb:.1f}GB / {total_gb:.1f}GB)</p>')
                 
-                # 内存使用进度条
-                html.append('<div class="memory-bar">')
-                html.append(f'<div class="memory-bar-fill" style="width: {used_percent}%; background-color: {bar_color};"></div>')
-                html.append('</div>')
-                
                 # 系统缓存信息
                 cache_info = self.memory_cleaner.get_system_cache_info()
                 if cache_info:
@@ -1064,6 +1064,7 @@ class MainWindow(QMainWindow):
         mem_info = self.memory_cleaner.get_memory_info()
         if not mem_info:
             self.memory_info_label.setText("无法获取内存信息")
+            self.cache_info_label.setText("系统缓存: 无法获取信息")
             self.memory_progress.setValue(0)
             return
             
@@ -1071,8 +1072,29 @@ class MainWindow(QMainWindow):
         used_gb = mem_info['used'] / (1024**3)
         total_gb = mem_info['total'] / (1024**3)
         
+        # 获取系统缓存信息
+        cache_info = self.memory_cleaner.get_system_cache_info()
+        
         # 更新标签文本
         self.memory_info_label.setText(f"物理内存: {used_gb:.1f}GB / {total_gb:.1f}GB ({used_percent:.1f}%)")
+        
+        # 更新缓存信息标签
+        if cache_info:
+            cache_size_gb = cache_info['current_size'] / (1024**3)
+            cache_peak_gb = cache_info['peak_size'] / (1024**3)
+            cache_percent = (cache_size_gb / total_gb) * 100 if total_gb > 0 else 0
+            self.cache_info_label.setText(f"系统缓存: 当前 {cache_size_gb:.1f}GB ({cache_percent:.1f}%) | 峰值 {cache_peak_gb:.1f}GB")
+            
+            # 根据缓存占用设置颜色
+            if cache_percent > 30:
+                self.cache_info_label.setStyleSheet("color: #e74c3c;")  # 红色
+            elif cache_percent > 20:
+                self.cache_info_label.setStyleSheet("color: #f39c12;")  # 橙色
+            else:
+                self.cache_info_label.setStyleSheet("")  # 默认颜色
+        else:
+            self.cache_info_label.setText("系统缓存: 无法获取信息")
+            self.cache_info_label.setStyleSheet("")
         
         # 更新进度条
         self.memory_progress.setValue(int(used_percent))
