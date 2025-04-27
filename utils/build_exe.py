@@ -12,9 +12,6 @@ if sys.stdout.encoding != 'utf-8':
         import io
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-# 设置Nuitka自动下载确认(无人值守环境必须)
-os.environ["NUITKA_DOWNLOAD_CONFIRMATION"] = "1"
-
 # 获取当前脚本所在目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # 获取项目根目录
