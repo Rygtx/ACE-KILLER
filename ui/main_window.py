@@ -17,7 +17,8 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QCheckBox, QSystemTrayIcon, QMenu, 
     QListWidget, QListWidgetItem, QGroupBox, QTabWidget, QFrame,
     QMessageBox, QScrollArea, QStyle, QDialog, QLineEdit, QFormLayout,
-    QGridLayout, QProgressDialog, QProgressBar
+    QGridLayout, QProgressDialog, QProgressBar, QComboBox, QTableWidget,
+    QTableWidgetItem, QHeaderView, QAbstractItemView
 )
 from PySide6.QtCore import Qt, Signal, QSize, QObject, Slot, QTimer, QEvent, QThread, QMetaObject, QGenericArgument
 from PySide6.QtGui import QIcon, QPixmap, QColor, QAction
@@ -26,6 +27,7 @@ from loguru import logger
 from utils.notification import send_notification
 from core.system_utils import enable_auto_start, disable_auto_start
 from utils.memory_cleaner import get_memory_cleaner
+from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT
 
 
 class GameListItem(QWidget):
@@ -117,6 +119,126 @@ class GameConfigDialog(QDialog):
         self.setMinimumWidth(300)
 
 
+class ProcessIoPriorityListDialog(QDialog):
+    """I/O优先级进程列表管理对话框"""
+    
+    def __init__(self, parent=None, config_manager=None):
+        super().__init__(parent)
+        self.config_manager = config_manager
+        self.setup_ui()
+        self.load_processes()
+    
+    def setup_ui(self):
+        """设置UI"""
+        self.setWindowTitle("I/O优先级进程列表管理")
+        self.setMinimumSize(500, 300)
+        
+        layout = QVBoxLayout(self)
+        
+        # 提示标签
+        info_label = QLabel(
+            "以下进程会在程序启动和运行期间定期自动设置I/O优先级。\n"
+            "这有助于减少这些进程的磁盘读写活动，提高系统响应速度。"
+        )
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
+        
+        # 进程表格
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)  # 进程名、优先级、操作
+        self.table.setHorizontalHeaderLabels(["进程名", "优先级", "操作"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        layout.addWidget(self.table)
+        
+        # 按钮布局
+        button_layout = QHBoxLayout()
+        
+        # 关闭按钮
+        self.close_btn = QPushButton("关闭")
+        self.close_btn.clicked.connect(self.accept)
+        button_layout.addWidget(self.close_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def load_processes(self):
+        """加载进程列表"""
+        self.table.setRowCount(0)
+        
+        if not self.config_manager or not hasattr(self.config_manager, 'io_priority_processes'):
+            return
+        
+        # 设置行数
+        self.table.setRowCount(len(self.config_manager.io_priority_processes))
+        
+        # 填充数据
+        for row, process in enumerate(self.config_manager.io_priority_processes):
+            # 进程名
+            name_item = QTableWidgetItem(process.get('name', ''))
+            self.table.setItem(row, 0, name_item)
+            
+            # 优先级
+            priority = process.get('priority', 0)
+            priority_text = self._get_priority_text(priority)
+            priority_item = QTableWidgetItem(priority_text)
+            self.table.setItem(row, 1, priority_item)
+            
+            # 删除按钮
+            delete_btn = QPushButton("删除")
+            delete_btn.setProperty("row", row)
+            delete_btn.clicked.connect(self.delete_process)
+            self.table.setCellWidget(row, 2, delete_btn)
+    
+    def _get_priority_text(self, priority):
+        """获取优先级的文本表示"""
+        if priority == 0:
+            return "最低"
+        elif priority == 1:
+            return "低"
+        elif priority == 2:
+            return "正常"
+        elif priority == 3:
+            return "关键"
+        else:
+            return f"未知({priority})"
+    
+    def delete_process(self):
+        """删除一个进程"""
+        sender = self.sender()
+        if not sender:
+            return
+        
+        row = sender.property("row")
+        if row is None or row < 0 or row >= len(self.config_manager.io_priority_processes):
+            return
+        
+        process_name = self.config_manager.io_priority_processes[row].get('name', '')
+        
+        # 确认删除
+        reply = QMessageBox.question(
+            self,
+            "确认删除",
+            f"确定要从自动I/O优先级列表中删除进程 '{process_name}' 吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # 删除进程
+        del self.config_manager.io_priority_processes[row]
+        
+        # 保存配置
+        if self.config_manager.save_config():
+            # 重新加载列表
+            self.load_processes()
+        else:
+            QMessageBox.warning(self, "保存失败", "删除进程后保存配置失败")
+
+
 class MainWindow(QMainWindow):
     """主窗口"""
     
@@ -206,6 +328,77 @@ class MainWindow(QMainWindow):
         games_group.setLayout(games_box_layout)
         games_layout.addWidget(games_group)
         
+        # 添加I/O优先级设置功能到游戏监控选项卡
+        io_priority_group = QGroupBox("进程I/O优先级")
+        io_priority_layout = QVBoxLayout()
+        
+        # 添加说明标签
+        io_priority_label = QLabel("降低进程的磁盘I/O优先级可以减少系统卡顿，提高前台应用的响应速度。"
+            "特别适用于降低反作弊、杀毒等后台扫描程序的优先级。")
+        io_priority_label.setWordWrap(True)
+        io_priority_layout.addWidget(io_priority_label)
+        
+        # 进程选择和优先级设置区域
+        process_layout = QHBoxLayout()
+        
+        # 进程选择下拉框
+        self.process_combo = QComboBox()
+        self.process_combo.addItem("SGuard64.exe", "SGuard64.exe")  # 存储进程名称作为userData
+        self.process_combo.addItem("ACE-Tray.exe", "ACE-Tray.exe")
+        self.process_combo.setEditable(True)  # 允许用户输入自定义进程名
+        process_layout.addWidget(QLabel("目标进程:"))
+        process_layout.addWidget(self.process_combo, 1)  # 1是stretch因子
+        
+        # 优先级选择下拉框
+        self.priority_combo = QComboBox()
+        self.priority_combo.addItem("很低 (推荐)", IO_PRIORITY_HINT.IoPriorityVeryLow)
+        self.priority_combo.addItem("低", IO_PRIORITY_HINT.IoPriorityLow)
+        self.priority_combo.addItem("正常", IO_PRIORITY_HINT.IoPriorityNormal)
+        self.priority_combo.addItem("关键", IO_PRIORITY_HINT.IoPriorityCritical)
+        process_layout.addWidget(QLabel("优先级:"))
+        process_layout.addWidget(self.priority_combo)
+        
+        io_priority_layout.addLayout(process_layout)
+        
+        # 应用按钮
+        self.apply_io_priority_btn = QPushButton("应用I/O优先级设置")
+        self.apply_io_priority_btn.clicked.connect(self.apply_io_priority)
+        io_priority_layout.addWidget(self.apply_io_priority_btn)
+        
+        # 常用预设按钮布局
+        preset_layout = QHBoxLayout()
+        
+        # 预设：优化所有反作弊进程
+        self.optimize_anticheat_btn = QPushButton("一键优化所有反作弊进程")
+        self.optimize_anticheat_btn.clicked.connect(self.optimize_anticheat_processes)
+        preset_layout.addWidget(self.optimize_anticheat_btn)
+        
+        # 预设：优化当前游戏相关进程
+        self.optimize_current_game_btn = QPushButton("优化当前游戏体验")
+        self.optimize_current_game_btn.clicked.connect(self.optimize_current_game)
+        preset_layout.addWidget(self.optimize_current_game_btn)
+        
+        # 管理自动设置列表按钮
+        self.manage_io_list_btn = QPushButton("管理自动优化列表")
+        self.manage_io_list_btn.clicked.connect(self.show_io_priority_list)
+        preset_layout.addWidget(self.manage_io_list_btn)
+        
+        io_priority_layout.addLayout(preset_layout)
+        
+        # 提示标签
+        note_label = QLabel("注意: 优先级设置在进程重启后会恢复默认值，建议设置开机自启动")
+        note_label.setStyleSheet("color: #888888; font-style: italic;")
+        io_priority_layout.addWidget(note_label)
+        
+        io_priority_group.setLayout(io_priority_layout)
+        games_layout.addWidget(io_priority_group)
+        
+        # 增加提示性文本
+        games_tip_label = QLabel("提示：右键游戏列表可自定义添加、编辑或删除游戏配置")
+        games_tip_label.setStyleSheet("color: #888888; font-size: 13px;")
+        games_tip_label.setWordWrap(True)
+        games_layout.addWidget(games_tip_label)
+        
         # 内存清理选项卡
         memory_tab = QWidget()
         memory_layout = QVBoxLayout(memory_tab)
@@ -289,7 +482,7 @@ class MainWindow(QMainWindow):
         buttons_layout.addLayout(btn_row_layout)
         
         # 添加提示文本
-        warning_label = QLabel("如果已经开启游戏不建议点击“全部已知清理”，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡")
+        warning_label = QLabel("如果已经开启游戏不建议点击全部已知清理，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡")
         warning_label.setStyleSheet("color: red;")
         warning_label.setWordWrap(True)
         buttons_layout.addWidget(warning_label)
@@ -1433,7 +1626,7 @@ class MainWindow(QMainWindow):
         reply = QMessageBox.question(
             self,
             "清理确认",
-            "如果已经开启游戏不建议点击“全部已知清理”，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡\n\n确定要继续执行全部清理吗？",
+            "如果已经开启游戏不建议点击全部已知清理，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡\n\n确定要继续执行全部清理吗？",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -1608,6 +1801,243 @@ class MainWindow(QMainWindow):
             
         # 刷新状态
         self.update_status()
+
+    @Slot()
+    def apply_io_priority(self):
+        """应用I/O优先级设置"""
+        process_name = self.process_combo.currentText()
+        if not process_name:
+            QMessageBox.warning(self, "错误", "请输入有效的进程名称")
+            return
+        
+        # 获取选择的优先级级别
+        priority = self.priority_combo.currentData()
+        
+        # 获取I/O优先级管理器
+        io_manager = get_io_priority_manager()
+        
+        # 设置进程I/O优先级
+        success_count, total_count = io_manager.set_process_io_priority_by_name(process_name, priority)
+        
+        # 提示是否添加到自动优化列表
+        if total_count > 0:
+            reply = QMessageBox.question(
+                self,
+                "添加到自动优化列表",
+                f"已成功为 {success_count}/{total_count} 个名为 {process_name} 的进程设置I/O优先级。\n\n"
+                f"是否将该进程添加到自动优化列表？\n"
+                f"(此列表中的进程会在程序启动和定期检查时自动设置I/O优先级)",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.Yes:
+                self.add_to_auto_io_priority_list(process_name, priority)
+        else:
+            QMessageBox.information(self, "结果", f"未找到名为 {process_name} 的进程")
+        
+        # 更新状态显示
+        self.update_status()
+        
+    def add_to_auto_io_priority_list(self, process_name, priority):
+        """添加进程到自动I/O优先级设置列表"""
+        # 检查进程是否已在列表中
+        process_exists = False
+        for process in self.monitor.config_manager.io_priority_processes:
+            if process.get('name') == process_name:
+                # 更新优先级
+                process['priority'] = priority
+                process_exists = True
+                break
+        
+        # 如果不在列表中，则添加
+        if not process_exists:
+            self.monitor.config_manager.io_priority_processes.append({
+                'name': process_name,
+                'priority': priority
+            })
+        
+        # 保存配置
+        if self.monitor.config_manager.save_config():
+            logger.info(f"已将进程 {process_name} 添加到自动I/O优先级设置列表")
+            QMessageBox.information(
+                self,
+                "已添加",
+                f"进程 {process_name} 已添加到自动I/O优先级设置列表。\n\n"
+                f"程序将在启动时和每隔30秒自动检查并设置该进程的I/O优先级。"
+            )
+        else:
+            logger.error(f"保存I/O优先级设置失败")
+            QMessageBox.warning(
+                self,
+                "保存失败",
+                "无法保存I/O优先级设置，请检查程序权限和磁盘空间。"
+            )
+
+    @Slot()
+    def optimize_anticheat_processes(self):
+        """一键优化所有反作弊进程的I/O优先级"""
+        # 反作弊相关进程名称列表
+        anticheat_processes = [
+            "SGuard64.exe",
+            "ACE-Tray.exe",
+            "AntiCheatExpert.exe",
+            "AntiCheatExpertBase.sys",
+            "GameAntiCheat.exe",
+            "BattlEye.exe",
+            "EasyAntiCheat.exe"
+        ]
+        
+        # 获取I/O优先级管理器
+        io_manager = get_io_priority_manager()
+        
+        # 显示进度对话框
+        progress = QProgressDialog("正在优化反作弊进程...", "取消", 0, len(anticheat_processes), self)
+        progress.setWindowTitle("优化I/O优先级")
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        progress.show()
+        
+        # 初始化结果统计
+        total_processes = 0
+        successful_processes = 0
+        affected_process_names = []
+        
+        # 为每个进程设置优先级
+        for i, process_name in enumerate(anticheat_processes):
+            # 更新进度
+            progress.setValue(i)
+            if progress.wasCanceled():
+                break
+            
+            # 设置为很低优先级
+            success_count, count = io_manager.set_process_io_priority_by_name(
+                process_name, 
+                IO_PRIORITY_HINT.IoPriorityVeryLow
+            )
+            
+            if count > 0:
+                total_processes += count
+                successful_processes += success_count
+                affected_process_names.append(f"{process_name} ({success_count}/{count})")
+        
+        # 完成进度
+        progress.setValue(len(anticheat_processes))
+        
+        # 显示结果
+        if total_processes == 0:
+            QMessageBox.information(self, "优化结果", "未找到任何反作弊进程")
+        else:
+            QMessageBox.information(
+                self, 
+                "优化结果", 
+                f"已成功优化 {successful_processes}/{total_processes} 个反作弊进程\n\n"
+                f"受影响的进程: {', '.join(affected_process_names)}"
+            )
+        
+        # 更新状态显示
+        self.update_status()
+
+    @Slot()
+    def optimize_current_game(self):
+        """优化当前游戏体验"""
+        # 检查是否有游戏正在运行
+        running_games = []
+        for game_config in self.monitor.game_configs:
+            if game_config.enabled and game_config.main_game_running:
+                running_games.append(game_config)
+        
+        if not running_games:
+            QMessageBox.information(self, "提示", "当前没有游戏在运行")
+            return
+        
+        # 获取I/O优先级管理器
+        io_manager = get_io_priority_manager()
+        
+        # 提高游戏进程优先级，降低其他进程优先级的逻辑
+        result_messages = []
+        
+        # 确认操作
+        reply = QMessageBox.question(
+            self,
+            "确认操作",
+            "此操作将：\n"
+            "1. 降低所有反作弊进程的I/O优先级\n"
+            "2. 尽可能提高游戏主进程的响应性\n\n"
+            f"检测到正在运行的游戏: {', '.join([g.name for g in running_games])}\n\n"
+            "确定要继续吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # 显示进度对话框
+        progress = QProgressDialog("正在优化游戏体验...", "取消", 0, 2, self)
+        progress.setWindowTitle("优化游戏体验")
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        progress.show()
+        
+        # 1. 降低反作弊进程的I/O优先级
+        anticheat_processes = [
+            "SGuard64.exe",
+            "ACE-Tray.exe",
+            "AntiCheatExpert.exe",
+            "GameAntiCheat.exe",
+            "BattlEye.exe",
+            "EasyAntiCheat.exe"
+        ]
+        
+        ac_total = 0
+        ac_success = 0
+        for process_name in anticheat_processes:
+            success, total = io_manager.set_process_io_priority_by_name(
+                process_name, 
+                IO_PRIORITY_HINT.IoPriorityVeryLow
+            )
+            ac_total += total
+            ac_success += success
+        
+        if ac_total > 0:
+            result_messages.append(f"已降低 {ac_success}/{ac_total} 个反作弊进程的I/O优先级")
+        
+        progress.setValue(1)
+        if progress.wasCanceled():
+            return
+        
+        # 2. 对于当前运行的游戏，确保其主进程有正常或更高的I/O优先级
+        game_total = 0
+        game_success = 0
+        for game in running_games:
+            if game.main_game:
+                success, total = io_manager.set_process_io_priority_by_name(
+                    game.main_game, 
+                    IO_PRIORITY_HINT.IoPriorityNormal  # 使用正常优先级
+                )
+                game_total += total
+                game_success += success
+        
+        if game_total > 0:
+            result_messages.append(f"已为 {game_success}/{game_total} 个游戏进程设置正常I/O优先级")
+        
+        progress.setValue(2)
+        
+        # 显示结果
+        if not result_messages:
+            QMessageBox.information(self, "优化结果", "未能优化任何进程")
+        else:
+            QMessageBox.information(self, "优化结果", "\n".join(result_messages))
+        
+        # 更新状态显示
+        self.update_status()
+
+    @Slot()
+    def show_io_priority_list(self):
+        """显示I/O优先级进程列表管理对话框"""
+        dialog = ProcessIoPriorityListDialog(self, self.monitor.config_manager)
+        dialog.exec()
 
 
 def get_status_info(monitor):

@@ -34,6 +34,9 @@ class ConfigManager:
         self.memory_cleaner_brute_mode = True  # 内存清理暴力模式默认值
         self.memory_cleaner_switches = [False] * 6  # 内存清理选项默认值
         
+        # I/O优先级设置
+        self.io_priority_processes = []  # 需要自动设置I/O优先级的进程名列表，格式为[{"name": "进程名", "priority": 0}]
+        
         # 确保配置目录存在
         self._ensure_directories()
         
@@ -81,6 +84,12 @@ class ConfigManager:
                 'enabled': False,
                 'brute_mode': True,
                 'switches': [False, False, False, True, True, False]
+            },
+            'io_priority': {
+                'processes': [
+                    {'name': 'SGuard64.exe', 'priority': 0},
+                    {'name': 'ACE-Tray.exe', 'priority': 0}
+                ]
             },
             'games': [
                 {
@@ -159,6 +168,11 @@ class ConfigManager:
                                 self.memory_cleaner_switches[i] = bool(switch)
                     logger.debug("已从配置文件加载内存清理设置")
                 
+                # 读取I/O优先级设置
+                if 'io_priority' in config_data and 'processes' in config_data['io_priority']:
+                    self.io_priority_processes = config_data['io_priority']['processes']
+                    logger.debug(f"已从配置文件加载I/O优先级设置，进程数量: {len(self.io_priority_processes)}")
+                
                 # 加载游戏配置
                 self._load_game_configs(config_data)
                 
@@ -223,6 +237,10 @@ class ConfigManager:
                     if i < len(self.memory_cleaner_switches):
                         self.memory_cleaner_switches[i] = switch
             
+            # 加载I/O优先级默认设置
+            if 'io_priority' in default_config and 'processes' in default_config['io_priority']:
+                self.io_priority_processes = default_config['io_priority']['processes']
+            
             # 加载默认游戏配置
             self._load_game_configs(default_config)
             
@@ -256,18 +274,18 @@ class ConfigManager:
                     'brute_mode': self.memory_cleaner_brute_mode,
                     'switches': self.memory_cleaner_switches
                 },
-                'games': []
+                'io_priority': {
+                    'processes': self.io_priority_processes
+                },
+                'games': [
+                    {
+                        'name': game.name,
+                        'launcher': game.launcher,
+                        'main_game': game.main_game,
+                        'enabled': game.enabled
+                    } for game in self.game_configs
+                ]
             }
-            
-            # 添加游戏配置
-            for game_config in self.game_configs:
-                game_data = {
-                    'name': game_config.name,
-                    'launcher': game_config.launcher,
-                    'main_game': game_config.main_game,
-                    'enabled': game_config.enabled
-                }
-                config_data['games'].append(game_data)
             
             # 保存到文件
             with open(self.config_file, 'w', encoding='utf-8') as f:
