@@ -16,6 +16,9 @@ jobs:
   build:
     name: 构建Windows应用
     runs-on: windows-latest
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONLEGACYWINDOWSSTDIO: 1
     steps:
       - name: 检出代码
         uses: actions/checkout@v3
@@ -35,6 +38,7 @@ jobs:
           echo "当前工作目录: $(Get-Location)"
           echo "Python目录: $(Get-Command python | Select-Object -ExpandProperty Source)"
           echo "内存信息: $(Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory)"
+          echo "Python编码: $(python -c 'import sys; print(sys.stdout.encoding)')"
         shell: pwsh
 
       - name: 安装依赖
@@ -72,6 +76,9 @@ jobs:
 
       - name: 构建应用程序
         run: python utils/build_exe.py
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONLEGACYWINDOWSSTDIO: 1
         
       - name: 验证构建结果
         run: |
