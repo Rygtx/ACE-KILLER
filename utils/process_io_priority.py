@@ -86,7 +86,7 @@ class ProcessIoPriorityManager:
                 logger.error(f"设置进程(PID={process_id})I/O优先级失败，NTSTATUS: 0x{status:08x}")
                 return False
             
-            logger.info(f"成功设置进程(PID={process_id})的I/O优先级为: {priority}")
+            logger.debug(f"成功设置进程(PID={process_id})的I/O优先级为: {priority}")
             return True
             
         except Exception as e:
@@ -118,7 +118,7 @@ class ProcessIoPriorityManager:
             if total_count == 0:
                 logger.warning(f"未找到名为 {process_name} 的进程")
             else:
-                logger.info(f"已为 {success_count}/{total_count} 个名为 {process_name} 的进程设置I/O优先级")
+                logger.debug(f"已为 {success_count}/{total_count} 个名为 {process_name} 的进程设置I/O优先级")
             
             return (success_count, total_count)
             
@@ -169,7 +169,7 @@ class ProcessIoPriorityService:
             self.running = True
             self.thread = threading.Thread(target=self._service_loop, daemon=True)
             self.thread.start()
-            logger.info("I/O优先级服务已启动")
+            logger.debug("I/O优先级服务已启动")
             return True
         return False
     
@@ -177,10 +177,10 @@ class ProcessIoPriorityService:
         """停止I/O优先级服务"""
         if self.running:
             self.running = False
-            logger.info("I/O优先级服务正在停止...")
+            logger.debug("I/O优先级服务正在停止...")
             if self.thread and self.thread.is_alive():
                 self.thread.join(2.0)  # 等待最多2秒
-            logger.info("I/O优先级服务已停止")
+            logger.debug("I/O优先级服务已停止")
             return True
         return False
     

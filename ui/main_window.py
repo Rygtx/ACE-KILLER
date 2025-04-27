@@ -1859,7 +1859,7 @@ class MainWindow(QMainWindow):
         
         # 保存配置
         if self.monitor.config_manager.save_config():
-            logger.info(f"已将进程 {process_name} 添加到自动I/O优先级设置列表")
+            logger.debug(f"已将进程 {process_name} 添加到自动I/O优先级设置列表")
             QMessageBox.information(
                 self,
                 "已添加",
