@@ -155,18 +155,10 @@ class MemoryCleanerManager:
                 win32security.SE_MANAGE_VOLUME_NAME,      # 管理卷权限，文件系统缓存操作
             ]
             
-            # 3. 系统权限 - 只有系统进程才能获取，尝试但预期失败
-            system_privileges = [
-                win32security.SE_LOCK_MEMORY_NAME,        # 锁定物理内存权限
-                win32security.SE_TCB_NAME,                # 作为操作系统一部分运行权限
-                win32security.SE_ASSIGNPRIMARYTOKEN_NAME, # 替换令牌权限
-            ]
-            
             # 记录权限状态
             privilege_status = {
                 "core": {"total": len(core_privileges), "acquired": 0},
                 "enhanced": {"total": len(enhanced_privileges), "acquired": 0},
-                "system": {"total": len(system_privileges), "acquired": 0}
             }
             privilege_details = {}
             
@@ -184,15 +176,6 @@ class MemoryCleanerManager:
                 if result["success"]:
                     privilege_status["enhanced"]["acquired"] += 1
             
-            # 尝试请求系统权限（预期大多数会失败）
-            system_mode = False
-            for privilege_name in system_privileges:
-                result = self._request_single_privilege(hToken, privilege_name)
-                privilege_details[privilege_name] = result
-                if result["success"]:
-                    privilege_status["system"]["acquired"] += 1
-                    system_mode = True
-            
             # 关闭句柄
             win32api.CloseHandle(hToken)
             
@@ -200,7 +183,7 @@ class MemoryCleanerManager:
             self.available_functions = {
                 "trim_all_processes": privilege_status["core"]["acquired"] > 0,
                 "flush_system_cache": privilege_status["core"]["acquired"] > 0,
-                "memory_combine": system_mode,
+                "memory_combine": privilege_status["enhanced"]["acquired"] > 0,
                 "purge_standby_list": privilege_status["core"]["acquired"] > 0,
                 "debug_other_processes": "SE_DEBUG_NAME" in privilege_details and 
                                         privilege_details["SE_DEBUG_NAME"]["success"]
@@ -208,8 +191,7 @@ class MemoryCleanerManager:
             
             # 记录权限获取结果
             logger.debug(f"权限获取状态: 核心权限 {privilege_status['core']['acquired']}/{privilege_status['core']['total']}," 
-                        f" 增强权限 {privilege_status['enhanced']['acquired']}/{privilege_status['enhanced']['total']},"
-                        f" 系统权限 {privilege_status['system']['acquired']}/{privilege_status['system']['total']}")
+                        f" 增强权限 {privilege_status['enhanced']['acquired']}/{privilege_status['enhanced']['total']}")
             
             # 获取管理员状态
             is_admin = self._check_admin_rights()
