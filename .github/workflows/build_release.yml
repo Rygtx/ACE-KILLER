@@ -24,58 +24,51 @@ jobs:
       PYTHONIOENCODING: utf-8
       PYTHONLEGACYWINDOWSSTDIO: 1
       NUITKA_DOWNLOAD_CONFIRMATION: 1
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+      PIP_NO_CACHE_DIR: 0
+      PYTHONOPTIMIZE: 1
     steps:
       - name: 检出代码
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: 设置Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
 
-      - name: 环境诊断
-        run: |
-          python --version
-          pip --version
-          echo "当前工作目录: $(Get-Location)"
-          echo "Python目录: $(Get-Command python | Select-Object -ExpandProperty Source)"
-          echo "内存信息: $(Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory)"
-          echo "Python编码: $(python -c 'import sys; print(sys.stdout.encoding)')"
-          echo "GCC版本: $(gcc --version)"
-          echo "MinGW目录: $(Get-Command gcc | Select-Object -ExpandProperty Source)"
-        shell: pwsh
+      - name: 缓存PySide6和Nuitka
+        uses: actions/cache@v4
+        id: cache-deps
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/Nuitka
+            ~/.local/share/Nuitka
+            ~/AppData/Local/pip/Cache
+          key: ${{ runner.os }}-pyside6-nuitka-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pyside6-nuitka-
 
       - name: 安装依赖
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          # 确保Nuitka和其他打包所需依赖已安装
-          pip install nuitka zstandard ordered-set
-          # 安装PySide6
-          pip install PySide6==6.9.0
-        
-      - name: 列出已安装包
-        run: pip list
-        
-      - name: 缓存Nuitka构建文件
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/Nuitka
-            ~/.local/share/Nuitka
-          key: ${{ runner.os }}-nuitka-${{ hashFiles('**/*.py') }}
-          restore-keys: |
-            ${{ runner.os }}-nuitka-
+          python -m pip install --upgrade pip --quiet
+          pip install wheel --quiet
+          pip install -r requirements.txt --quiet
+          pip install nuitka zstandard ordered-set --quiet
 
-      - name: 直接使用Nuitka打包应用程序
+      - name: 更新版本号
         run: |
-          # 获取图标文件路径
+          $mainWindowPath = "ui/main_window.py"
+          (Get-Content -Path $mainWindowPath -Raw) -replace '版本: 1.0.0', "版本: ${{ github.event.inputs.version }}" | Set-Content -Path $mainWindowPath -Encoding utf8
+        shell: pwsh
+      
+      - name: 使用Nuitka打包应用程序
+        run: |
           $icon_path = "assets/icon/favicon.ico"
-          
-          # 编译命令
           python -m nuitka --standalone `
             --assume-yes-for-downloads `
             --windows-console-mode=disable `
@@ -85,100 +78,53 @@ jobs:
             --remove-output `
             --enable-plugin=pyside6 `
             --lto=yes `
-            --jobs=4 `
-            --show-memory `
-            --disable-cache=all `
-            --clean-cache=all `
-            --show-progress `
+            --jobs=$env:NUMBER_OF_PROCESSORS `
             --output-filename=ACE-KILLER.exe `
             --nofollow-import-to=tkinter,PIL.ImageTk `
             --prefer-source-code `
             --python-flag=no_site `
             --python-flag=no_warnings `
-            --low-memory `
             main.py
-            
-          # 检查打包结果
-          $main_exe = "main.dist/ACE-KILLER.exe"
-          if (Test-Path $main_exe) {
-            $size_mb = (Get-Item $main_exe).Length / (1024 * 1024)
-            Write-Host "[SUCCESS] 打包成功! 生成的可执行文件: $main_exe"
-            Write-Host "[INFO] 可执行文件大小: $([math]::Round($size_mb, 2)) MB"
-          } else {
-            Write-Host "[ERROR] 打包完成，但未找到可执行文件"
-            exit 1
-          }
         shell: pwsh
         env:
           PYTHONIOENCODING: utf-8
           PYTHONLEGACYWINDOWSSTDIO: 1
-          NUITKA_DOWNLOAD_CONFIRMATION: 1
-        
+          
       - name: 压缩可执行文件目录
         run: |
           $dist_dir = "main.dist"
           $zip_name = "ACE-KILLER-v${{ github.event.inputs.version }}-x64"
           $zip_path = "$zip_name.zip"
           
-          # 检查可执行文件目录是否存在
           if (Test-Path $dist_dir) {
-            Write-Host "[INFO] 正在压缩可执行文件目录..."
             Compress-Archive -Path "$dist_dir/*" -DestinationPath $zip_path -Force
-            
-            # 检查ZIP文件是否创建成功
             if (Test-Path $zip_path) {
-              $zip_size_mb = (Get-Item $zip_path).Length / (1024 * 1024)
-              Write-Host "[SUCCESS] 压缩完成! 生成的ZIP文件: $zip_path"
-              Write-Host "[INFO] ZIP文件大小: $([math]::Round($zip_size_mb, 2)) MB"
+              $size_mb = (Get-Item $zip_path).Length / 1MB
+              Write-Host "✅ 成功创建 $zip_path (大小: $([math]::Round($size_mb, 2)) MB)"
             } else {
-              Write-Host "[ERROR] 压缩失败，未生成ZIP文件"
-              exit 1
+              throw "压缩失败，未生成ZIP文件"
             }
           } else {
-            Write-Host "[ERROR] 可执行文件目录不存在，无法压缩"
-            exit 1
-          }
-        shell: pwsh
-        
-      - name: 验证构建结果
-        run: |
-          $zipFile = "ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip"
-          if (Test-Path $zipFile) {
-            $size = (Get-Item $zipFile).Length / 1MB
-            Write-Host "✅ 构建成功: $zipFile (大小: $([math]::Round($size, 2)) MB)"
-            # 计算SHA256哈希值用于验证
-            $hash = (Get-FileHash -Algorithm SHA256 $zipFile).Hash
-            Write-Host "文件哈希值 (SHA256): $hash"
-            # 写入哈希值到文件以便发布
-            $hash | Out-File -FilePath "$zipFile.sha256" -Encoding utf8
-          } else {
-            Write-Host "❌ 构建失败: 未找到 $zipFile"
-            exit 1
+            throw "构建目录不存在，构建可能失败"
           }
         shell: pwsh
         
       - name: 创建发布
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: ACE-KILLER v${{ github.event.inputs.version }}
           body: |
-            ## ACE-KILLER v${{ github.event.inputs.version }}
-            
+            ### 更新日志
             ${{ github.event.inputs.release_notes }}
-            
-            ### SHA-256 校验和
-            ```
-            ${{ runner.os == 'Windows' && '$((Get-FileHash -Algorithm SHA256 -Path ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip).Hash)' || '$(sha256sum ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip | cut -d " " -f 1)' }}
-            ```
             
             ### 安装说明
             1. 下载ZIP文件并解压
-            2. 运行ACE-KILLER.exe
+            2. 右键点击ACE-KILLER.exe，选择“以管理员身份运行”
+
+          # 添加覆盖选项
           draft: false
           prerelease: false
           files: |
             ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

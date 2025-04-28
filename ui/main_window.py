@@ -1244,7 +1244,7 @@ class MainWindow(QMainWindow):
         """显示关于对话框"""
         QMessageBox.about(self, "关于 ACE-KILLER", 
                          "ACE-KILLER\n\n"
-                         "版本: 1.0.3\n"
+                         "版本: 1.0.0\n"
                          "作者: CassianVale\n\n"
                          "GitHub: https://github.com/cassianvale/ACE-KILLER\n\n"
                          "ACE-KILLER是一款游戏优化工具，用于监控并优化游戏进程")

@@ -65,7 +65,6 @@ cmd = [
     "--prefer-source-code",  # 优先使用源代码而不是字节码
     "--python-flag=no_site",  # 不导入site
     "--python-flag=no_warnings",  # 不显示警告
-    "--low-memory",  # 低内存使用模式
     "main.py"
 ]
 
