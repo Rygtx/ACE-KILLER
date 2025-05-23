@@ -5,15 +5,13 @@ import ctypes
 from ctypes import windll, wintypes, byref, Structure, c_ulong, POINTER, sizeof
 import psutil
 from loguru import logger
-import win32security
-import win32api
-import win32con
 import sys
 
 from ctypes import c_long
 
-# 导入ConfigManager
+# 导入ConfigManager和权限管理器
 from config.config_manager import ConfigManager
+from utils.privilege_manager import get_privilege_manager
 
 # 定义NTSTATUS类型
 NTSTATUS = c_long
@@ -96,8 +94,9 @@ class MemoryCleanerManager:
         self.clean_count = 0
         self.last_clean_time = None
         
-        # 获取配置管理器
+        # 获取配置管理器和权限管理器
         self.config_manager = ConfigManager()
+        self.privilege_manager = get_privilege_manager()
         
         # Windows API
         self.ntdll = ctypes.WinDLL('ntdll.dll')
@@ -121,171 +120,39 @@ class MemoryCleanerManager:
             POINTER(wintypes.ULONG)
         ]
         
-        # 初始化提权
-        self._init_privileges()
+        # 从权限管理器获取可用功能
+        self.available_functions = self.privilege_manager.available_functions
+        
+        # 检查并记录权限状态
+        self._check_memory_privileges()
         
         # 从配置管理器加载配置
         self.update_from_config_manager()
         
         self._initialized = True
     
-    def _init_privileges(self):
-        """初始化并提升程序权限"""
-        try:
-            # 获取当前进程句柄
-            hProcess = win32api.GetCurrentProcess()
-            
-            # 打开进程令牌
-            hToken = win32security.OpenProcessToken(
-                hProcess,
-                win32security.TOKEN_ADJUST_PRIVILEGES | win32security.TOKEN_QUERY
-            )
-            
-            # 智能权限分组
-            # 1. 核心权限 - 内存清理必需，失败则功能受限
-            core_privileges = [
-                win32security.SE_INCREASE_QUOTA_NAME,     # 提高内存配额权限，系统缓存清理必需
-                "SeProfileSingleProcessPrivilege",        # 单进程分析权限，清理工作集必需
-            ]
-            
-            # 2. 增强权限 - 提升性能和功能，但不是必需
-            enhanced_privileges = [
-                win32security.SE_DEBUG_NAME,              # 最关键的调试权限，用于访问其他进程
-                win32security.SE_INC_WORKING_SET_NAME,    # 增加工作集权限
-                win32security.SE_MANAGE_VOLUME_NAME,      # 管理卷权限，文件系统缓存操作
-            ]
-            
-            # 记录权限状态
-            privilege_status = {
-                "core": {"total": len(core_privileges), "acquired": 0},
-                "enhanced": {"total": len(enhanced_privileges), "acquired": 0},
-            }
-            privilege_details = {}
-            
-            # 先请求核心权限 - 单独处理每一个，确保最大成功率
-            for privilege_name in core_privileges:
-                result = self._request_single_privilege(hToken, privilege_name)
-                privilege_details[privilege_name] = result
-                if result["success"]:
-                    privilege_status["core"]["acquired"] += 1
-            
-            # 请求增强权限
-            for privilege_name in enhanced_privileges:
-                result = self._request_single_privilege(hToken, privilege_name)
-                privilege_details[privilege_name] = result
-                if result["success"]:
-                    privilege_status["enhanced"]["acquired"] += 1
-            
-            # 关闭句柄
-            win32api.CloseHandle(hToken)
-            
-            # 根据权限获取情况确定运行模式
-            self.available_functions = {
-                "trim_all_processes": privilege_status["core"]["acquired"] > 0,
-                "flush_system_cache": privilege_status["core"]["acquired"] > 0,
-                "memory_combine": privilege_status["enhanced"]["acquired"] > 0,
-                "purge_standby_list": privilege_status["core"]["acquired"] > 0,
-                "debug_other_processes": "SE_DEBUG_NAME" in privilege_details and 
-                                        privilege_details["SE_DEBUG_NAME"]["success"]
-            }
-            
-            # 记录权限获取结果
-            logger.debug(f"权限获取状态: 核心权限 {privilege_status['core']['acquired']}/{privilege_status['core']['total']}," 
-                        f" 增强权限 {privilege_status['enhanced']['acquired']}/{privilege_status['enhanced']['total']}")
-            
-            # 获取管理员状态
-            is_admin = self._check_admin_rights()
-            
-            # 评估运行能力
-            if privilege_status["core"]["acquired"] == 0:
-                logger.warning("未能获取任何核心权限，内存清理功能将严重受限")
-                if not is_admin:
-                    logger.warning("建议以管理员身份运行程序以获得更好的内存清理效果")
-            elif privilege_status["core"]["acquired"] < privilege_status["core"]["total"]:
-                logger.warning("部分核心权限获取失败，某些内存清理功能可能受限")
-            
-            # 返回是否获取了足够权限
-            return privilege_status["core"]["acquired"] > 0
-                
-        except Exception as e:
-            logger.error(f"权限提升过程出现严重错误: {str(e)}")
-            self.available_functions = {
-                "trim_all_processes": False,
-                "flush_system_cache": False,
-                "memory_combine": False,
-                "purge_standby_list": False,
-                "debug_other_processes": False
-            }
-            return False
-    
-    def _request_single_privilege(self, hToken, privilege_name):
-        """请求单个权限并返回详细结果"""
-        result = {
-            "name": privilege_name,
-            "success": False,
-            "error_code": None,
-            "error_message": None
-        }
+    def _check_memory_privileges(self):
+        """检查内存清理相关权限"""
+        logger.info("内存清理器权限状态检查:")
         
-        try:
-            # 查找权限ID
-            privilege_id = win32security.LookupPrivilegeValue(None, privilege_name)
+        if not self.privilege_manager.has_privilege("trim_all_processes"):
+            logger.warning("缺少清理进程工作集的权限，暴力模式将不可用")
             
-            # 创建权限结构
-            new_privilege = [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)]
+        if not self.privilege_manager.has_privilege("flush_system_cache"):
+            logger.warning("缺少清理系统缓存的权限，系统缓存清理将受限")
             
-            # 应用权限
-            win32security.AdjustTokenPrivileges(hToken, False, new_privilege)
+        if not self.privilege_manager.has_privilege("debug_other_processes"):
+            logger.info("缺少调试权限，无法清理某些受保护进程的工作集")
             
-            # 检查是否真正成功
-            error_code = win32api.GetLastError()
-            result["error_code"] = error_code
-            
-            if error_code == 0:
-                result["success"] = True
-                logger.debug(f"成功获取权限: {privilege_name}")
-            else:
-                if error_code == 1300:  # ERROR_NOT_ALL_ASSIGNED
-                    result["error_message"] = "权限不足，通常只有系统进程才能获取此权限"
-                    logger.debug(f"无法获取权限 {privilege_name}: 权限不足 (ERROR_NOT_ALL_ASSIGNED)")
-                else:
-                    result["error_message"] = f"错误码: {error_code}"
-                    logger.warning(f"无法获取权限 {privilege_name}: 错误码 {error_code}")
+        if not self.privilege_manager.check_admin_rights():
+            logger.warning("未以管理员身份运行，内存清理功能可能受限")
         
-        except Exception as e:
-            result["error_message"] = str(e)
-            logger.debug(f"请求权限 {privilege_name} 出现异常: {str(e)}")
-        
-        return result
-    
-    def _check_admin_rights(self):
-        """检查当前进程是否拥有管理员权限"""
-        try:
-            return ctypes.windll.shell32.IsUserAnAdmin() != 0
-        except Exception:
-            return False
-    
-    def _request_admin_rights(self):
-        """请求提升为管理员权限（此函数需谨慎使用，可能导致程序重启）"""
-        try:
-            if not self._check_admin_rights():
-                # 获取当前可执行文件路径
-                executable = sys.executable
-                # 重新以管理员身份启动
-                ctypes.windll.shell32.ShellExecuteW(
-                    None, 
-                    "runas", 
-                    executable,
-                    " ".join(sys.argv),
-                    None, 
-                    1  # SW_SHOWNORMAL
-                )
-                # 退出当前进程
-                sys.exit(0)
-            return True
-        except Exception as e:
-            logger.error(f"请求管理员权限失败: {str(e)}")
-            return False
+        # 记录详细权限状态
+        summary = self.privilege_manager.get_privilege_summary()
+        if summary["recommendations"]:
+            logger.info("内存清理建议:")
+            for rec in summary["recommendations"]:
+                logger.info(f"  • {rec}")
     
     def update_from_config_manager(self):
         """从配置管理器更新设置"""

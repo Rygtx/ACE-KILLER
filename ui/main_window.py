@@ -27,127 +27,8 @@ from loguru import logger
 from utils.notification import send_notification
 from core.system_utils import enable_auto_start, disable_auto_start
 from utils.memory_cleaner import get_memory_cleaner
-from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT
-
-
-class ProcessIoPriorityListDialog(QDialog):
-    """I/O优先级进程列表管理对话框"""
-    
-    def __init__(self, parent=None, config_manager=None):
-        super().__init__(parent)
-        self.config_manager = config_manager
-        self.setup_ui()
-        self.load_processes()
-    
-    def setup_ui(self):
-        """设置UI"""
-        self.setWindowTitle("I/O优先级进程列表管理")
-        self.setMinimumSize(500, 300)
-        
-        layout = QVBoxLayout(self)
-        
-        # 提示标签
-        info_label = QLabel(
-            "以下进程会在程序启动和运行期间定期自动设置I/O优先级。\n"
-            "这有助于减少这些进程的磁盘读写活动，提高系统响应速度。"
-        )
-        info_label.setWordWrap(True)
-        layout.addWidget(info_label)
-        
-        # 进程表格
-        self.table = QTableWidget()
-        self.table.setColumnCount(3)  # 进程名、优先级、操作
-        self.table.setHorizontalHeaderLabels(["进程名", "优先级", "操作"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        layout.addWidget(self.table)
-        
-        # 按钮布局
-        button_layout = QHBoxLayout()
-        
-        # 关闭按钮
-        self.close_btn = QPushButton("关闭")
-        self.close_btn.clicked.connect(self.accept)
-        button_layout.addWidget(self.close_btn)
-        
-        layout.addLayout(button_layout)
-    
-    def load_processes(self):
-        """加载进程列表"""
-        self.table.setRowCount(0)
-        
-        if not self.config_manager or not hasattr(self.config_manager, 'io_priority_processes'):
-            return
-        
-        # 设置行数
-        self.table.setRowCount(len(self.config_manager.io_priority_processes))
-        
-        # 填充数据
-        for row, process in enumerate(self.config_manager.io_priority_processes):
-            # 进程名
-            name_item = QTableWidgetItem(process.get('name', ''))
-            self.table.setItem(row, 0, name_item)
-            
-            # 优先级
-            priority = process.get('priority', 0)
-            priority_text = self._get_priority_text(priority)
-            priority_item = QTableWidgetItem(priority_text)
-            self.table.setItem(row, 1, priority_item)
-            
-            # 删除按钮
-            delete_btn = QPushButton("删除")
-            delete_btn.setProperty("row", row)
-            delete_btn.clicked.connect(self.delete_process)
-            self.table.setCellWidget(row, 2, delete_btn)
-    
-    def _get_priority_text(self, priority):
-        """获取优先级的文本表示"""
-        if priority == 0:
-            return "最低"
-        elif priority == 1:
-            return "低"
-        elif priority == 2:
-            return "正常"
-        elif priority == 3:
-            return "关键"
-        else:
-            return f"未知({priority})"
-    
-    def delete_process(self):
-        """删除一个进程"""
-        sender = self.sender()
-        if not sender:
-            return
-        
-        row = sender.property("row")
-        if row is None or row < 0 or row >= len(self.config_manager.io_priority_processes):
-            return
-        
-        process_name = self.config_manager.io_priority_processes[row].get('name', '')
-        
-        # 确认删除
-        reply = QMessageBox.question(
-            self,
-            "确认删除",
-            f"确定要从自动I/O优先级列表中删除进程 '{process_name}' 吗？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply != QMessageBox.Yes:
-            return
-        
-        # 删除进程
-        del self.config_manager.io_priority_processes[row]
-        
-        # 保存配置
-        if self.config_manager.save_config():
-            # 重新加载列表
-            self.load_processes()
-        else:
-            QMessageBox.warning(self, "保存失败", "删除进程后保存配置失败")
+from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT, PERFORMANCE_MODE
+from ui.process_io_priority_manager import show_process_io_priority_manager
 
 
 class MainWindow(QMainWindow):
@@ -230,86 +111,78 @@ class MainWindow(QMainWindow):
         process_layout = QVBoxLayout(process_tab)
         
         # 进程监控组
-        process_group = QGroupBox("反作弊进程监控")
+        process_group = QGroupBox("🚫 ACE反作弊弹窗监控")
         process_box_layout = QVBoxLayout()
         
         # 添加ACE反作弊说明标签
-        ace_info_label = QLabel("本程序会监控ACE反作弊安装弹窗，当出现时会自动终止。"
-                                "同时会优化SGuard64扫盘进程，降低其对系统性能的影响。")
+        ace_info_label = QLabel(
+            "🎯 监控目标：ACE-Tray.exe（反作弊安装弹窗进程）\n"
+            "⚡ 功能说明：自动检测并终止ACE反作弊安装弹窗，防止强制安装\n"
+            "💡 提示: 进程优化设置在进程重启后会恢复默认值，建议将常用进程添加到自动优化列表中实现持续优化。"
+        )
         ace_info_label.setWordWrap(True)
-        ace_info_label.setStyleSheet("color: #0066cc; background-color: #f0f8ff; padding: 8px; border-radius: 4px;")
         process_box_layout.addWidget(ace_info_label)
         
+        # 添加监控状态显示
+        status_layout = QHBoxLayout()
+        
         # 添加监控开关
-        self.monitor_checkbox = QCheckBox("启用反作弊进程监控")
+        self.monitor_checkbox = QCheckBox("启用ACE弹窗监控")
         self.monitor_checkbox.setChecked(self.monitor.running)
         self.monitor_checkbox.stateChanged.connect(self.toggle_process_monitor)
-        process_box_layout.addWidget(self.monitor_checkbox)
+        status_layout.addWidget(self.monitor_checkbox)
+        
+        status_layout.addStretch()
+        
+        process_box_layout.addLayout(status_layout)
         
         process_group.setLayout(process_box_layout)
         process_layout.addWidget(process_group)
         
         # 添加I/O优先级设置功能到进程监控选项卡
-        io_priority_group = QGroupBox("进程I/O优先级")
+        io_priority_group = QGroupBox("🚀 进程优先级管理")
         io_priority_layout = QVBoxLayout()
         
         # 添加说明标签
-        io_priority_label = QLabel("降低进程的磁盘I/O优先级可以减少系统卡顿，提高前台应用的响应速度。"
-            "特别适用于降低反作弊、杀毒等后台扫描程序的优先级。")
+        io_priority_label = QLabel(
+            "🎯 通过调整进程优先级可以显著改善系统响应速度和性能表现。\n"
+            "💡 支持完整优化：I/O优先级、CPU优先级、CPU亲和性和性能模式设置。\n"
+            "✨ 特别适用于优化反作弊、杀毒、下载等后台程序，减少对前台应用的影响。\n"
+            "💡 提示: 进程优化设置在进程重启后会恢复默认值，建议将常用进程添加到自动优化列表中实现持续优化。"
+        )
         io_priority_label.setWordWrap(True)
         io_priority_layout.addWidget(io_priority_label)
         
-        # 进程选择和优先级设置区域
-        io_process_layout = QHBoxLayout()
+        # 主要功能按钮布局
+        main_buttons_layout = QHBoxLayout()
         
-        # 进程选择下拉框
-        self.process_combo = QComboBox()
-        self.process_combo.addItem("SGuard64.exe", "SGuard64.exe")  # 存储进程名称作为userData
-        self.process_combo.addItem("ACE-Tray.exe", "ACE-Tray.exe")
-        self.process_combo.setEditable(True)  # 允许用户输入自定义进程名
-        io_process_layout.addWidget(QLabel("目标进程:"))
-        io_process_layout.addWidget(self.process_combo, 1)  # 1是stretch因子
+        # 进程管理按钮（主要功能）
+        self.process_manager_btn = QPushButton("🔍 进程管理器")
+        self.process_manager_btn.clicked.connect(self.show_process_manager)
+        self.process_manager_btn.setToolTip("打开进程管理器，查看所有进程并进行完整优化")
+        main_buttons_layout.addWidget(self.process_manager_btn)
         
-        # 优先级选择下拉框
-        self.priority_combo = QComboBox()
-        self.priority_combo.addItem("很低 (推荐)", IO_PRIORITY_HINT.IoPriorityVeryLow)
-        self.priority_combo.addItem("低", IO_PRIORITY_HINT.IoPriorityLow)
-        self.priority_combo.addItem("正常", IO_PRIORITY_HINT.IoPriorityNormal)
-        self.priority_combo.addItem("关键", IO_PRIORITY_HINT.IoPriorityCritical)
-        io_process_layout.addWidget(QLabel("优先级:"))
-        io_process_layout.addWidget(self.priority_combo)
+        # 管理自动优化列表按钮
+        self.manage_io_list_btn = QPushButton("⚙️ 自动优化列表")
+        self.manage_io_list_btn.clicked.connect(self.show_auto_optimize_tab)
+        self.manage_io_list_btn.setToolTip("查看和管理自动优化列表")
+        main_buttons_layout.addWidget(self.manage_io_list_btn)
         
-        io_priority_layout.addLayout(io_process_layout)
+        main_buttons_layout.addStretch()
+        io_priority_layout.addLayout(main_buttons_layout)
         
-        # 应用按钮
-        self.apply_io_priority_btn = QPushButton("应用I/O优先级设置")
-        self.apply_io_priority_btn.clicked.connect(self.apply_io_priority)
-        io_priority_layout.addWidget(self.apply_io_priority_btn)
+        # 快捷操作分组
+        quick_actions_group = QGroupBox("🚀 快捷操作")
+        quick_actions_layout = QVBoxLayout()
         
-        # 常用预设按钮布局
-        preset_layout = QHBoxLayout()
-        
-        # 预设：优化所有反作弊进程
-        self.optimize_anticheat_btn = QPushButton("优化所有反作弊进程")
+        # 优化反作弊进程按钮
+        self.optimize_anticheat_btn = QPushButton("🛡️ 一键优化反作弊进程")
         self.optimize_anticheat_btn.clicked.connect(self.optimize_anticheat_processes)
-        preset_layout.addWidget(self.optimize_anticheat_btn)
+        self.optimize_anticheat_btn.setToolTip("一键优化所有已知反作弊进程，提升游戏体验")
+        quick_actions_layout.addWidget(self.optimize_anticheat_btn)
         
-        # 预设：优化系统体验
-        self.optimize_current_game_btn = QPushButton("优化系统体验")
-        self.optimize_current_game_btn.clicked.connect(self.optimize_current_game)
-        preset_layout.addWidget(self.optimize_current_game_btn)
-        
-        # 管理自动设置列表按钮
-        self.manage_io_list_btn = QPushButton("管理自动优化列表")
-        self.manage_io_list_btn.clicked.connect(self.show_io_priority_list)
-        preset_layout.addWidget(self.manage_io_list_btn)
-        
-        io_priority_layout.addLayout(preset_layout)
-        
-        # 提示标签
-        note_label = QLabel("注意: 优先级设置在进程重启后会恢复默认值，建议设置开机自启动")
-        note_label.setStyleSheet("color: #888888; font-style: italic;")
-        io_priority_layout.addWidget(note_label)
+        quick_actions_group.setLayout(quick_actions_layout)
+        io_priority_layout.addWidget(quick_actions_group)
         
         io_priority_group.setLayout(io_priority_layout)
         process_layout.addWidget(io_priority_group)
@@ -438,7 +311,7 @@ class MainWindow(QMainWindow):
         btn_row_layout.addWidget(self.clean_syscache_btn)
         
         # 全面清理按钮
-        self.clean_all_btn = QPushButton("执行全部已知清理")
+        self.clean_all_btn = QPushButton("执行全部已知清理(不推荐)")
         self.clean_all_btn.clicked.connect(self.manual_clean_all)
         btn_row_layout.addWidget(self.clean_all_btn)
         
@@ -633,7 +506,7 @@ class MainWindow(QMainWindow):
         tray_menu.addAction(self.startup_action)
         
         # 进程监控菜单项
-        self.monitor_action = QAction("启用反作弊进程监控", self)
+        self.monitor_action = QAction("启用ACE弹窗监控", self)
         self.monitor_action.setCheckable(True)
         self.monitor_action.setChecked(self.monitor.running)
         self.monitor_action.triggered.connect(self.toggle_process_monitor_from_tray)
@@ -681,9 +554,6 @@ class MainWindow(QMainWindow):
         self.tray_icon.activated.connect(self.tray_icon_activated)
         self.tray_icon.show()
         
-        # # 设置工具提示
-        # self.tray_icon.setToolTip("ACE-KILLER")
-        
         tray_menu.addSeparator()
         
         # 退出动作
@@ -691,7 +561,6 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.confirm_exit)
         tray_menu.addAction(exit_action)
         
-        # tray_menu.addMenu(theme_menu)
     
     @Slot(str)
     def switch_theme(self, theme):
@@ -761,7 +630,7 @@ class MainWindow(QMainWindow):
             }
             .memory-bar {
                 height: 10px;
-                background-color: rgba(200, 200, 200, 0.2);
+                background-color: #e8e8e8;
                 border-radius: 5px;
                 margin: 5px 0;
                 position: relative;
@@ -771,7 +640,6 @@ class MainWindow(QMainWindow):
                 height: 100%;
                 background-color: #3498db;
                 border-radius: 5px;
-                transition: width 0.5s ease;
             }
             .update-time {
                 font-size: 12px;
@@ -899,13 +767,13 @@ class MainWindow(QMainWindow):
         html.append('<div class="section-title">系统设置</div>')
         
         # 通知状态
-        notification_class = "status-success" if self.monitor.show_notifications else "status-disabled"
-        notification_text = "已启用" if self.monitor.show_notifications else "已禁用"
+        notification_class = "status-success" if self.monitor.config_manager.show_notifications else "status-disabled"
+        notification_text = "已启用" if self.monitor.config_manager.show_notifications else "已禁用"
         html.append(f'<p class="status-item">🔔 通知功能: <span class="{notification_class}" style="font-weight: bold;">{notification_text}</span></p>')
         
         # 自启动状态
-        autostart_class = "status-success" if self.monitor.auto_start else "status-disabled"
-        autostart_text = "已启用" if self.monitor.auto_start else "已禁用"
+        autostart_class = "status-success" if self.monitor.config_manager.auto_start else "status-disabled"
+        autostart_text = "已启用" if self.monitor.config_manager.auto_start else "已禁用"
         html.append(f'<p class="status-item">🔁 开机自启: <span class="{autostart_class}" style="font-weight: bold;">{autostart_text}</span></p>')
         
         # 调试模式状态
@@ -940,16 +808,29 @@ class MainWindow(QMainWindow):
         self.blockSignals(True)
         
         # 更新通知设置
-        self.notify_checkbox.setChecked(self.monitor.show_notifications)
-        self.notify_action.setChecked(self.monitor.show_notifications)
+        self.notify_checkbox.setChecked(self.monitor.config_manager.show_notifications)
+        self.notify_action.setChecked(self.monitor.config_manager.show_notifications)
         
         # 更新自启动设置
-        self.startup_checkbox.setChecked(self.monitor.auto_start)
-        self.startup_action.setChecked(self.monitor.auto_start)
+        self.startup_checkbox.setChecked(self.monitor.config_manager.auto_start)
+        self.startup_action.setChecked(self.monitor.config_manager.auto_start)
         
-        # 更新监控状态设置
-        self.monitor_checkbox.setChecked(self.monitor.running)
-        self.monitor_action.setChecked(self.monitor.running)
+        # 更新监控状态设置（从配置管理器加载）
+        monitor_enabled = self.monitor.config_manager.monitor_enabled
+        self.monitor_checkbox.setChecked(monitor_enabled)
+        self.monitor_action.setChecked(monitor_enabled)
+        
+        # 根据配置启动或停止监控
+        if monitor_enabled and not self.monitor.running:
+            self.monitor.running = True
+            self.monitor.start_monitors()
+            logger.debug("根据配置启动监控程序")
+        elif not monitor_enabled and self.monitor.running:
+            self.monitor.running = False
+            self.monitor.stop_monitors()
+            self.monitor.anticheat_killed = False
+            self.monitor.scanprocess_optimized = False
+            logger.debug("根据配置停止监控程序")
         
         # 更新调试模式设置
         self.debug_checkbox.setChecked(self.monitor.config_manager.debug_mode)
@@ -1171,13 +1052,19 @@ class MainWindow(QMainWindow):
             self.monitor.scanprocess_optimized = False
             logger.debug("监控程序已停止")
         
+        # 保存监控状态到配置管理器
+        self.monitor.config_manager.monitor_enabled = enabled
+        
         # 同步托盘菜单状态
         self.monitor_action.blockSignals(True)
         self.monitor_action.setChecked(enabled)
         self.monitor_action.blockSignals(False)
         
         # 保存配置
-        self.monitor.config_manager.save_config()
+        if self.monitor.config_manager.save_config():
+            logger.debug(f"监控状态已更改并保存: {'开启' if enabled else '关闭'}")
+        else:
+            logger.warning(f"监控状态已更改但保存失败: {'开启' if enabled else '关闭'}")
         
         # 立即更新状态显示
         self.update_status()
@@ -1197,13 +1084,19 @@ class MainWindow(QMainWindow):
             self.monitor.scanprocess_optimized = False
             logger.debug("监控程序已停止")
         
+        # 保存监控状态到配置管理器
+        self.monitor.config_manager.monitor_enabled = enabled
+        
         # 同步主窗口状态
         self.monitor_checkbox.blockSignals(True)
         self.monitor_checkbox.setChecked(enabled)
         self.monitor_checkbox.blockSignals(False)
         
         # 保存配置
-        self.monitor.config_manager.save_config()
+        if self.monitor.config_manager.save_config():
+            logger.debug(f"监控状态已更改并保存: {'开启' if enabled else '关闭'}")
+        else:
+            logger.warning(f"监控状态已更改但保存失败: {'开启' if enabled else '关闭'}")
         
         # 立即更新状态显示
         self.update_status()
@@ -1640,78 +1533,6 @@ class MainWindow(QMainWindow):
         self.update_status()
 
     @Slot()
-    def apply_io_priority(self):
-        """应用I/O优先级设置"""
-        process_name = self.process_combo.currentText()
-        if not process_name:
-            QMessageBox.warning(self, "错误", "请输入有效的进程名称")
-            return
-        
-        # 获取选择的优先级级别
-        priority = self.priority_combo.currentData()
-        
-        # 获取I/O优先级管理器
-        io_manager = get_io_priority_manager()
-        
-        # 设置进程I/O优先级
-        success_count, total_count = io_manager.set_process_io_priority_by_name(process_name, priority)
-        
-        # 提示是否添加到自动优化列表
-        if total_count > 0:
-            reply = QMessageBox.question(
-                self,
-                "添加到自动优化列表",
-                f"已成功为 {success_count}/{total_count} 个名为 {process_name} 的进程设置I/O优先级。\n\n"
-                f"是否将该进程添加到自动优化列表？\n"
-                f"(此列表中的进程会在程序启动和定期检查时自动设置I/O优先级)",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
-            )
-            
-            if reply == QMessageBox.Yes:
-                self.add_to_auto_io_priority_list(process_name, priority)
-        else:
-            QMessageBox.information(self, "结果", f"未找到名为 {process_name} 的进程")
-        
-        # 更新状态显示
-        self.update_status()
-        
-    def add_to_auto_io_priority_list(self, process_name, priority):
-        """添加进程到自动I/O优先级设置列表"""
-        # 检查进程是否已在列表中
-        process_exists = False
-        for process in self.monitor.config_manager.io_priority_processes:
-            if process.get('name') == process_name:
-                # 更新优先级
-                process['priority'] = priority
-                process_exists = True
-                break
-        
-        # 如果不在列表中，则添加
-        if not process_exists:
-            self.monitor.config_manager.io_priority_processes.append({
-                'name': process_name,
-                'priority': priority
-            })
-        
-        # 保存配置
-        if self.monitor.config_manager.save_config():
-            logger.debug(f"已将进程 {process_name} 添加到自动I/O优先级设置列表")
-            QMessageBox.information(
-                self,
-                "已添加",
-                f"进程 {process_name} 已添加到自动I/O优先级设置列表。\n\n"
-                f"程序将在启动时和每隔30秒自动检查并设置该进程的I/O优先级。"
-            )
-        else:
-            logger.error(f"保存I/O优先级设置失败")
-            QMessageBox.warning(
-                self,
-                "保存失败",
-                "无法保存I/O优先级设置，请检查程序权限和磁盘空间。"
-            )
-
-    @Slot()
     def optimize_anticheat_processes(self):
         """一键优化所有反作弊进程的I/O优先级"""
         # 反作弊相关进程名称列表
@@ -1719,10 +1540,7 @@ class MainWindow(QMainWindow):
             "SGuard64.exe",
             "ACE-Tray.exe",
             "AntiCheatExpert.exe",
-            "AntiCheatExpertBase.sys",
-            "GameAntiCheat.exe",
-            "BattlEye.exe",
-            "EasyAntiCheat.exe"
+            "AntiCheatExpertBase.sys"
         ]
         
         # 获取I/O优先级管理器
@@ -1740,17 +1558,21 @@ class MainWindow(QMainWindow):
         successful_processes = 0
         affected_process_names = []
         
-        # 为每个进程设置优先级
+        # 为每个进程设置优先级（使用效能模式）
         for i, process_name in enumerate(anticheat_processes):
             # 更新进度
             progress.setValue(i)
             if progress.wasCanceled():
                 break
             
-            # 设置为很低优先级
+            # 导入性能模式枚举
+            from utils.process_io_priority import PERFORMANCE_MODE
+            
+            # 设置为很低优先级和效能模式
             success_count, count = io_manager.set_process_io_priority_by_name(
                 process_name, 
-                IO_PRIORITY_HINT.IoPriorityVeryLow
+                IO_PRIORITY_HINT.IoPriorityVeryLow,
+                PERFORMANCE_MODE.ECO_MODE
             )
             
             if count > 0:
@@ -1768,7 +1590,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(
                 self, 
                 "优化结果", 
-                f"已成功优化 {successful_processes}/{total_processes} 个反作弊进程\n\n"
+                f"已成功优化 {successful_processes}/{total_processes} 个反作弊进程\n"
+                f"设置为效能模式，降低对系统性能的影响\n\n"
                 f"受影响的进程: {', '.join(affected_process_names)}"
             )
         
@@ -1776,80 +1599,39 @@ class MainWindow(QMainWindow):
         self.update_status()
 
     @Slot()
-    def optimize_current_game(self):
-        """优化系统体验"""
-        # 获取I/O优先级管理器
-        io_manager = get_io_priority_manager()
+    def show_auto_optimize_tab(self):
+        """显示自动优化列表选项卡"""
+        # 导入对话框类
+        from ui.process_io_priority_manager import ProcessIoPriorityManagerDialog
         
-        # 降低反作弊进程优先级的逻辑
-        result_messages = []
+        # 创建对话框
+        dialog = ProcessIoPriorityManagerDialog(self, self.monitor.config_manager)
         
-        # 确认操作
-        reply = QMessageBox.question(
-            self,
-            "确认操作",
-            "此操作将：\n"
-            "1. 降低所有反作弊进程的I/O优先级\n"
-            "2. 优化系统响应性\n\n"
-            "确定要继续吗？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes
-        )
+        # 获取选项卡控件并切换到自动优化列表页面（索引1）
+        tab_widget = dialog.findChild(QTabWidget)
+        if tab_widget:
+            tab_widget.setCurrentIndex(1)  # 切换到"⚙️ 自动优化列表"选项卡
         
-        if reply != QMessageBox.Yes:
-            return
+        # 显示对话框
+        dialog.exec()
         
-        # 显示进度对话框
-        progress = QProgressDialog("正在优化系统体验...", "取消", 0, 2, self)
-        progress.setWindowTitle("优化系统体验")
-        progress.setMinimumDuration(0)
-        progress.setValue(0)
-        progress.show()
-        
-        # 1. 降低反作弊进程的I/O优先级
-        anticheat_processes = [
-            "SGuard64.exe",
-            "ACE-Tray.exe",
-            "AntiCheatExpert.exe",
-            "GameAntiCheat.exe",
-            "BattlEye.exe",
-            "EasyAntiCheat.exe"
-        ]
-        
-        ac_total = 0
-        ac_success = 0
-        for process_name in anticheat_processes:
-            success, total = io_manager.set_process_io_priority_by_name(
-                process_name, 
-                IO_PRIORITY_HINT.IoPriorityVeryLow
-            )
-            ac_total += total
-            ac_success += success
-        
-        if ac_total > 0:
-            result_messages.append(f"已降低 {ac_success}/{ac_total} 个反作弊进程的I/O优先级")
-        
-        progress.setValue(1)
-        if progress.wasCanceled():
-            return
-        
-        # 2. 优化系统进程
-        progress.setValue(2)
-        
-        # 显示结果
-        if not result_messages:
-            QMessageBox.information(self, "优化结果", "未能优化任何进程")
-        else:
-            QMessageBox.information(self, "优化结果", "\n".join(result_messages))
-        
-        # 更新状态显示
+        # 刷新状态显示，因为用户可能在列表中做了修改
         self.update_status()
 
     @Slot()
     def show_io_priority_list(self):
         """显示I/O优先级进程列表管理对话框"""
-        dialog = ProcessIoPriorityListDialog(self, self.monitor.config_manager)
-        dialog.exec()
+        # 使用新的通用进程管理器
+        dialog = show_process_io_priority_manager(self, self.monitor.config_manager)
+        # 刷新状态显示，因为用户可能在列表中做了修改
+        self.update_status()
+
+    @Slot()
+    def show_process_manager(self):
+        """显示进程I/O优先级管理器"""
+        show_process_io_priority_manager(self, self.monitor.config_manager)
+        # 刷新状态显示，因为用户可能在管理器中做了修改
+        self.update_status()
 
 
 def get_status_info(monitor):
@@ -1878,7 +1660,7 @@ def get_status_info(monitor):
         status_lines.append("❗ ACE-Tray进程：需要处理")
     
     # 检查 SGuard64.exe 是否存在
-    scan_proc = monitor.is_process_running(monitor.scanprocess_name)
+    scan_proc = monitor.is_process_running(monitor.scanprocess_name) is not None
     if not scan_proc and monitor.scanprocess_optimized:
         status_lines.append("✅ SGuard64进程：已优化")
     elif not scan_proc:
@@ -1913,8 +1695,8 @@ def get_status_info(monitor):
         status_lines.append("❓ AntiCheatExpert服务：未找到")
     
     status_lines.append("\n⚙️ 系统设置：")
-    status_lines.append("  🔔 通知状态：" + ("开启" if monitor.show_notifications else "关闭"))
-    status_lines.append(f"  🔁 开机自启：{'开启' if monitor.auto_start else '关闭'}")
+    status_lines.append("  🔔 通知状态：" + ("开启" if monitor.config_manager.show_notifications else "关闭"))
+    status_lines.append(f"  🔁 开机自启：{'开启' if monitor.config_manager.auto_start else '关闭'}")
     status_lines.append(f"  🐛 调试模式：{'开启' if monitor.config_manager.debug_mode else '关闭'}")
     status_lines.append(f"  📁 配置目录：{monitor.config_manager.config_dir}")
     status_lines.append(f"  📝 日志目录：{monitor.config_manager.log_dir}")

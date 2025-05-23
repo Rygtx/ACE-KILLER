@@ -23,6 +23,7 @@ class ConfigManager:
         # 应用设置
         self.show_notifications = True  # Windows通知开关默认值
         self.auto_start = False  # 开机自启动开关默认值
+        self.monitor_enabled = True  # ACE弹窗监控开关默认值
         self.log_retention_days = 7  # 默认日志保留天数
         self.log_rotation = "1 day"  # 默认日志轮转周期
         self.debug_mode = False  # 调试模式默认值
@@ -80,6 +81,9 @@ class ConfigManager:
             },
             'application': {
                 'auto_start': False
+            },
+            'monitor': {
+                'enabled': False
             },
             'memory_cleaner': {
                 'enabled': False,
@@ -146,6 +150,11 @@ class ConfigManager:
                         self.auto_start = True
                         logger.debug("检测到注册表中已设置开机自启，已更新配置")
                 
+                # 读取监控设置
+                if 'monitor' in config_data and 'enabled' in config_data['monitor']:
+                    self.monitor_enabled = bool(config_data['monitor']['enabled'])
+                    logger.debug(f"已从配置文件加载监控设置: {self.monitor_enabled}")
+                
                 # 读取内存清理设置
                 if 'memory_cleaner' in config_data:
                     if 'enabled' in config_data['memory_cleaner']:
@@ -211,6 +220,7 @@ class ConfigManager:
             self.log_rotation = default_config['logging']['rotation']
             self.debug_mode = default_config['logging']['debug_mode']
             self.auto_start = default_config['application']['auto_start']
+            self.monitor_enabled = default_config['monitor']['enabled']
             
             # 加载内存清理默认设置
             if 'memory_cleaner' in default_config:
@@ -254,6 +264,9 @@ class ConfigManager:
                 },
                 'application': {
                     'auto_start': self.auto_start
+                },
+                'monitor': {
+                    'enabled': self.monitor_enabled
                 },
                 'memory_cleaner': {
                     'enabled': self.memory_cleaner_enabled,
