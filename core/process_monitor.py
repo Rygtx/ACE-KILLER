@@ -216,9 +216,28 @@ class GameProcessMonitor:
                 finally:
                     win32service.CloseServiceHandle(service_handle)
             except win32service.error as e:
+                # 安全地获取错误码
+                error_code = None
+                try:
+                    # 尝试获取错误码
+                    if hasattr(e, 'args') and len(e.args) > 0:
+                        error_code = e.args[0]
+                    elif hasattr(e, 'winerror'):
+                        error_code = e.winerror
+                    elif isinstance(e, tuple) and len(e) > 0:
+                        error_code = e[0]
+                except:
+                    error_code = None
+                
                 # 服务不存在时不记录警告日志，只在初次检查或错误码不是1060时记录
-                if not hasattr(self, '_service_cache') or service_name not in self._service_cache or e[0] != 1060:
-                    logger.debug(f"服务 {service_name} 不存在或无法访问: {str(e)}")
+                should_log = True
+                if error_code == 1060:  # ERROR_SERVICE_DOES_NOT_EXIST
+                    # 如果是服务不存在的错误，检查是否需要记录日志
+                    if hasattr(self, '_service_cache') and service_name in self._service_cache:
+                        should_log = False
+                
+                if should_log:
+                    logger.debug(f"服务 {service_name} 不存在或无法访问: {str(e)} (错误码: {error_code})")
                 
                 # 更新缓存
                 if not hasattr(self, '_service_cache'):
@@ -235,7 +254,10 @@ class GameProcessMonitor:
                 win32service.CloseServiceHandle(sch_handle)
                 
         except Exception as e:
-            logger.error(f"检查服务状态时发生错误: {str(e)}")
+            error_type = type(e).__name__
+            error_msg = str(e)
+            logger.error(f"检查服务状态时发生错误: [{error_type}] {error_msg}")
+            logger.debug(f"服务名称: {service_name}, 异常详情: {repr(e)}")
             return False, 'unknown', 'unknown'
     
     def monitor_anticheat_service(self):

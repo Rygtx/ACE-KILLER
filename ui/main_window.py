@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QGridLayout, QProgressDialog, QProgressBar, QComboBox, QTableWidget,
     QTableWidgetItem, QHeaderView, QAbstractItemView, QSpinBox
 )
-from PySide6.QtCore import Qt, Signal, QSize, QObject, Slot, QTimer, QEvent, QThread, QMetaObject, QGenericArgument
+from PySide6.QtCore import Qt, Signal, QSize, QObject, Slot, QTimer, QEvent, QThread, QMetaObject
 from PySide6.QtGui import QIcon, QPixmap, QColor, QAction
 from loguru import logger
 
@@ -39,6 +39,10 @@ class MainWindow(QMainWindow):
     # 添加进度更新信号作为类属性
     progress_update_signal = Signal(int)
     
+    # 添加删除服务相关的信号
+    delete_progress_signal = Signal(int)
+    delete_result_signal = Signal(str, int, int)  # result_text, success_count, total_count
+    
     def __init__(self, monitor, icon_path=None):
         super().__init__()
         
@@ -51,6 +55,8 @@ class MainWindow(QMainWindow):
         
         # 连接信号到槽函数
         self.progress_update_signal.connect(self._update_progress_dialog_value)
+        self.delete_progress_signal.connect(self._update_delete_progress)
+        self.delete_result_signal.connect(self._show_delete_services_result)
         
         self.setup_ui()
         self.setup_tray()
@@ -1176,21 +1182,13 @@ class MainWindow(QMainWindow):
             self.monitor.stop_monitors()
             self.monitor.running = False
         
-        # 确保在主线程中停止定时器
-        if QThread.currentThread() == QApplication.instance().thread():
-            # 当前在主线程
+        # 停止定时器（在主线程中处理）
+        if hasattr(self, 'update_timer') and self.update_timer:
             self.update_timer.stop()
-        else:
-            # 当前不在主线程，使用QMetaObject.invokeMethod
-            QMetaObject.invokeMethod(self.update_timer, "stop", 
-                                   Qt.ConnectionType.QueuedConnection)
         
-        # 移除托盘图标
-        if QThread.currentThread() == QApplication.instance().thread():
+        # 隐藏托盘图标（在主线程中处理）
+        if hasattr(self, 'tray_icon') and self.tray_icon:
             self.tray_icon.hide()
-        else:
-            QMetaObject.invokeMethod(self.tray_icon, "hide",
-                                   Qt.ConnectionType.QueuedConnection)
         
         # 退出应用
         QApplication.quit()
@@ -1439,14 +1437,14 @@ class MainWindow(QMainWindow):
         ]
         
         # 创建进度对话框
-        progress = QProgressDialog("正在删除ACE服务...", "取消", 0, len(services), self)
-        progress.setWindowTitle("删除服务")
-        progress.setMinimumDuration(0)
-        progress.setValue(0)
-        progress.show()
+        self.delete_progress_dialog = QProgressDialog("正在删除ACE服务...", "取消", 0, len(services), self)
+        self.delete_progress_dialog.setWindowTitle("删除服务")
+        self.delete_progress_dialog.setMinimumDuration(0)
+        self.delete_progress_dialog.setValue(0)
+        self.delete_progress_dialog.show()
         
         # 使用线程执行删除操作
-        threading.Thread(target=self._delete_services_thread, args=(services, progress)).start()
+        threading.Thread(target=self._delete_services_thread, args=(services, self.delete_progress_dialog)).start()
     
     def _delete_services_thread(self, services, progress):
         """线程函数：删除服务"""
@@ -1454,12 +1452,8 @@ class MainWindow(QMainWindow):
         success_count = 0
         
         for i, service in enumerate(services):
-            # 更新进度
-            QMetaObject.invokeMethod(
-                progress, "setValue", 
-                Qt.ConnectionType.QueuedConnection, 
-                QGenericArgument("int", i)
-            )
+            # 使用信号更新进度
+            self.delete_progress_signal.emit(i)
             
             # 检查服务是否存在
             exists, status, _ = self.monitor.check_service_status(service)
@@ -1499,26 +1493,27 @@ class MainWindow(QMainWindow):
                 logger.error(f"删除服务 {service} 时出错: {str(e)}")
                 results.append(f"{service}: 删除出错 - {str(e)}")
         
-        # 更新最终进度并关闭进度对话框
-        QMetaObject.invokeMethod(
-            progress, "setValue", 
-            Qt.ConnectionType.QueuedConnection, 
-            QGenericArgument("int", len(services))
-        )
+        # 更新最终进度并发送结果
+        self.delete_progress_signal.emit(len(services))
         
-        # 显示结果
+        # 发送结果信号
         result_text = "\n".join(results)
-        QMetaObject.invokeMethod(
-            self, "_show_delete_services_result", 
-            Qt.ConnectionType.QueuedConnection, 
-            QGenericArgument("QString", result_text),
-            QGenericArgument("int", success_count),
-            QGenericArgument("int", len(services))
-        )
+        self.delete_result_signal.emit(result_text, success_count, len(services))
+    
+    @Slot(int)
+    def _update_delete_progress(self, value):
+        """更新删除进度对话框的值"""
+        if hasattr(self, 'delete_progress_dialog') and self.delete_progress_dialog is not None:
+            self.delete_progress_dialog.setValue(value)
     
     @Slot(str, int, int)
     def _show_delete_services_result(self, result_text, success_count, total_count):
         """显示删除服务的结果"""
+        # 清理进度对话框引用
+        if hasattr(self, 'delete_progress_dialog') and self.delete_progress_dialog is not None:
+            self.delete_progress_dialog.close()
+            self.delete_progress_dialog = None
+        
         QMessageBox.information(
             self,
             "删除服务结果",
@@ -1527,7 +1522,12 @@ class MainWindow(QMainWindow):
         
         # 添加通知
         if success_count > 0:
-            self.add_message(f"已成功删除 {success_count} 个ACE服务")
+            if self.monitor.config_manager.show_notifications:
+                send_notification(
+                    title="ACE-KILLER 服务删除",
+                    message=f"已成功删除 {success_count} 个ACE服务",
+                    icon_path=self.icon_path
+                )
             
         # 刷新状态
         self.update_status()

@@ -53,7 +53,7 @@ class ProcessInfoWorker(QThread):
                     # 获取进程基本信息
                     proc_info = proc.as_dict(attrs=[
                         'pid', 'name', 'username', 'status',
-                        'create_time', 'cpu_percent', 'memory_percent'
+                        'create_time', 'memory_percent'
                     ])
                     
                     # 获取内存信息
@@ -189,15 +189,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         self.memory_filter.valueChanged.connect(self._schedule_filter)
         filter_row1.addWidget(self.memory_filter)
         
-        # CPU过滤
-        filter_row1.addWidget(QLabel("CPU大于:"))
-        self.cpu_filter = QSpinBox()
-        self.cpu_filter.setRange(0, 100)
-        self.cpu_filter.setValue(0)
-        self.cpu_filter.setSuffix(" %")
-        self.cpu_filter.valueChanged.connect(self._schedule_filter)
-        filter_row1.addWidget(self.cpu_filter)
-        
         filter_layout.addLayout(filter_row1)
         
         # 第二行过滤器
@@ -248,9 +239,9 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 进程表格
         self.process_table = QTableWidget()
-        self.process_table.setColumnCount(10)
+        self.process_table.setColumnCount(9)
         self.process_table.setHorizontalHeaderLabels([
-            "PID", "进程名", "用户", "状态", "内存(MB)", "CPU(%)", "创建时间", "优先级设置", "性能模式", "操作"
+            "PID", "进程名", "用户", "状态", "内存(MB)", "创建时间", "优先级设置", "性能模式", "操作"
         ])
         
         # 设置表格属性
@@ -275,12 +266,11 @@ class ProcessIoPriorityManagerDialog(QDialog):
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # 用户
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # 状态
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # 内存
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # CPU
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # 创建时间
-        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # 优先级设置
-        header.setSectionResizeMode(8, QHeaderView.ResizeToContents)  # 性能模式
-        header.setSectionResizeMode(9, QHeaderView.Fixed)  # 操作
-        header.resizeSection(9, 120)  # 设置操作列宽度为160像素
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # 创建时间
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # 优先级设置
+        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # 性能模式
+        header.setSectionResizeMode(8, QHeaderView.Fixed)  # 操作
+        header.resizeSection(8, 120)  # 设置操作列宽度为120像素
         
         # 设置行高
         self.process_table.verticalHeader().setDefaultSectionSize(35)
@@ -370,7 +360,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         name_filter = self.name_filter.text().lower().strip()
         memory_filter = self.memory_filter.value()
-        cpu_filter = self.cpu_filter.value()
         
         # 进程类型过滤
         show_all = self.show_all_radio.isChecked()
@@ -386,10 +375,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
             
             # 内存过滤
             if proc.get('memory_mb', 0) < memory_filter:
-                continue
-            
-            # CPU过滤
-            if proc.get('cpu_percent', 0) < cpu_filter:
                 continue
             
             # 进程类型过滤
@@ -415,7 +400,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         """清除所有过滤器"""
         self.name_filter.clear()
         self.memory_filter.setValue(0)
-        self.cpu_filter.setValue(0)
         self.show_all_radio.setChecked(True)
         self._apply_filters()
     
@@ -501,13 +485,8 @@ class ProcessIoPriorityManagerDialog(QDialog):
         memory_mb = proc.get('memory_mb', 0)
         memory_item.setText(f"{memory_mb:.1f}")
         
-        # CPU
-        cpu_item = self._get_or_create_item(row, 5)
-        cpu_percent = proc.get('cpu_percent', 0)
-        cpu_item.setText(f"{cpu_percent:.1f}")
-        
         # 创建时间
-        time_item = self._get_or_create_item(row, 6)
+        time_item = self._get_or_create_item(row, 5)
         try:
             create_time = time.strftime('%m-%d %H:%M', 
                                       time.localtime(proc.get('create_time', 0)))
@@ -516,7 +495,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         time_item.setText(create_time)
         
         # 优先级设置下拉框
-        priority_combo = self.process_table.cellWidget(row, 7)
+        priority_combo = self.process_table.cellWidget(row, 6)
         if not priority_combo:
             priority_combo = QComboBox()
             
@@ -541,10 +520,10 @@ class ProcessIoPriorityManagerDialog(QDialog):
                 "• 后台进程/反作弊：最低或低\n"
                 "• 一般应用：正常"
             )
-            self.process_table.setCellWidget(row, 7, priority_combo)
+            self.process_table.setCellWidget(row, 6, priority_combo)
         
         # 性能模式选择
-        performance_mode_combo = self.process_table.cellWidget(row, 8)
+        performance_mode_combo = self.process_table.cellWidget(row, 7)
         if not performance_mode_combo:
             performance_mode_combo = QComboBox()
             performance_mode_combo.addItem("🔥 最大性能模式", PERFORMANCE_MODE.MAXIMUM_PERFORMANCE)
@@ -566,10 +545,10 @@ class ProcessIoPriorityManagerDialog(QDialog):
                 "• 后台进程/反作弊：效能模式\n"
                 "• 一般应用：正常模式"
             )
-            self.process_table.setCellWidget(row, 8, performance_mode_combo)
+            self.process_table.setCellWidget(row, 7, performance_mode_combo)
         
         # 操作按钮
-        action_widget = self.process_table.cellWidget(row, 9)
+        action_widget = self.process_table.cellWidget(row, 8)
         if not action_widget:
             action_layout = QHBoxLayout()
             action_widget = QWidget()
@@ -585,7 +564,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
             action_layout.setContentsMargins(2, 2, 2, 2)
             action_layout.setSpacing(2)
             action_widget.setLayout(action_layout)
-            self.process_table.setCellWidget(row, 9, action_widget)
+            self.process_table.setCellWidget(row, 8, action_widget)
     
     def _get_or_create_item(self, row, column):
         """获取或创建表格项"""
@@ -607,12 +586,12 @@ class ProcessIoPriorityManagerDialog(QDialog):
             return
         
         # 获取选择的优先级
-        priority_combo = self.process_table.cellWidget(row, 7)
+        priority_combo = self.process_table.cellWidget(row, 6)
         if not priority_combo:
             return
         
         # 获取选择的性能模式
-        performance_mode_combo = self.process_table.cellWidget(row, 8)
+        performance_mode_combo = self.process_table.cellWidget(row, 7)
         if not performance_mode_combo:
             return
         
@@ -858,7 +837,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         # 停止工作线程
         if self.process_worker and self.process_worker.isRunning():
             self.process_worker.stop()
-            self.process_worker.wait(3000)  # 等待最多3秒
+            self.process_worker.wait(1000)
         
         event.accept()
 
