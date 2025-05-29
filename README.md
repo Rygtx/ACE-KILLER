@@ -106,7 +106,7 @@
    - 📁 打开配置目录
    - 🚪 退出程序
 
-## ⚙️ ACE Control 说明
+## ⚙️ ACE Services 说明
 
 - **AntiCheatExpert Service**：用户模式，由 `SvGuard64.exe` 控制的游戏交互的服务，也是在服务概览 (services.msc) 中看到的唯一服务
 - **AntiCheatExpert Protection**：反作弊组件
@@ -129,5 +129,5 @@
 
 ## 📜 许可证
 
-本项目采用 GNU General Public License v3.0 - 详见 [LICENSE](LICENSE) 文件
+- **本项目采用 `GNU General Public License v3.0`** - 详见 [LICENSE](LICENSE) 文件
 
