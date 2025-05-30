@@ -43,6 +43,10 @@ class MainWindow(QMainWindow):
     delete_progress_signal = Signal(int)
     delete_result_signal = Signal(str, int, int)  # result_text, success_count, total_count
     
+    # 添加停止服务相关的信号
+    stop_progress_signal = Signal(int)
+    stop_result_signal = Signal(str, int, int)  # result_text, success_count, total_count
+    
     def __init__(self, monitor, icon_path=None, start_minimized=False):
         super().__init__()
         
@@ -58,6 +62,8 @@ class MainWindow(QMainWindow):
         self.progress_update_signal.connect(self._update_progress_dialog_value)
         self.delete_progress_signal.connect(self._update_delete_progress)
         self.delete_result_signal.connect(self._show_delete_services_result)
+        self.stop_progress_signal.connect(self._update_stop_progress)
+        self.stop_result_signal.connect(self._show_stop_services_result)
         
         self.setup_ui()
         self.setup_tray()
@@ -454,15 +460,38 @@ class MainWindow(QMainWindow):
         service_layout = QVBoxLayout()
         
         # 提醒文本
-        warning_label = QLabel("警告：以下操作需要管理员权限，并会永久删除ACE反作弊服务")
+        warning_label = QLabel("警告：以下操作需要管理员权限，并会影响ACE反作弊服务")
         warning_label.setStyleSheet("color: red;")
         service_layout.addWidget(warning_label)
+        
+        # 创建按钮布局
+        service_buttons_layout = QHBoxLayout()
+        
+        # 开启反作弊程序按钮
+        self.start_ace_btn = QPushButton("开启反作弊程序")
+        self.start_ace_btn.setToolTip("执行启动ACE反作弊程序命令")
+        self.start_ace_btn.clicked.connect(self.start_ace_program)
+        service_buttons_layout.addWidget(self.start_ace_btn)
+        
+        # 卸载ACE程序按钮
+        self.uninstall_ace_btn = QPushButton("卸载反作弊程序")
+        self.uninstall_ace_btn.setToolTip("执行ACE反作弊程序卸载命令")
+        self.uninstall_ace_btn.clicked.connect(self.uninstall_ace_program)
+        service_buttons_layout.addWidget(self.uninstall_ace_btn)
+        
+        # 停止ACE服务按钮
+        self.stop_service_btn = QPushButton("停止ACE服务")
+        self.stop_service_btn.setToolTip("停止ACE-GAME、ACE-BASE、AntiCheatExpert Service、AntiCheatExpert Protection服务")
+        self.stop_service_btn.clicked.connect(self.stop_ace_services)
+        service_buttons_layout.addWidget(self.stop_service_btn)
         
         # 删除ACE服务按钮
         self.delete_service_btn = QPushButton("删除ACE服务")
         self.delete_service_btn.setToolTip("删除ACE-GAME、ACE-BASE、AntiCheatExpert Service、AntiCheatExpert Protection服务")
         self.delete_service_btn.clicked.connect(self.delete_ace_services)
-        service_layout.addWidget(self.delete_service_btn)
+        service_buttons_layout.addWidget(self.delete_service_btn)
+        
+        service_layout.addLayout(service_buttons_layout)
         
         service_group.setLayout(service_layout)
         settings_layout.addWidget(service_group)
@@ -557,7 +586,7 @@ class MainWindow(QMainWindow):
         memory_menu.addAction(clean_syscache_action)
         
         # 执行全部已知清理动作
-        clean_all_action = QAction("执行全部已知清理", self)
+        clean_all_action = QAction("执行全部已知清理(不推荐)", self)
         clean_all_action.triggered.connect(self.manual_clean_all)
         memory_menu.addAction(clean_all_action)
         
@@ -799,7 +828,7 @@ class MainWindow(QMainWindow):
         html.append(f'<p class="status-item">🔁 开机自启: <span class="{autostart_class}" style="font-weight: bold;">{autostart_text}</span></p>')
         
         # 调试模式状态
-        debug_class = "status-warning" if self.monitor.config_manager.debug_mode else "status-disabled"
+        debug_class = "status-success" if self.monitor.config_manager.debug_mode else "status-disabled"
         debug_text = "已启用" if self.monitor.config_manager.debug_mode else "已禁用"
         html.append(f'<p class="status-item">🐛 调试模式: <span class="{debug_class}" style="font-weight: bold;">{debug_text}</span></p>')
         
@@ -1482,19 +1511,19 @@ class MainWindow(QMainWindow):
                 # 创建临时批处理文件
                 temp_bat_path = os.path.join(os.environ['TEMP'], f"delete_service_{i}.bat")
                 with open(temp_bat_path, 'w') as f:
-                    f.write(f'@echo off\nsc stop "{service}"\nsc delete "{service}"\necho 服务删除完成\npause\n')
+                    f.write(f'@echo off\nsc stop "{service}"\nsc delete "{service}"\n')
                 
-                # 使用管理员权限执行批处理文件
-                cmd = f'powershell -Command "Start-Process -Verb RunAs cmd.exe -ArgumentList \'/c \"{temp_bat_path}\"\'\"'
+                # 使用管理员权限执行批处理文件 - 添加隐藏窗口参数
+                cmd = f'powershell -Command "Start-Process -WindowStyle Hidden -Verb RunAs cmd.exe -ArgumentList \'/c \"{temp_bat_path}\"\'\"'
                 subprocess.run(cmd, shell=True, check=False)
                 
-                # 等待操作完成和用户确认
+                # 等待操作完成
                 time.sleep(2)
                 
                 # 校验服务是否已删除
                 exists, _, _ = self.monitor.check_service_status(service)
                 if exists:
-                    results.append(f"{service}: 删除失败或等待用户确认")
+                    results.append(f"{service}: 删除失败")
                 else:
                     results.append(f"{service}: 已成功删除")
                     success_count += 1
@@ -1648,6 +1677,221 @@ class MainWindow(QMainWindow):
         show_process_io_priority_manager(self, self.monitor.config_manager)
         # 刷新状态显示，因为用户可能在管理器中做了修改
         self.update_status()
+
+    @Slot()
+    def stop_ace_services(self):
+        """停止ACE相关服务"""
+        # 确认对话框
+        reply = QMessageBox.question(
+            self,
+            "确认停止反作弊 AntiCheatExpert 服务",
+            "此操作将以管理员权限停止以下服务：\n"
+            "- ACE-GAME\n"
+            "- ACE-BASE\n"
+            "- AntiCheatExpert Service\n"
+            "- AntiCheatExpert Protection\n\n"
+            "确定要停止这些服务吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # 服务列表
+        services = [
+            "ACE-GAME",
+            "ACE-BASE", 
+            "AntiCheatExpert Service",
+            "AntiCheatExpert Protection"
+        ]
+        
+        # 创建进度对话框
+        self.stop_progress_dialog = QProgressDialog("正在停止ACE服务...", "取消", 0, len(services), self)
+        self.stop_progress_dialog.setWindowTitle("停止服务")
+        self.stop_progress_dialog.setMinimumDuration(0)
+        self.stop_progress_dialog.setValue(0)
+        self.stop_progress_dialog.show()
+        
+        # 使用线程执行停止操作
+        threading.Thread(target=self._stop_services_thread, args=(services, self.stop_progress_dialog)).start()
+    
+    def _stop_services_thread(self, services, progress):
+        """线程函数：停止服务"""
+        results = []
+        success_count = 0
+        
+        for i, service in enumerate(services):
+            # 使用信号更新进度
+            self.stop_progress_signal.emit(i)
+            
+            # 检查服务是否存在
+            exists, status, _ = self.monitor.check_service_status(service)
+            if not exists:
+                results.append(f"{service}: 服务不存在")
+                continue
+                
+            # 如果服务已经停止，则跳过
+            if status.lower() == 'stopped':
+                results.append(f"{service}: 服务已经停止")
+                success_count += 1
+                continue
+            
+            # 创建提升权限的命令
+            try:
+                # 创建临时批处理文件
+                temp_bat_path = os.path.join(os.environ['TEMP'], f"stop_service_{i}.bat")
+                with open(temp_bat_path, 'w') as f:
+                    f.write(f'@echo off\nsc stop "{service}"\n')
+                
+                # 使用管理员权限执行批处理文件 - 添加隐藏窗口参数
+                cmd = f'powershell -Command "Start-Process -WindowStyle Hidden -Verb RunAs cmd.exe -ArgumentList \'/c \"{temp_bat_path}\"\'\"'
+                subprocess.run(cmd, shell=True, check=False)
+                
+                # 等待操作完成
+                time.sleep(2)
+                
+                # 校验服务是否已停止
+                exists, new_status, _ = self.monitor.check_service_status(service)
+                if exists and new_status.lower() != 'stopped':
+                    results.append(f"{service}: 停止失败")
+                else:
+                    results.append(f"{service}: 已成功停止")
+                    success_count += 1
+                    
+                # 尝试删除临时文件
+                try:
+                    if os.path.exists(temp_bat_path):
+                        os.remove(temp_bat_path)
+                except:
+                    pass
+            except Exception as e:
+                logger.error(f"停止服务 {service} 时出错: {str(e)}")
+                results.append(f"{service}: 停止出错 - {str(e)}")
+        
+        # 更新最终进度并发送结果
+        self.stop_progress_signal.emit(len(services))
+        
+        # 发送结果信号
+        result_text = "\n".join(results)
+        self.stop_result_signal.emit(result_text, success_count, len(services))
+
+    @Slot(int)
+    def _update_stop_progress(self, value):
+        """更新停止进度对话框的值"""
+        if hasattr(self, 'stop_progress_dialog') and self.stop_progress_dialog is not None:
+            self.stop_progress_dialog.setValue(value)
+    
+    @Slot(str, int, int)
+    def _show_stop_services_result(self, result_text, success_count, total_count):
+        """显示停止服务的结果"""
+        # 清理进度对话框引用
+        if hasattr(self, 'stop_progress_dialog') and self.stop_progress_dialog is not None:
+            self.stop_progress_dialog.close()
+            self.stop_progress_dialog = None
+        
+        QMessageBox.information(
+            self,
+            "停止服务结果",
+            f"操作完成，成功停止 {success_count}/{total_count} 个服务。\n\n详细信息：\n{result_text}"
+        )
+        
+        # 添加通知
+        if success_count > 0:
+            if self.monitor.config_manager.show_notifications:
+                send_notification(
+                    title="ACE-KILLER 服务停止",
+                    message=f"已成功停止 {success_count} 个ACE服务",
+                    icon_path=self.icon_path
+                )
+            
+        # 刷新状态
+        self.update_status()
+
+    @Slot()
+    def start_ace_program(self):
+        """启动ACE反作弊程序"""
+        try:
+            # 检查ACE-Tray.exe文件是否存在
+            ace_path = "C:\\Program Files\\AntiCheatExpert\\ACE-Tray.exe"
+            if not os.path.exists(ace_path):
+                QMessageBox.warning(
+                    self,
+                    "启动失败",
+                    "未找到ACE反作弊程序，请确认已安装ACE反作弊。\n\n如果已经手动卸载ACE程序，想要重新安装，请按以下步骤：\n1. 先关闭本工具的ACE弹窗进程监控\n2. 打开任意TX游戏后在ACE弹窗中重新进行手动安装。\n3. 安装成功后重新启动电脑\n"
+                )
+                return
+                
+            # 执行命令启动反作弊程序
+            subprocess.Popen([ace_path, "enable"], shell=False, 
+                           creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            logger.debug("已执行ACE反作弊程序启动命令")
+            
+            # 显示成功消息
+            QMessageBox.information(
+                self,
+                "启动命令已执行",
+                "ACE反作弊程序启动命令已执行！\n请重新启动电脑才能生效。"
+            )
+ 
+            # 发送通知
+            if self.monitor.config_manager.show_notifications:
+                send_notification(
+                    title="ACE-KILLER",
+                    message="ACE反作弊程序启动命令已执行",
+                    icon_path=self.icon_path
+                )
+                
+        except Exception as e:
+            error_msg = f"启动ACE反作弊程序失败: {str(e)}"
+            logger.error(error_msg)
+            QMessageBox.critical(self, "启动失败", error_msg)
+
+    @Slot()
+    def uninstall_ace_program(self):
+        """卸载ACE反作弊程序"""
+        # 确认对话框
+        reply = QMessageBox.question(
+            self,
+            "确认卸载ACE反作弊",
+            "此操作将卸载ACE反作弊程序，确定要继续吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+            
+        try:
+            # 检查卸载程序是否存在
+            uninstaller_path = "C:\\Program Files\\AntiCheatExpert\\Uninstaller.exe"
+            if not os.path.exists(uninstaller_path):
+                QMessageBox.warning(
+                    self,
+                    "卸载失败",
+                    "未找到ACE反作弊卸载程序，请确认已安装ACE反作弊。\n"
+                )
+                return
+                
+            # 执行卸载命令
+            subprocess.Popen([uninstaller_path], shell=False, 
+                           creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            logger.debug("已执行ACE反作弊程序卸载命令")
+            
+            # 发送通知
+            if self.monitor.config_manager.show_notifications:
+                send_notification(
+                    title="ACE-KILLER",
+                    message="ACE反作弊程序卸载命令已执行。",
+                    icon_path=self.icon_path
+                )
+                
+        except Exception as e:
+            error_msg = f"卸载ACE反作弊程序失败: {str(e)}"
+            logger.error(error_msg)
+            QMessageBox.critical(self, "卸载失败", error_msg)
 
 def get_status_info(monitor):
     """
