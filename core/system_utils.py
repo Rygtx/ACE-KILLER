@@ -102,9 +102,10 @@ def enable_auto_start(app_name="ACE-KILLER"):
                               r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 
                               0, winreg.KEY_SET_VALUE)
         program_path = get_program_path()
-        winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{program_path}"')
+        # 开机自启时自动最小化到托盘
+        winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{program_path}" --minimized')
         winreg.CloseKey(key)
-        logger.debug("已设置开机自启")
+        logger.debug("已设置开机自启（将最小化到托盘启动）")
         return True
     except Exception as e:
         logger.error(f"设置开机自启失败: {str(e)}")

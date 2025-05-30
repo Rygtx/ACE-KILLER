@@ -43,12 +43,13 @@ class MainWindow(QMainWindow):
     delete_progress_signal = Signal(int)
     delete_result_signal = Signal(str, int, int)  # result_text, success_count, total_count
     
-    def __init__(self, monitor, icon_path=None):
+    def __init__(self, monitor, icon_path=None, start_minimized=False):
         super().__init__()
         
         self.monitor = monitor
         self.icon_path = icon_path
         self.current_theme = "auto"  # 支持 "light", "dark", "auto"
+        self.start_minimized = start_minimized  # 是否在启动时最小化
         
         # 初始化内存清理管理器
         self.memory_cleaner = get_memory_cleaner()
@@ -1744,5 +1745,15 @@ def create_gui(monitor, icon_path=None):
     
     qdarktheme.setup_theme(system_theme)
     
-    window = MainWindow(monitor, icon_path)
+    # 检查是否需要最小化启动（通过命令行参数传递）
+    start_minimized = "--minimized" in sys.argv
+    
+    window = MainWindow(monitor, icon_path, start_minimized)
+    
+    # 如果设置了最小化启动，则不显示主窗口
+    if not start_minimized:
+        window.show()
+    else:
+        logger.debug("程序以最小化模式启动，隐藏主窗口")
+    
     return app, window

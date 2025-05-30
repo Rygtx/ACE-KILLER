@@ -79,8 +79,6 @@ def main():
     
 
     try:
-        # 显示窗口
-        window.show()
         # 运行应用（这会阻塞主线程直到应用程序退出）
         sys.exit(app.exec())
     except KeyboardInterrupt:

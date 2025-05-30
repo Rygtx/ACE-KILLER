@@ -88,7 +88,7 @@ class ConfigManager:
             'memory_cleaner': {
                 'enabled': False,
                 'brute_mode': True,
-                'switches': [False, False, False, True, True, False],
+                'switches': [True, True, False, False, False, False],
                 'interval': 300,
                 'threshold': 80.0,
                 'cooldown': 60
