@@ -542,12 +542,27 @@ class MainWindow(QMainWindow):
         tray_menu.addMenu(theme_menu)
         
         tray_menu.addSeparator()
-      
-        # 删除ACE服务菜单项
-        delete_service_action = QAction("删除ACE服务", self)
-        delete_service_action.triggered.connect(self.delete_ace_services)
-        tray_menu.addAction(delete_service_action)
-
+        
+        # 内存清理子菜单
+        memory_menu = QMenu("内存清理")
+        
+        # 截取进程工作集动作
+        clean_workingset_action = QAction("截取进程工作集", self)
+        clean_workingset_action.triggered.connect(self.manual_clean_workingset)
+        memory_menu.addAction(clean_workingset_action)
+        
+        # 清理系统缓存动作
+        clean_syscache_action = QAction("清理系统缓存", self)
+        clean_syscache_action.triggered.connect(self.manual_clean_syscache)
+        memory_menu.addAction(clean_syscache_action)
+        
+        # 执行全部已知清理动作
+        clean_all_action = QAction("执行全部已知清理", self)
+        clean_all_action.triggered.connect(self.manual_clean_all)
+        memory_menu.addAction(clean_all_action)
+        
+        tray_menu.addMenu(memory_menu)
+        
         tray_menu.addSeparator()
         
         # 打开配置目录动作
@@ -1633,7 +1648,6 @@ class MainWindow(QMainWindow):
         show_process_io_priority_manager(self, self.monitor.config_manager)
         # 刷新状态显示，因为用户可能在管理器中做了修改
         self.update_status()
-
 
 def get_status_info(monitor):
     """
