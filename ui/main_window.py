@@ -745,28 +745,40 @@ class MainWindow(QMainWindow):
                 html.append('<p class="status-item">🔄 SGuard64进程: <span class="status-warning">正在运行 (未优化)</span>  (反作弊扫盘进程)</p>')
         else:
             html.append('<p class="status-item">⚠️ SGuard64进程: <span class="status-error">未在运行</span>  (反作弊扫盘进程)</p>')
+        html.append('</div>')
         
-        # AntiCheatExpert Service服务状态
-        service_exists, status, start_type = self.monitor.check_service_status(self.monitor.anticheat_service_name)
-        if service_exists:
-            if status == 'running':
-                html.append('<p class="status-item">✅ AntiCheatExpert服务: <span class="status-success">正在运行</span></p>')
-            elif status == 'stopped':
-                html.append('<p class="status-item">⚠️ AntiCheatExpert服务: <span class="status-error">已停止</span></p>')
-            else:
-                html.append(f'<p class="status-item">ℹ️ AntiCheatExpert服务: <span class="status-normal">{status}</span></p>')
+        # 反作弊服务状态
+        html.append('<div class="card">')
+        html.append('<div class="section-title">反作弊服务状态</div>')
+        
+        # 获取所有反作弊服务的状态
+        service_results = self.monitor.monitor_anticheat_service()
+        
+        # 显示每个服务的状态
+        for service_name, service_info in service_results.items():
+            service_exists = service_info["exists"]
+            status = service_info["status"]
+            start_type = service_info["start_type"]
             
-            # 服务启动类型
-            if start_type == 'auto':
-                html.append('<p class="status-item">⚙️ AntiCheatExpert启动类型: <span class="status-success">自动启动</span></p>')
-            elif start_type == 'disabled':
-                html.append('<p class="status-item">⚙️ AntiCheatExpert启动类型: <span class="status-error">已禁用</span></p>')
-            elif start_type == 'manual':
-                html.append('<p class="status-item">⚙️ AntiCheatExpert启动类型: <span class="status-normal">手动</span></p>')
+            if service_exists:
+                if status == 'running':
+                    html.append(f'<p class="status-item">✅ {service_name}: <span class="status-success">正在运行</span></p>')
+                elif status == 'stopped':
+                    html.append(f'<p class="status-item">⚠️ {service_name}: <span class="status-error">已停止</span></p>')
+                else:
+                    html.append(f'<p class="status-item">ℹ️ {service_name}: <span class="status-normal">{status}</span></p>')
+                
+                # 服务启动类型
+                if start_type == 'auto':
+                    html.append(f'<p class="status-item">⚙️ {service_name}启动类型: <span class="status-success">自动启动</span></p>')
+                elif start_type == 'disabled':
+                    html.append(f'<p class="status-item">⚙️ {service_name}启动类型: <span class="status-error">已禁用</span></p>')
+                elif start_type == 'manual':
+                    html.append(f'<p class="status-item">⚙️ {service_name}启动类型: <span class="status-normal">手动</span></p>')
+                else:
+                    html.append(f'<p class="status-item">⚙️ {service_name}启动类型: <span class="status-normal">{start_type}</span></p>')
             else:
-                html.append(f'<p class="status-item">⚙️ AntiCheatExpert启动类型: <span class="status-normal">{start_type}</span></p>')
-        else:
-            html.append('<p class="status-item">❓ AntiCheatExpert服务: <span class="status-disabled">未找到</span></p>')
+                html.append(f'<p class="status-item">❓ {service_name}: <span class="status-disabled">未找到</span></p>')
         
         html.append('</div>')
         
@@ -1938,20 +1950,26 @@ def get_status_info(monitor):
     else:
         status_lines.append("❗ SGuard64进程：需要优化")
     
-    # 检查 AntiCheatExpert Service 服务状态
-    service_exists, status, start_type = monitor.check_service_status(monitor.anticheat_service_name)
-    if service_exists:
-        if status == 'running':
-            status_lines.append("✅ AntiCheatExpert服务：正在运行")
-        elif status == 'stopped':
-            status_lines.append("⚠️ AntiCheatExpert服务：已停止")
-        else:
-            status_lines.append(f"ℹ️ AntiCheatExpert服务：{status}")
+    # 检查所有反作弊服务状态
+    service_results = monitor.monitor_anticheat_service()
+    
+    # 显示每个服务的状态
+    for service_name, service_info in service_results.items():
+        service_exists = service_info["exists"]
+        status = service_info["status"]
         
-        # 显示启动类型
-        status_lines.append(f"⚙️ 服务启动类型：{get_start_type_display(start_type)}")
-    else:
-        status_lines.append("❓ AntiCheatExpert服务：未找到")
+        if service_exists:
+            if status == 'running':
+                status_lines.append(f"✅ {service_name}：正在运行")
+            elif status == 'stopped':
+                status_lines.append(f"⚠️ {service_name}：已停止")
+            else:
+                status_lines.append(f"ℹ️ {service_name}：{status}")
+                
+            # 显示启动类型
+            status_lines.append(f"⚙️ {service_name}启动类型：{get_start_type_display(start_type)}")
+        else:
+            status_lines.append(f"❓ {service_name}：未找到")
     
     status_lines.append("\n⚙️ 系统设置：")
     status_lines.append("  🔔 通知状态：" + ("开启" if monitor.config_manager.show_notifications else "关闭"))

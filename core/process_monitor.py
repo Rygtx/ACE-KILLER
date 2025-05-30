@@ -46,7 +46,15 @@ class GameProcessMonitor:
         self.config_manager = config_manager
         self.anticheat_name = "ACE-Tray.exe"  # 反作弊进程名称
         self.scanprocess_name = "SGuard64.exe"  # 扫描进程名称
-        self.anticheat_service_name = "AntiCheatExpert Service"  # 反作弊服务名称
+        
+        # 反作弊服务列表
+        self.anticheat_services = {
+            "AntiCheatExpert Service": {"exists": None, "status": None, "start_type": None},
+            "AntiCheatExpert Protection": {"exists": None, "status": None, "start_type": None},
+            "ACE-BASE": {"exists": None, "status": None, "start_type": None},
+            "ACE-GAME": {"exists": None, "status": None, "start_type": None}
+        }
+        
         self.running = False  # 监控线程运行标记，初始为False
         self.process_cache = {}  # 进程缓存
         self.cache_timeout = 5  # 缓存超时时间（秒）
@@ -54,11 +62,6 @@ class GameProcessMonitor:
         self.anticheat_killed = False  # 终止ACE进程标记
         self.scanprocess_optimized = False  # 优化SGuard64进程标记
         self.message_queue = queue.Queue()  # 消息队列，用于在线程间传递状态信息
-        
-        # 添加服务状态跟踪变量
-        self._last_service_exists = None  # 上次检查时服务是否存在
-        self._last_service_status = None  # 上次检查时服务的运行状态
-        self._last_service_start_type = None  # 上次检查时服务的启动类型
         
         # 设置自身进程优先级
         self._set_self_priority()
@@ -262,50 +265,66 @@ class GameProcessMonitor:
     
     def monitor_anticheat_service(self):
         """
-        监控AntiCheatExpert Service服务状态
+        监控所有反作弊服务状态
         
         Returns:
-            tuple: (是否存在, 运行状态, 启动类型)
+            dict: 包含所有服务状态的字典
         """
-        service_exists, status, start_type = self.check_service_status(self.anticheat_service_name)
+        service_results = {}
         
-        if service_exists:
-            logger.debug(f"反作弊AntiCheatExpert Service服务状态: {status}, 启动类型: {start_type}")
+        # 遍历所有反作弊服务并检查状态
+        for service_name in self.anticheat_services.keys():
+            service_exists, status, start_type = self.check_service_status(service_name)
             
-            # 判断是否需要通知 - 只有状态变化时才通知
-            if self.show_notifications:
-                # 检查服务状态是否发生变化
-                status_changed = (self._last_service_status != status)
-                start_type_changed = (self._last_service_start_type != start_type)
-                first_check = (self._last_service_exists is None)
+            # 记录服务状态
+            service_results[service_name] = {
+                "exists": service_exists,
+                "status": status,
+                "start_type": start_type
+            }
+            
+            if service_exists:
+                logger.debug(f"反作弊{service_name}服务状态: {status}, 启动类型: {start_type}")
                 
-                # 只有在首次检查或状态变化时才发送通知
-                if first_check or (service_exists != self._last_service_exists):
-                    if status == 'running':
-                        self.add_message(f"检测到 {self.anticheat_service_name} 服务正在运行")
-                    elif status == 'stopped':
-                        self.add_message(f"{self.anticheat_service_name} 服务已停止")
-                
-                # 服务状态变化时通知
-                elif status_changed:
-                    if status == 'running':
-                        self.add_message(f"{self.anticheat_service_name} 服务已启动")
-                    elif status == 'stopped':
-                        self.add_message(f"{self.anticheat_service_name} 服务已停止")
-                
-                # 启动类型变化时通知
-                if first_check or start_type_changed:
-                    if start_type == 'auto':
-                        self.add_message(f"{self.anticheat_service_name} 服务设置为自动启动")
-                    elif start_type == 'disabled':
-                        self.add_message(f"{self.anticheat_service_name} 服务已禁用")
-        
-        # 更新上次检查的服务状态
-        self._last_service_exists = service_exists
-        self._last_service_status = status
-        self._last_service_start_type = start_type
+                # 判断是否需要通知 - 只有状态变化时才通知
+                if self.show_notifications:
+                    # 获取上次检查的服务状态
+                    last_exists = self.anticheat_services[service_name]["exists"]
+                    last_status = self.anticheat_services[service_name]["status"]
+                    last_start_type = self.anticheat_services[service_name]["start_type"]
                     
-        return service_exists, status, start_type
+                    # 检查服务状态是否发生变化
+                    status_changed = (last_status != status)
+                    start_type_changed = (last_start_type != start_type)
+                    first_check = (last_exists is None)
+                    
+                    # 只有在首次检查或状态变化时才发送通知
+                    if first_check or (service_exists != last_exists):
+                        if status == 'running':
+                            self.add_message(f"检测到 {service_name} 服务正在运行")
+                        elif status == 'stopped':
+                            self.add_message(f"{service_name} 服务已停止")
+                    
+                    # 服务状态变化时通知
+                    elif status_changed:
+                        if status == 'running':
+                            self.add_message(f"{service_name} 服务已启动")
+                        elif status == 'stopped':
+                            self.add_message(f"{service_name} 服务已停止")
+                    
+                    # 启动类型变化时通知
+                    if first_check or start_type_changed:
+                        if start_type == 'auto':
+                            self.add_message(f"{service_name} 服务设置为自动启动")
+                        elif start_type == 'disabled':
+                            self.add_message(f"{service_name} 服务已禁用")
+            
+            # 更新服务状态缓存
+            self.anticheat_services[service_name]["exists"] = service_exists
+            self.anticheat_services[service_name]["status"] = status
+            self.anticheat_services[service_name]["start_type"] = start_type
+        
+        return service_results
     
     def kill_process(self, process_name):
         """
@@ -592,4 +611,4 @@ class GameProcessMonitor:
         # 重置状态
         self.anticheat_killed = False
         self.scanprocess_optimized = False
-        logger.debug("监控程序已停止") 
+        logger.debug("监控程序已停止")
