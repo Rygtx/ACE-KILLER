@@ -31,7 +31,7 @@
 - 🚀 自动优化`SGuard64.exe`扫盘进程，降低CPU占用
 - 🗑️ 支持一键启动/停止反作弊进程，卸载/删除ACE反作弊服务
 - 🐻 支持自定义进程性能模式
-- 🧹 内存清理根据`H3d9`大佬C++的 [Memory Cleaner](https://github.com/H3d9/memory_cleaner) 进行重构
+- 🧹 内存清理根据作者`H3d9`编写的 [Memory Cleaner](https://github.com/H3d9/memory_cleaner) 进行重构
 - 📱 支持Windows系统通知
 - 🔄 支持开机静默自启
 - 💻 系统托盘常驻运行
