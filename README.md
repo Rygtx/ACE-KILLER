@@ -41,19 +41,23 @@
 ## 项目展示
 
 <div align="center">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_1.png" width="60%" alt="应用界面预览">
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/1.png" width="60%" alt="应用界面预览">
   <p>ACE-KILLER 应用界面</p>
 </div>
 <div align="center">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_2.png" width="60%" alt="配置界面预览">
-  <p>ACE-KILLER 配置界面</p>
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/2.png" width="60%" alt="配置界面预览">
+  <p>ACE-KILLER 进程监控界面1</p>
 </div>
 <div align="center">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_3.png" width="60%" alt="内存清理界面预览">
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/5.png" width="60%" alt="配置界面预览">
+  <p>ACE-KILLER 进程监控界面2</p>
+</div>
+<div align="center">
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/3.png" width="60%" alt="内存清理界面预览">
   <p>ACE-KILLER 内存清理界面</p>
 </div>
 <div align="center">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/app_4.png" width="60%" alt="设置界面预览">
+  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/4.png" width="60%" alt="设置界面预览">
   <p>ACE-KILLER 设置界面</p>
 </div>
 
