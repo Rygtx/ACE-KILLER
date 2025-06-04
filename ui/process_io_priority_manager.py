@@ -734,13 +734,15 @@ class ProcessIoPriorityManagerDialog(QDialog):
         existing_found = False
         for existing_proc in self.config_manager.io_priority_processes:
             if existing_proc.get('name') == process_name:
-                # 如果进程已存在，询问是否更新
-                if existing_proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE) != performance_mode:
+                # 如果进程已存在，检查性能模式
+                existing_performance_mode = existing_proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE)
+                if existing_performance_mode != performance_mode:
+                    # 性能模式不同，询问是否更新
                     reply = QMessageBox.question(
                         self,
                         "进程已存在",
                         f"进程 {process_name} 已在自动优化列表中，但性能模式不同。\n"
-                        f"当前列表中性能模式: {self.get_performance_mode_text(existing_proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE))}\n"
+                        f"当前列表中性能模式: {self.get_performance_mode_text(existing_performance_mode)}\n"
                         f"新选择的性能模式: {self.get_performance_mode_text(performance_mode)}\n\n"
                         f"是否要更新设置？",
                         QMessageBox.Yes | QMessageBox.No,
@@ -758,7 +760,12 @@ class ProcessIoPriorityManagerDialog(QDialog):
                             f"自动优化列表保持原有设置不变")
                         return
                 else:
-                    # 设置相同，无需更新
+                    # 性能模式相同，提示不需要重复添加
+                    QMessageBox.information(self, "进程已存在", 
+                        f"✅ 已成功优化进程 {process_name} (PID: {pid})\n"
+                        f"⚡ 性能模式: {self.get_performance_mode_text(performance_mode)}\n\n"
+                        f"💡 该进程已在自动优化列表中，性能模式设置相同，无需重复添加。\n"
+                        f"系统将继续按照当前设置自动优化该进程。")
                     existing_found = True
                 break
         
