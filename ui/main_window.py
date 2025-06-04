@@ -1591,17 +1591,21 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def optimize_anticheat_processes(self):
-        """一键优化所有反作弊进程的I/O优先级"""
+        """一键优化所有反作弊进程的I/O优先级并添加到自动优化列表"""
         # 反作弊相关进程名称列表
         anticheat_processes = [
-            "SGuard64.exe",
-            "ACE-Tray.exe",
-            "AntiCheatExpert.exe",
-            "AntiCheatExpertBase.sys"
+            "SGuard64.exe", # SGuard64进程
+            "ACE-Tray.exe", # ACE进程
+            "AntiCheatExpert.exe", # ACE进程
+            "AntiCheatExpertBase.sys", # ACE进程
+            "FeverGamesService.exe", # FeverGamesService进程
         ]
         
         # 获取I/O优先级管理器
         io_manager = get_io_priority_manager()
+        
+        # 导入性能模式枚举
+        from utils.process_io_priority import PERFORMANCE_MODE
         
         # 显示进度对话框
         progress = QProgressDialog("正在优化反作弊进程...", "取消", 0, len(anticheat_processes), self)
@@ -1614,6 +1618,8 @@ class MainWindow(QMainWindow):
         total_processes = 0
         successful_processes = 0
         affected_process_names = []
+        added_to_list = []  # 新添加到自动优化列表的进程
+        updated_in_list = []  # 在自动优化列表中更新的进程
         
         # 为每个进程设置优先级（使用效能模式）
         for i, process_name in enumerate(anticheat_processes):
@@ -1621,9 +1627,6 @@ class MainWindow(QMainWindow):
             progress.setValue(i)
             if progress.wasCanceled():
                 break
-            
-            # 导入性能模式枚举
-            from utils.process_io_priority import PERFORMANCE_MODE
             
             # 设置为很低优先级和效能模式
             success_count, count = io_manager.set_process_io_priority_by_name(
@@ -1636,24 +1639,71 @@ class MainWindow(QMainWindow):
                 total_processes += count
                 successful_processes += success_count
                 affected_process_names.append(f"{process_name} ({success_count}/{count})")
+                
+                # 将成功优化的进程添加到自动优化列表
+                if success_count > 0:
+                    self._add_to_auto_optimize_list(process_name, PERFORMANCE_MODE.ECO_MODE, added_to_list, updated_in_list)
         
         # 完成进度
         progress.setValue(len(anticheat_processes))
+        
+        # 保存配置（如果有进程被添加或更新）
+        if added_to_list or updated_in_list:
+            self.monitor.config_manager.save_config()
         
         # 显示结果
         if total_processes == 0:
             QMessageBox.information(self, "优化结果", "未找到任何反作弊进程")
         else:
-            QMessageBox.information(
-                self, 
-                "优化结果", 
+            # 构建结果消息
+            result_message = (
                 f"已成功优化 {successful_processes}/{total_processes} 个反作弊进程\n"
                 f"设置为效能模式，降低对系统性能的影响\n\n"
-                f"受影响的进程: {', '.join(affected_process_names)}"
+                f"受影响的进程: {', '.join(affected_process_names)}\n\n"
             )
+            
+            if added_to_list:
+                result_message += f"✅ 新添加到自动优化列表: {', '.join(added_to_list)}\n"
+            
+            if updated_in_list:
+                result_message += f"🔄 在自动优化列表中更新: {', '.join(updated_in_list)}\n"
+            
+            if added_to_list or updated_in_list:
+                result_message += "\n💡 这些进程将在程序启动时和每隔30秒自动优化"
+            
+            QMessageBox.information(self, "优化结果", result_message)
         
         # 更新状态显示
         self.update_status()
+    
+    def _add_to_auto_optimize_list(self, process_name: str, performance_mode: int, added_list: list, updated_list: list):
+        """将进程添加到自动优化列表"""
+        # 导入性能模式枚举
+        from utils.process_io_priority import PERFORMANCE_MODE
+        
+        # 检查是否已存在于自动优化列表
+        existing_found = False
+        for existing_proc in self.monitor.config_manager.io_priority_processes:
+            if existing_proc.get('name') == process_name:
+                existing_performance_mode = existing_proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE)
+                if existing_performance_mode != performance_mode:
+                    # 更新性能模式
+                    existing_proc['performance_mode'] = performance_mode
+                    existing_proc['updated_time'] = time.time()
+                    updated_list.append(process_name)
+                    logger.debug(f"更新自动优化列表中的进程 {process_name} 性能模式")
+                existing_found = True
+                break
+        
+        if not existing_found:
+            # 添加新进程到列表
+            self.monitor.config_manager.io_priority_processes.append({
+                'name': process_name,
+                'performance_mode': performance_mode,
+                'added_time': time.time()
+            })
+            added_list.append(process_name)
+            logger.debug(f"添加进程 {process_name} 到自动优化列表")
 
     @Slot()
     def show_auto_optimize_tab(self):
