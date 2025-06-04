@@ -29,14 +29,13 @@
 
 - 🛡️ 自动关闭`ACE-Tray.exe`反作弊安装询问弹窗
 - 🚀 自动优化`SGuard64.exe`扫盘进程，降低CPU占用
-- 🐻 自定义I/O进程优先级、能效模式
-- 🎮 支持自定义同时监控多个TX游戏
+- 🗑️ 支持一键启动/停止反作弊进程，卸载/删除ACE反作弊服务
+- 🐻 支持自定义进程性能模式
+- 🧹 内存清理根据`H3d9`大佬C++的 [Memory Cleaner](https://github.com/H3d9/memory_cleaner) 进行重构
 - 📱 支持Windows系统通知
-- 🔄 支持开机自启动
+- 🔄 支持开机静默自启
 - 💻 系统托盘常驻运行
-- 🧹 内存清理根据`H3d9`大佬C++编写的 [Memory Cleaner](https://github.com/H3d9/memory_cleaner) 重构而来
 - 🌓 支持明暗主题切换
-- 🗑️ 支持一键卸载ACE反作弊服务
 
 ## 🚀 如何使用
 
