@@ -57,42 +57,6 @@
   <p>ACE-KILLER 设置界面</p>
 </div>
 
-
-## 📂 项目结构
-
-| 文件/目录 | 描述 |
-| --- | --- |
-| `config/config_manager.py` | 配置管理器 |
-| `core/process_monitor.py` | 进程监控核心实现 |
-| `core/system_utils.py` | 系统工具函数 |
-| `utils/logger.py` | 日志工具 |
-| `utils/notification.py` | 通知系统 |
-| `utils/build_exe.py` | 打包工具 |
-| `utils/memory_cleaner.py` | 内存清理核心 |
-| `utils/process_io_priority.py` | 进程I/O优先级管理 |
-| `requirements.txt` | 项目依赖列表 |
-
-## 💻 技术栈
-
-<table>
-  <tr>
-    <td><b>核心技术</b></td>
-    <td>Python 3.10+</td>
-  </tr>
-  <tr>
-    <td><b>界面框架</b></td>
-    <td>PySide6, pyqtdarktheme</td>
-  </tr>
-  <tr>
-    <td><b>系统交互</b></td>
-    <td>psutil, PyWin32</td>
-  </tr>
-  <tr>
-    <td><b>辅助工具</b></td>
-    <td>loguru, win11toast, PyYAML</td>
-  </tr>
-</table>
-
 ## 🚀 如何使用
 
 1. 下载最新版本的[发布包](https://github.com/Cassianvale/ACE-KILLER/releases)
@@ -105,6 +69,15 @@
    - ⚙️ 配置游戏监控
    - 📁 打开配置目录
    - 🚪 退出程序
+
+## 进程模式策略
+
+| 性能模式 | CPU优先级 | 效能节流 | CPU亲和性 |
+|---------|-----------|----------|----------|
+| 🌱 效能模式 | 低优先级(IDLE) | 启用节流 | 最后一个核心 |
+| 🍉 正常模式 | **正常优先级(NORMAL)** | **禁用节流** | 所有核心 |
+| 🚀 高性能 | 高优先级(HIGH) | 禁用节流 | 所有核心 |
+| 🔥 最大性能 | 实时优先级(REALTIME) | 禁用节流 | 所有核心 |
 
 ## ⚙️ ACE Services 说明
 

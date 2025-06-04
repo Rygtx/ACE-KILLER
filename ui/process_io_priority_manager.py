@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-进程I/O优先级管理界面模块
-"""
-
 import os
 import threading
 import time
@@ -127,8 +123,8 @@ class ProcessIoPriorityManagerDialog(QDialog):
     def setup_ui(self):
         """设置用户界面"""
         self.setWindowTitle("进程I/O优先级管理")
-        self.setMinimumSize(1000, 700)
-        self.resize(1200, 800)
+        self.setMinimumSize(1000, 680)
+        self.resize(1200, 720)
         
         layout = QVBoxLayout(self)
         
@@ -149,14 +145,18 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 刷新按钮
         self.refresh_btn = QPushButton("🔄 刷新进程列表")
+        self.refresh_btn.setFixedSize(140, 35)
         self.refresh_btn.clicked.connect(self.refresh_process_list)
+        self.apply_button_style(self.refresh_btn, "#28a745")
         button_layout.addWidget(self.refresh_btn)
         
         button_layout.addStretch()
         
         # 关闭按钮
         close_btn = QPushButton("关闭")
+        close_btn.setFixedSize(80, 35)
         close_btn.clicked.connect(self.accept)
+        self.apply_button_style(close_btn, "#6c757d")
         button_layout.addWidget(close_btn)
         
         layout.addLayout(button_layout)
@@ -218,7 +218,9 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 清除过滤器按钮
         clear_filter_btn = QPushButton("清除过滤器")
+        clear_filter_btn.setFixedSize(100, 32)
         clear_filter_btn.clicked.connect(self.clear_filters)
+        self.apply_button_style(clear_filter_btn, "#17a2b8")
         filter_row2.addWidget(clear_filter_btn)
         
         filter_layout.addLayout(filter_row2)
@@ -239,41 +241,36 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 进程表格
         self.process_table = QTableWidget()
-        self.process_table.setColumnCount(9)
+        self.process_table.setColumnCount(8)
         self.process_table.setHorizontalHeaderLabels([
-            "PID", "进程名", "用户", "状态", "内存(MB)", "创建时间", "优先级设置", "性能模式", "操作"
+            "🆔 PID", "📋 进程名", "👤 用户", "⚡ 状态", "💾 内存", "🕐 创建时间", "⚙️ 性能模式", "🛠️ 操作"
         ])
         
-        # 设置表格属性
-        self.process_table.setAlternatingRowColors(True)
-        self.process_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.process_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.process_table.setSortingEnabled(True)
-        self.process_table.setShowGrid(True)
-        self.process_table.setFocusPolicy(Qt.NoFocus)  # 禁用焦点，避免蓝色焦点框
-        self.process_table.setSelectionMode(QAbstractItemView.SingleSelection)  # 单选模式
-        self.process_table.clearSelection()  # 清除任何默认选择
-        
-        # 设置表格字体
-        font = QFont()
-        font.setPointSize(9)
-        self.process_table.setFont(font)
+        # 应用现代化样式
+        self.apply_modern_table_style(self.process_table)
         
         # 设置列宽
         header = self.process_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # PID
+        header.setSectionResizeMode(0, QHeaderView.Fixed)        # PID
         header.setSectionResizeMode(1, QHeaderView.Stretch)  # 进程名
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # 用户
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # 状态
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # 内存
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # 创建时间
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # 优先级设置
-        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # 性能模式
-        header.setSectionResizeMode(8, QHeaderView.Fixed)  # 操作
-        header.resizeSection(8, 120)  # 设置操作列宽度为120像素
+        header.setSectionResizeMode(2, QHeaderView.Interactive)  # 用户
+        header.setSectionResizeMode(3, QHeaderView.Fixed)        # 状态
+        header.setSectionResizeMode(4, QHeaderView.Fixed)        # 内存
+        header.setSectionResizeMode(5, QHeaderView.Interactive)  # 创建时间
+        header.setSectionResizeMode(6, QHeaderView.Interactive)  # 性能模式
+        header.setSectionResizeMode(7, QHeaderView.Fixed)        # 操作
         
-        # 设置行高
-        self.process_table.verticalHeader().setDefaultSectionSize(35)
+        # 设置合理的初始列宽
+        header.resizeSection(0, 70)    # PID
+        header.resizeSection(2, 170)   # 用户
+        header.resizeSection(3, 100)   # 状态
+        header.resizeSection(4, 80)    # 内存
+        header.resizeSection(5, 100)   # 创建时间
+        header.resizeSection(6, 150)   # 性能模式
+        header.resizeSection(7, 120)   # 操作
+        
+        # 连接信号以限制最小列宽
+        header.sectionResized.connect(self.on_process_table_section_resized)
         
         layout.addWidget(self.process_table)
         
@@ -286,8 +283,8 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 说明信息
         info_label = QLabel(
-            "自动优化列表中的进程会在程序启动时和每隔30秒自动完整优化。\n"
-            "优化包括：I/O优先级设置、CPU优先级降低、CPU亲和性调整、效能模式启用。\n"
+            "自动优化列表中的进程会在程序启动时和每隔30秒自动优化。\n"
+            "优化包括：根据性能模式自动设置CPU优先级、CPU亲和性调整、I/O优先级设置。\n"
             "这有助于持续优化这些进程的系统资源占用，减少对前台应用的影响。"
         )
         info_label.setWordWrap(True)
@@ -295,34 +292,28 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 自动优化列表表格
         self.auto_optimize_table = QTableWidget()
-        self.auto_optimize_table.setColumnCount(5)
+        self.auto_optimize_table.setColumnCount(4)
         self.auto_optimize_table.setHorizontalHeaderLabels([
-            "进程名", "I/O优先级", "性能模式", "添加时间", "操作"
+            "📋 进程名", "⚙️ 性能模式", "🕐 添加时间", "🛠️ 操作"
         ])
         
-        # 设置表格属性
-        self.auto_optimize_table.setAlternatingRowColors(True)
-        self.auto_optimize_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.auto_optimize_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.auto_optimize_table.setShowGrid(True)
-        self.auto_optimize_table.setFocusPolicy(Qt.NoFocus)  # 禁用焦点，避免蓝色焦点框
+        # 应用现代化样式
+        self.apply_modern_table_style(self.auto_optimize_table)
         
-        # 设置表格字体
-        font = QFont()
-        font.setPointSize(9)
-        self.auto_optimize_table.setFont(font)
-        
-        # 设置列宽
+        # 设置列宽 - 让列填充满表格宽度
         auto_header = self.auto_optimize_table.horizontalHeader()
-        auto_header.setSectionResizeMode(0, QHeaderView.Stretch)
-        auto_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        auto_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        auto_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        auto_header.setSectionResizeMode(4, QHeaderView.Fixed)  # 操作
-        auto_header.resizeSection(4, 120)  # 设置操作列宽度为100像素
+        auto_header.setSectionResizeMode(0, QHeaderView.Stretch)  # 进程名
+        auto_header.setSectionResizeMode(1, QHeaderView.Interactive)  # 性能模式
+        auto_header.setSectionResizeMode(2, QHeaderView.Interactive)  # 添加时间
+        auto_header.setSectionResizeMode(3, QHeaderView.Fixed)       # 操作
         
-        # 设置行高
-        self.auto_optimize_table.verticalHeader().setDefaultSectionSize(35)
+        # 设置合理的初始列宽
+        auto_header.resizeSection(1, 150)  # 性能模式
+        auto_header.resizeSection(2, 150)  # 添加时间
+        auto_header.resizeSection(3, 120)  # 操作
+        
+        # 连接信号以限制最小列宽
+        auto_header.sectionResized.connect(self.on_auto_optimize_table_section_resized)
         
         layout.addWidget(self.auto_optimize_table)
         
@@ -334,12 +325,133 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 清空列表按钮
         clear_all_btn = QPushButton("🗑️ 清空列表")
+        clear_all_btn.setFixedSize(110, 32)
         clear_all_btn.clicked.connect(self.clear_auto_optimize_list)
+        self.apply_button_style(clear_all_btn, "#dc3545")
         stats_layout.addWidget(clear_all_btn)
         
         layout.addLayout(stats_layout)
         
         return widget
+    
+    def apply_modern_table_style(self, table):
+        """应用现代化表格样式"""
+        # 基本表格属性
+        table.setAlternatingRowColors(True)
+        table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.setSortingEnabled(True)
+        table.setShowGrid(False)  # 隐藏网格线
+        table.setFocusPolicy(Qt.NoFocus)
+        table.setSelectionMode(QAbstractItemView.SingleSelection)
+        table.clearSelection()
+        
+        # 设置现代化字体
+        font = QFont("Segoe UI", 9)
+        font.setWeight(QFont.Normal)
+        table.setFont(font)
+        
+        # 设置行高
+        table.verticalHeader().setDefaultSectionSize(48)
+        table.verticalHeader().setVisible(False)  # 隐藏行号
+        
+        # 设置表头样式
+        header = table.horizontalHeader()
+        header_font = QFont("Segoe UI", 9)
+        header_font.setWeight(QFont.Bold)
+        header.setFont(header_font)
+        header.setDefaultAlignment(Qt.AlignCenter)
+        header.setMinimumHeight(40)
+        
+        # 应用现代化CSS样式
+        table.setStyleSheet("""
+            QTableWidget {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                gridline-color: transparent;
+                selection-background-color: #e3f2fd;
+            }
+            
+            QTableWidget::item {
+                padding: 8px 12px;
+                border: none;
+                border-bottom: 1px solid #f5f5f5;
+            }
+            
+            QTableWidget::item:selected {
+                background-color: #e3f2fd;
+                color: #1976d2;
+            }
+            
+            QTableWidget::item:hover {
+                background-color: #f8f9fa;
+            }
+            
+            QTableWidget::item:alternate {
+                background-color: #fafafa;
+            }
+            
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                color: #333333;
+                padding: 12px;
+                border: none;
+                border-right: 1px solid #e0e0e0;
+                border-bottom: 2px solid #e0e0e0;
+                font-weight: bold;
+            }
+            
+            QHeaderView::section:first {
+                border-top-left-radius: 8px;
+            }
+            
+            QHeaderView::section:last {
+                border-top-right-radius: 8px;
+                border-right: none;
+            }
+            
+            QHeaderView::section:hover {
+                background-color: #e9ecef;
+            }
+            
+            QHeaderView::down-arrow {
+                image: none;
+                border: none;
+                width: 0px;
+                height: 0px;
+            }
+            
+            QHeaderView::up-arrow {
+                image: none;
+                border: none;
+                width: 0px;
+                height: 0px;
+            }
+            
+            QScrollBar:vertical {
+                background: #f8f9fa;
+                width: 12px;
+                border-radius: 6px;
+                margin: 0px;
+            }
+            
+            QScrollBar::handle:vertical {
+                background: #c0c0c0;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            
+            QScrollBar::handle:vertical:hover {
+                background: #a0a0a0;
+            }
+            
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+        """)
     
     def setup_timer(self):
         """设置定时器"""
@@ -443,7 +555,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         self._apply_filters()  # 应用当前过滤器
     
     def populate_process_table(self, processes):
-        """填充进程表格（优化版本）"""
+        """填充进程表格"""
         # 禁用排序以提高性能
         self.process_table.setSortingEnabled(False)
         
@@ -468,22 +580,36 @@ class ProcessIoPriorityManagerDialog(QDialog):
         pid_item.setText(str(proc['pid']))
         pid_item.setData(Qt.UserRole, proc)  # 存储完整进程信息
         
-        # 进程名
+        # 进程名 - 为系统进程添加特殊标识
         name_item = self._get_or_create_item(row, 1)
-        name_item.setText(proc['name'])
+        process_name = proc['name']
+        if proc.get('is_system', False):
+            process_name = f"🔒 {process_name}"  # 系统进程添加锁定图标
+            name_item.setForeground(QColor('#6c757d'))  # 系统进程使用灰色
+        else:
+            name_item.setForeground(QColor('#212529'))  # 用户进程使用深色
+        name_item.setText(process_name)
         
-        # 用户
+        # 用户 - 添加用户类型颜色区分
         user_item = self._get_or_create_item(row, 2)
-        user_item.setText(proc['username'])
+        username = proc['username']
+        user_color = '#dc3545' if proc.get('is_system', False) else '#495057'  # 系统用户红色，普通用户深灰色
+        user_item.setText(username)
+        user_item.setForeground(QColor(user_color))
         
-        # 状态
+        # 状态 - 添加状态图标和颜色
         status_item = self._get_or_create_item(row, 3)
-        status_item.setText(proc['status'])
+        status = proc['status']
+        status_icon, status_color = self.get_status_display(status)
+        status_item.setText(f"{status_icon} {status}")
+        status_item.setForeground(QColor(status_color))
         
-        # 内存
+        # 内存 - 添加内存使用量颜色指示
         memory_item = self._get_or_create_item(row, 4)
         memory_mb = proc.get('memory_mb', 0)
-        memory_item.setText(f"{memory_mb:.1f}")
+        memory_text, memory_color = self.get_memory_display(memory_mb)
+        memory_item.setText(memory_text)
+        memory_item.setForeground(QColor(memory_color))
         
         # 创建时间
         time_item = self._get_or_create_item(row, 5)
@@ -494,36 +620,8 @@ class ProcessIoPriorityManagerDialog(QDialog):
             create_time = 'N/A'
         time_item.setText(create_time)
         
-        # 优先级设置下拉框
-        priority_combo = self.process_table.cellWidget(row, 6)
-        if not priority_combo:
-            priority_combo = QComboBox()
-            
-            # 按优先级从高到低排列，便于用户理解
-            priority_combo.addItem("🔴 最高优先级", IO_PRIORITY_HINT.IoPriorityCritical)
-            priority_combo.addItem("🟢 正常优先级", IO_PRIORITY_HINT.IoPriorityNormal)  
-            priority_combo.addItem("🟡 低优先级", IO_PRIORITY_HINT.IoPriorityLow)
-            priority_combo.addItem("🔵 最低优先级", IO_PRIORITY_HINT.IoPriorityVeryLow)
-            
-            priority_combo.setCurrentIndex(1)  # 默认选择"正常先级"
-            priority_combo.setMaximumHeight(50)
-            
-            # 设置改进的工具提示
-            priority_combo.setToolTip(
-                "选择进程I/O优先级：\n\n"
-                "🔴 最高优先级 - 最高I/O优先级，适用于关键系统进程\n"
-                "🟢 正常优先级 - 系统默认I/O优先级\n" 
-                "🟡 低优先级 - 降低磁盘I/O优先级，减少对系统影响\n"
-                "🔵 最低优先级 - 最低I/O优先级，推荐用于后台进程\n\n"
-                "💡 建议：\n"
-                "• 游戏/重要应用：正常或最高\n"
-                "• 后台进程/反作弊：最低或低\n"
-                "• 一般应用：正常"
-            )
-            self.process_table.setCellWidget(row, 6, priority_combo)
-        
         # 性能模式选择
-        performance_mode_combo = self.process_table.cellWidget(row, 7)
+        performance_mode_combo = self.process_table.cellWidget(row, 6)
         if not performance_mode_combo:
             performance_mode_combo = QComboBox()
             performance_mode_combo.addItem("🔥 最大性能模式", PERFORMANCE_MODE.MAXIMUM_PERFORMANCE)
@@ -531,40 +629,49 @@ class ProcessIoPriorityManagerDialog(QDialog):
             performance_mode_combo.addItem("🍉 正常模式", PERFORMANCE_MODE.NORMAL_MODE)
             performance_mode_combo.addItem("🌱 效能模式", PERFORMANCE_MODE.ECO_MODE)
             performance_mode_combo.setCurrentIndex(2)  # 默认选择"正常模式"
-            performance_mode_combo.setMaximumHeight(40)
+            performance_mode_combo.setFixedHeight(30)   # 设置固定高度
+            performance_mode_combo.setMinimumWidth(120) # 设置最小宽度，确保文本完整显示
+            self.apply_combo_style(performance_mode_combo)
             
             # 设置改进的工具提示
             performance_mode_combo.setToolTip(
                 "选择进程性能模式：\n\n"
-                "🔥 最大性能模式 - 实时优先级，最高性能但可能影响系统稳定性\n"
-                "🚀 高性能模式 - 高优先级，适合游戏等重要应用\n"
-                "🍉 正常模式 - 系统默认设置\n"
-                "🌱 效能模式 - 降低性能和功耗，适合后台进程\n\n"
+                "🔥 最大性能模式 - 实时优先级，绑定所有核心，最高性能\n"
+                "🚀 高性能模式 - 高优先级，绑定所有核心，适合游戏等重要应用\n"
+                "🍉 正常模式 - 正常优先级，绑定所有核心，系统默认设置\n"
+                "🌱 效能模式 - 效能模式，绑定到最后一个核心，降低功耗\n\n"
                 "💡 建议：\n"
                 "• 游戏/重要应用：高性能或最大性能\n"
                 "• 后台进程/反作弊：效能模式\n"
                 "• 一般应用：正常模式"
             )
-            self.process_table.setCellWidget(row, 7, performance_mode_combo)
+            self.process_table.setCellWidget(row, 6, performance_mode_combo)
         
         # 操作按钮
-        action_widget = self.process_table.cellWidget(row, 8)
+        action_widget = self.process_table.cellWidget(row, 7)
         if not action_widget:
             action_layout = QHBoxLayout()
             action_widget = QWidget()
             
-            # 应用并添加到列表按钮（合并功能）
+            # 应用并添加到列表按钮
             apply_btn = QPushButton("🚀 应用")
-            apply_btn.setMaximumWidth(100)  # 增加按钮宽度
-            apply_btn.setMaximumHeight(28)
-            apply_btn.setToolTip("应用当前选择的I/O优先级和性能模式设置到进程，并添加到自动优化列表")
-            apply_btn.clicked.connect(lambda checked, r=row: self.apply_io_priority(r))
+            apply_btn.setFixedSize(80, 30)
+            apply_btn.setToolTip("应用当前选择的性能模式设置到进程，并添加到自动优化列表")
+            self.apply_button_style(apply_btn, "#007bff")
+            
+            apply_btn.setProperty("process_info", proc)
+            apply_btn.clicked.connect(lambda checked, btn=apply_btn: self.apply_performance_mode_by_button(btn))
             action_layout.addWidget(apply_btn)
             
             action_layout.setContentsMargins(2, 2, 2, 2)
             action_layout.setSpacing(2)
             action_widget.setLayout(action_layout)
-            self.process_table.setCellWidget(row, 8, action_widget)
+            self.process_table.setCellWidget(row, 7, action_widget)
+        else:
+            # 如果按钮已存在，更新存储的进程信息
+            apply_btn = action_widget.layout().itemAt(0).widget()
+            if apply_btn:
+                apply_btn.setProperty("process_info", proc)
     
     def _get_or_create_item(self, row, column):
         """获取或创建表格项"""
@@ -574,33 +681,48 @@ class ProcessIoPriorityManagerDialog(QDialog):
             self.process_table.setItem(row, column, item)
         return item
     
-    def apply_io_priority(self, row):
-        """完整优化进程并添加到自动优化列表"""
-        # 获取进程信息
-        pid_item = self.process_table.item(row, 0)
-        if not pid_item:
-            return
-        
-        proc_info = pid_item.data(Qt.UserRole)
+    def apply_performance_mode_by_button(self, button):
+        """通过按钮应用性能模式并添加到自动优化列表"""
+        # 从按钮获取进程信息
+        proc_info = button.property("process_info")
         if not proc_info:
             return
         
-        # 获取选择的优先级
-        priority_combo = self.process_table.cellWidget(row, 6)
-        if not priority_combo:
+        # 找到按钮所在的行
+        row = -1
+        for r in range(self.process_table.rowCount()):
+            widget = self.process_table.cellWidget(r, 7)
+            if widget and widget.layout().itemAt(0).widget() == button:
+                row = r
+                break
+        
+        if row == -1:
             return
         
         # 获取选择的性能模式
-        performance_mode_combo = self.process_table.cellWidget(row, 7)
+        performance_mode_combo = self.process_table.cellWidget(row, 6)
         if not performance_mode_combo:
             return
         
-        priority = priority_combo.currentData()
         performance_mode = performance_mode_combo.currentData()
         process_name = proc_info['name']
         pid = proc_info['pid']
         
-        # 第一步：完整优化进程（I/O优先级 + CPU优先级 + 性能模式）
+        # 根据性能模式设置对应的I/O优先级
+        if performance_mode == PERFORMANCE_MODE.MAXIMUM_PERFORMANCE:
+            # 最大性能：实时优先级，绑定所有核心
+            priority = IO_PRIORITY_HINT.IoPriorityCritical
+        elif performance_mode == PERFORMANCE_MODE.HIGH_PERFORMANCE:
+            # 高性能：高优先级，绑定所有核心
+            priority = IO_PRIORITY_HINT.IoPriorityNormal
+        elif performance_mode == PERFORMANCE_MODE.NORMAL_MODE:
+            # 正常模式：正常优先级，绑定所有核心
+            priority = IO_PRIORITY_HINT.IoPriorityNormal
+        else:  # ECO_MODE
+            # 效能模式：低优先级，绑定到最后一个核心
+            priority = IO_PRIORITY_HINT.IoPriorityLow
+        
+        # 应用性能模式设置
         success = self.io_manager.set_process_io_priority(pid, priority, performance_mode)
         
         if not success:
@@ -608,20 +730,16 @@ class ProcessIoPriorityManagerDialog(QDialog):
                 f"无法优化进程 {process_name} (PID: {pid})\n可能是权限不足或进程已退出")
             return
         
-        # 第二步：添加到自动优化列表
-        # 检查是否已存在
+        # 检查是否已存在于自动优化列表
         existing_found = False
         for existing_proc in self.config_manager.io_priority_processes:
             if existing_proc.get('name') == process_name:
                 # 如果进程已存在，询问是否更新
-                if (existing_proc.get('priority') != priority or 
-                    existing_proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE) != performance_mode):
+                if existing_proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE) != performance_mode:
                     reply = QMessageBox.question(
                         self,
                         "进程已存在",
-                        f"进程 {process_name} 已在自动优化列表中，但设置不同。\n"
-                        f"当前列表中优先级: {self.get_priority_text(existing_proc.get('priority', 0))}\n"
-                        f"新选择的优先级: {self.get_priority_text(priority)}\n"
+                        f"进程 {process_name} 已在自动优化列表中，但性能模式不同。\n"
                         f"当前列表中性能模式: {self.get_performance_mode_text(existing_proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE))}\n"
                         f"新选择的性能模式: {self.get_performance_mode_text(performance_mode)}\n\n"
                         f"是否要更新设置？",
@@ -629,15 +747,13 @@ class ProcessIoPriorityManagerDialog(QDialog):
                         QMessageBox.Yes
                     )
                     if reply == QMessageBox.Yes:
-                        existing_proc['priority'] = priority
                         existing_proc['performance_mode'] = performance_mode
                         existing_proc['updated_time'] = time.time()
                         existing_found = True
                     else:
                         # 用户选择不更新，但进程优化已经完成了
                         QMessageBox.information(self, "优化完成", 
-                            f"✅ 已成功完整优化进程 {process_name} (PID: {pid})\n"
-                            f"⚡ I/O优先级: {self.get_priority_text(priority)}\n"
+                            f"✅ 已成功优化进程 {process_name} (PID: {pid})\n"
                             f"⚡ 性能模式: {self.get_performance_mode_text(performance_mode)}\n\n"
                             f"自动优化列表保持原有设置不变")
                         return
@@ -650,29 +766,26 @@ class ProcessIoPriorityManagerDialog(QDialog):
             # 添加新进程到列表
             self.config_manager.io_priority_processes.append({
                 'name': process_name,
-                'priority': priority,
                 'performance_mode': performance_mode,
                 'added_time': time.time()
             })
         
-        # 第三步：保存配置
+        # 保存配置
         if self.config_manager.save_config():
             if existing_found:
                 QMessageBox.information(self, "优化成功", 
-                    f"✅ 已成功完整优化进程 {process_name} (PID: {pid})\n"
-                    f"⚡ I/O优先级: {self.get_priority_text(priority)}\n"
+                    f"✅ 已成功优化进程 {process_name} (PID: {pid})\n"
                     f"⚡ 性能模式: {self.get_performance_mode_text(performance_mode)}\n\n"
                     f"✅ 自动优化列表中的设置已更新")
             else:
                 QMessageBox.information(self, "优化成功", 
-                    f"✅ 已成功完整优化进程 {process_name} (PID: {pid})\n"
-                    f"⚡ I/O优先级: {self.get_priority_text(priority)}\n"
+                    f"✅ 已成功优化进程 {process_name} (PID: {pid})\n"
                     f"⚡ 性能模式: {self.get_performance_mode_text(performance_mode)}\n\n"
                     f"✅ 已添加到自动优化列表，将定期自动优化")
             
             # 刷新自动优化列表显示
             self.load_auto_optimize_list()
-            logger.debug(f"完整优化并添加进程到自动优化列表: {process_name} (PID: {pid}) -> {priority}, {performance_mode}")
+            logger.debug(f"优化并添加进程到自动优化列表: {process_name} (PID: {pid}) -> {performance_mode}")
         else:
             QMessageBox.warning(self, "保存失败", 
                 f"进程优化成功，但无法保存到自动优化列表\n请检查程序权限")
@@ -698,21 +811,31 @@ class ProcessIoPriorityManagerDialog(QDialog):
             name_item = self._get_or_create_auto_item(row, 0)
             name_item.setText(proc.get('name', ''))
             
-            # 优先级
-            priority = proc.get('priority', 0)
-            priority_text = self.get_priority_text(priority)
-            priority_item = self._get_or_create_auto_item(row, 1)
-            priority_item.setText(priority_text)
+            # 性能模式下拉框
+            performance_combo = self.auto_optimize_table.cellWidget(row, 1)
+            if not performance_combo:
+                performance_combo = QComboBox()
+                performance_combo.addItem("🔥 最大性能模式", PERFORMANCE_MODE.MAXIMUM_PERFORMANCE)
+                performance_combo.addItem("🚀 高性能模式", PERFORMANCE_MODE.HIGH_PERFORMANCE)
+                performance_combo.addItem("🍉 正常模式", PERFORMANCE_MODE.NORMAL_MODE)
+                performance_combo.addItem("🌱 效能模式", PERFORMANCE_MODE.ECO_MODE)
+                performance_combo.setFixedHeight(30)
+                performance_combo.setMinimumWidth(120)
+                self.apply_combo_style(performance_combo)
+                performance_combo.setProperty("process_name", proc.get('name', ''))
+                performance_combo.currentIndexChanged.connect(lambda index, combo=performance_combo: self.on_auto_performance_mode_changed(combo))
+                self.auto_optimize_table.setCellWidget(row, 1, performance_combo)
             
-            # 性能模式
+            # 设置当前性能模式
             performance_mode = proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE)
-            performance_mode_text = self.get_performance_mode_text(performance_mode)
-            performance_mode_item = self._get_or_create_auto_item(row, 2)
-            performance_mode_item.setText(performance_mode_text)
+            for i in range(performance_combo.count()):
+                if performance_combo.itemData(i) == performance_mode:
+                    performance_combo.setCurrentIndex(i)
+                    break
             
             # 添加时间
             add_time = proc.get('added_time', proc.get('updated_time', 0))
-            time_item = self._get_or_create_auto_item(row, 3)
+            time_item = self._get_or_create_auto_item(row, 2)
             if add_time:
                 time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(add_time))
             else:
@@ -720,22 +843,29 @@ class ProcessIoPriorityManagerDialog(QDialog):
             time_item.setText(time_str)
             
             # 操作按钮
-            action_widget = self.auto_optimize_table.cellWidget(row, 4)
+            action_widget = self.auto_optimize_table.cellWidget(row, 3)
             if not action_widget:
                 action_layout = QHBoxLayout()
                 action_widget = QWidget()
                 
                 # 删除按钮
                 delete_btn = QPushButton("🗑️ 删除")
-                delete_btn.setMaximumWidth(100)  # 增加按钮宽度
-                delete_btn.setMaximumHeight(25)
-                delete_btn.clicked.connect(lambda checked, r=row: self.delete_from_auto_optimize_list(r))
+                delete_btn.setFixedSize(80, 30)  # 设置固定尺寸
+                self.apply_button_style(delete_btn, "#dc3545")
+                # 将进程名存储在按钮中
+                delete_btn.setProperty("process_name", proc.get('name', ''))
+                delete_btn.clicked.connect(lambda checked, btn=delete_btn: self.delete_from_auto_optimize_list_by_button(btn))
                 action_layout.addWidget(delete_btn)
                 
                 action_layout.setContentsMargins(2, 2, 2, 2)
                 action_layout.setSpacing(2)
                 action_widget.setLayout(action_layout)
-                self.auto_optimize_table.setCellWidget(row, 4, action_widget)
+                self.auto_optimize_table.setCellWidget(row, 3, action_widget)
+            else:
+                # 如果按钮已存在，更新存储的进程名
+                delete_btn = action_widget.layout().itemAt(0).widget()
+                if delete_btn:
+                    delete_btn.setProperty("process_name", proc.get('name', ''))
         
         # 重新启用排序
         self.auto_optimize_table.setSortingEnabled(True)
@@ -774,12 +904,152 @@ class ProcessIoPriorityManagerDialog(QDialog):
         }
         return mode_map.get(performance_mode, f"未知({performance_mode})")
     
-    def delete_from_auto_optimize_list(self, row):
-        """从自动优化列表中删除进程"""
-        if row < 0 or row >= len(self.config_manager.io_priority_processes):
+    def get_status_display(self, status):
+        """获取进程状态的显示样式"""
+        status_map = {
+            'running': ('🟢', '#28a745'),
+            'sleeping': ('💤', '#6c757d'),
+            'disk-sleep': ('💾', '#17a2b8'),
+            'stopped': ('⏸️', '#ffc107'),
+            'tracing-stop': ('🔍', '#fd7e14'),
+            'zombie': ('💀', '#dc3545'),
+            'dead': ('☠️', '#6f42c1'),
+            'wake-kill': ('⚡', '#e83e8c'),
+            'waking': ('🌅', '#20c997'),
+            'idle': ('😴', '#6c757d'),
+            'locked': ('🔒', '#fd7e14'),
+            'waiting': ('⏳', '#17a2b8')
+        }
+        return status_map.get(status.lower(), ('❓', '#6c757d'))
+    
+    def get_memory_display(self, memory_mb):
+        """获取内存使用量的显示样式"""
+        if memory_mb >= 1000:  # 大于1GB
+            return f"{memory_mb:.1f} MB", '#dc3545'  # 红色 - 高内存使用
+        elif memory_mb >= 500:  # 500MB-1GB
+            return f"{memory_mb:.1f} MB", '#fd7e14'  # 橙色 - 中等内存使用
+        elif memory_mb >= 100:  # 100MB-500MB
+            return f"{memory_mb:.1f} MB", '#ffc107'  # 黄色 - 一般内存使用
+        else:  # 小于100MB
+            return f"{memory_mb:.1f} MB", '#28a745'  # 绿色 - 低内存使用
+    
+    def apply_button_style(self, button, primary_color="#007bff"):
+        """应用现代化按钮样式"""
+        button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {primary_color};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-weight: 500;
+                font-size: 12px;
+            }}
+            
+            QPushButton:hover {{
+                background-color: {self.darken_color(primary_color, 0.1)};
+            }}
+            
+            QPushButton:pressed {{
+                background-color: {self.darken_color(primary_color, 0.2)};
+            }}
+            
+            QPushButton:disabled {{
+                background-color: #6c757d;
+                color: #ffffff;
+            }}
+        """)
+    
+    def darken_color(self, hex_color, factor):
+        """将颜色变暗"""
+        # 移除 # 号
+        hex_color = hex_color.lstrip('#')
+        # 将hex转换为RGB
+        rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        # 变暗
+        darker_rgb = tuple(int(c * (1 - factor)) for c in rgb)
+        # 转换回hex
+        return f"#{darker_rgb[0]:02x}{darker_rgb[1]:02x}{darker_rgb[2]:02x}"
+    
+    def apply_combo_style(self, combo):
+        """应用现代化下拉框样式"""
+        combo.setStyleSheet("""
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #ced4da;
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 11px;
+                color: #495057;
+                min-width: 90px;
+                text-align: left;
+            }
+            
+            QComboBox:hover {
+                border-color: #80bdff;
+                background-color: #f8f9fa;
+            }
+            
+            QComboBox:focus {
+                border-color: #80bdff;
+            }
+            
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+                padding-right: 8px;
+            }
+            
+            QComboBox::down-arrow {
+                image: none;
+                border: none;
+                width: 0px;
+                height: 0px;
+            }
+            
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #ced4da;
+                border-radius: 6px;
+                selection-background-color: #e3f2fd;
+                selection-color: #1976d2;
+                padding: 4px;
+            }
+            
+            QComboBox QAbstractItemView::item {
+                height: 32px;
+                padding: 6px 12px;
+                border: none;
+                border-radius: 4px;
+            }
+            
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #f8f9fa;
+            }
+            
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #e3f2fd;
+                color: #1976d2;
+            }
+        """)
+    
+    def delete_from_auto_optimize_list_by_button(self, button):
+        """通过按钮从自动优化列表中删除进程"""
+        # 从按钮获取进程名
+        process_name = button.property("process_name")
+        if not process_name:
             return
         
-        process_name = self.config_manager.io_priority_processes[row].get('name', '')
+        # 在配置中找到对应的进程
+        process_index = -1
+        for i, proc in enumerate(self.config_manager.io_priority_processes):
+            if proc.get('name') == process_name:
+                process_index = i
+                break
+        
+        if process_index == -1:
+            QMessageBox.warning(self, "错误", f"未找到进程 '{process_name}'")
+            return
         
         # 确认删除
         reply = QMessageBox.question(
@@ -791,7 +1061,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         )
         
         if reply == QMessageBox.Yes:
-            del self.config_manager.io_priority_processes[row]
+            del self.config_manager.io_priority_processes[process_index]
             
             # 保存配置
             if self.config_manager.save_config():
@@ -825,6 +1095,100 @@ class ProcessIoPriorityManagerDialog(QDialog):
             else:
                 QMessageBox.warning(self, "保存失败", "清空列表后保存配置失败")
     
+    def on_process_table_section_resized(self, logical_index, old_size, new_size):
+        """处理进程表格列宽调整，限制最小宽度"""
+        # 定义每列的最小宽度
+        min_widths = {
+            0: 50,   # PID
+            1: 120,  # 进程名
+            2: 80,   # 用户
+            3: 70,   # 状态
+            4: 60,   # 内存
+            5: 100,  # 创建时间
+            6: 120,  # 性能模式
+            7: 100   # 操作
+        }
+        
+        min_width = min_widths.get(logical_index, 50)
+        if new_size < min_width:
+            # 阻止信号递归
+            header = self.process_table.horizontalHeader()
+            header.sectionResized.disconnect(self.on_process_table_section_resized)
+            header.resizeSection(logical_index, min_width)
+            header.sectionResized.connect(self.on_process_table_section_resized)
+    
+    def on_auto_optimize_table_section_resized(self, logical_index, old_size, new_size):
+        """处理自动优化表格列宽调整，限制最小宽度"""
+        # 定义每列的最小宽度
+        min_widths = {
+            0: 120,  # 进程名
+            1: 120,  # 性能模式
+            2: 120,  # 添加时间
+            3: 100   # 操作
+        }
+        
+        min_width = min_widths.get(logical_index, 80)
+        if new_size < min_width:
+            # 阻止信号递归
+            header = self.auto_optimize_table.horizontalHeader()
+            header.sectionResized.disconnect(self.on_auto_optimize_table_section_resized)
+            header.resizeSection(logical_index, min_width)
+            header.sectionResized.connect(self.on_auto_optimize_table_section_resized)
+
+    def on_auto_performance_mode_changed(self, combo):
+        """自动优化列表中性能模式改变时的处理"""
+        process_name = combo.property("process_name")
+        new_performance_mode = combo.currentData()
+        
+        if not process_name or new_performance_mode is None:
+            return
+        
+        # 在配置中找到对应的进程并更新
+        for proc in self.config_manager.io_priority_processes:
+            if proc.get('name') == process_name:
+                old_performance_mode = proc.get('performance_mode', PERFORMANCE_MODE.ECO_MODE)
+                if old_performance_mode != new_performance_mode:
+                    proc['performance_mode'] = new_performance_mode
+                    proc['updated_time'] = time.time()
+                    
+                    # 保存配置
+                    if self.config_manager.save_config():
+                        # 如果进程当前正在运行，立即应用新设置
+                        self._apply_to_running_process(process_name, new_performance_mode)
+                        logger.debug(f"更新自动优化进程 {process_name} 的性能模式: {old_performance_mode} -> {new_performance_mode}")
+                    else:
+                        # 保存失败，恢复原来的值
+                        combo.blockSignals(True)
+                        for i in range(combo.count()):
+                            if combo.itemData(i) == old_performance_mode:
+                                combo.setCurrentIndex(i)
+                                break
+                        combo.blockSignals(False)
+                        QMessageBox.warning(self, "保存失败", f"无法保存进程 {process_name} 的性能模式设置")
+                break
+    
+    def _apply_to_running_process(self, process_name, performance_mode):
+        """将性能模式设置应用到当前运行的所有同名进程"""
+        try:
+            # 使用set_process_io_priority_by_name方法处理所有同名进程
+            # 传入priority=None让它根据性能模式自动确定I/O优先级
+            success_count, total_count = self.io_manager.set_process_io_priority_by_name(
+                process_name, 
+                priority=None,  # 自动确定优先级
+                performance_mode=performance_mode
+            )
+            
+            if total_count > 0:
+                if success_count == total_count:
+                    logger.debug(f"已将性能模式 {performance_mode} 应用到所有运行中的 {process_name} 进程 ({success_count}/{total_count})")
+                else:
+                    logger.warning(f"部分 {process_name} 进程优化失败 ({success_count}/{total_count})")
+            else:
+                logger.debug(f"未找到运行中的 {process_name} 进程")
+                
+        except Exception as e:
+            logger.error(f"应用性能模式到运行中的进程 {process_name} 时出错: {e}")
+
     def closeEvent(self, event):
         """关闭事件处理"""
         # 停止定时器
