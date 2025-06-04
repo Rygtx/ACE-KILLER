@@ -38,6 +38,19 @@
 - 🌓 支持明暗主题切换
 - 🗑️ 支持一键卸载ACE反作弊服务
 
+## 🚀 如何使用
+
+1. 下载最新版本的[发布包](https://github.com/Cassianvale/ACE-KILLER/releases)
+2. 解压后运行`ACE-KILLER.exe`
+3. 程序将在系统托盘显示图标
+4. 右键点击托盘图标可以：
+   - 👁️ 查看程序状态
+   - 🔔 启用/禁用Windows通知
+   - 🔄 设置开机自启动
+   - ⚙️ 配置游戏监控
+   - 📁 打开配置目录
+   - 🚪 退出程序
+
 ## 项目展示
 
 <div align="center">
@@ -53,19 +66,6 @@
 <div align="center">
   <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/5.png" width="80%" alt="进程监控界面预览2">
 </div>
-
-## 🚀 如何使用
-
-1. 下载最新版本的[发布包](https://github.com/Cassianvale/ACE-KILLER/releases)
-2. 解压后运行`ACE-KILLER.exe`
-3. 程序将在系统托盘显示图标
-4. 右键点击托盘图标可以：
-   - 👁️ 查看程序状态
-   - 🔔 启用/禁用Windows通知
-   - 🔄 设置开机自启动
-   - ⚙️ 配置游戏监控
-   - 📁 打开配置目录
-   - 🚪 退出程序
 
 ## 进程模式策略
 
