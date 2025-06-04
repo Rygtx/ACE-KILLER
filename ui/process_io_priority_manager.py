@@ -122,7 +122,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
     
     def setup_ui(self):
         """设置用户界面"""
-        self.setWindowTitle("进程I/O优先级管理")
+        self.setWindowTitle("进程管理器")
         self.setMinimumSize(1000, 680)
         self.resize(1200, 720)
         
