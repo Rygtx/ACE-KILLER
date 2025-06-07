@@ -285,39 +285,6 @@ class GameProcessMonitor:
             
             if service_exists:
                 logger.debug(f"反作弊{service_name}服务状态: {status}, 启动类型: {start_type}")
-                
-                # 判断是否需要通知 - 只有状态变化时才通知
-                if self.show_notifications:
-                    # 获取上次检查的服务状态
-                    last_exists = self.anticheat_services[service_name]["exists"]
-                    last_status = self.anticheat_services[service_name]["status"]
-                    last_start_type = self.anticheat_services[service_name]["start_type"]
-                    
-                    # 检查服务状态是否发生变化
-                    status_changed = (last_status != status)
-                    start_type_changed = (last_start_type != start_type)
-                    first_check = (last_exists is None)
-                    
-                    # 只有在首次检查或状态变化时才发送通知
-                    if first_check or (service_exists != last_exists):
-                        if status == 'running':
-                            self.add_message(f"检测到 {service_name} 服务正在运行")
-                        elif status == 'stopped':
-                            self.add_message(f"{service_name} 服务已停止")
-                    
-                    # 服务状态变化时通知
-                    elif status_changed:
-                        if status == 'running':
-                            self.add_message(f"{service_name} 服务已启动")
-                        elif status == 'stopped':
-                            self.add_message(f"{service_name} 服务已停止")
-                    
-                    # 启动类型变化时通知
-                    if first_check or start_type_changed:
-                        if start_type == 'auto':
-                            self.add_message(f"{service_name} 服务设置为自动启动")
-                        elif start_type == 'disabled':
-                            self.add_message(f"{service_name} 服务已禁用")
             
             # 更新服务状态缓存
             self.anticheat_services[service_name]["exists"] = service_exists
