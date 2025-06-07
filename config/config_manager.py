@@ -24,6 +24,7 @@ class ConfigManager:
         self.show_notifications = True  # Windows通知开关默认值
         self.auto_start = False  # 开机自启动开关默认值
         self.monitor_enabled = True  # ACE弹窗监控开关默认值
+        self.close_to_tray = True  # 关闭窗口时最小化到后台（True）还是直接退出（False），默认最小化到后台
         self.log_retention_days = 7  # 默认日志保留天数
         self.log_rotation = "1 day"  # 默认日志轮转周期
         self.debug_mode = False  # 调试模式默认值
@@ -80,7 +81,8 @@ class ConfigManager:
                 'debug_mode': False
             },
             'application': {
-                'auto_start': False
+                'auto_start': False,
+                'close_to_tray': True
             },
             'monitor': {
                 'enabled': False
@@ -149,6 +151,11 @@ class ConfigManager:
                         # 如果注册表中已设置，则更新配置
                         self.auto_start = True
                         logger.debug("检测到注册表中已设置开机自启，已更新配置")
+                
+                # 读取关闭行为设置
+                if 'application' in config_data and 'close_to_tray' in config_data['application']:
+                    self.close_to_tray = bool(config_data['application']['close_to_tray'])
+                    logger.debug(f"已从配置文件加载关闭行为设置: {'最小化到后台' if self.close_to_tray else '直接退出'}")
                 
                 # 读取监控设置
                 if 'monitor' in config_data and 'enabled' in config_data['monitor']:
@@ -220,6 +227,7 @@ class ConfigManager:
             self.log_rotation = default_config['logging']['rotation']
             self.debug_mode = default_config['logging']['debug_mode']
             self.auto_start = default_config['application']['auto_start']
+            self.close_to_tray = default_config['application']['close_to_tray']
             self.monitor_enabled = default_config['monitor']['enabled']
             
             # 加载内存清理默认设置
@@ -263,7 +271,8 @@ class ConfigManager:
                     'debug_mode': self.debug_mode
                 },
                 'application': {
-                    'auto_start': self.auto_start
+                    'auto_start': self.auto_start,
+                    'close_to_tray': self.close_to_tray
                 },
                 'monitor': {
                     'enabled': self.monitor_enabled

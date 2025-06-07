@@ -398,6 +398,33 @@ class MainWindow(QMainWindow):
         startup_group.setLayout(startup_layout)
         settings_layout.addWidget(startup_group)
         
+        # 窗口行为设置
+        window_group = QGroupBox("窗口行为设置")
+        window_layout = QVBoxLayout()
+        
+        # 关闭行为选择
+        close_behavior_layout = QHBoxLayout()
+        close_behavior_label = QLabel("关闭窗口时:")
+        close_behavior_layout.addWidget(close_behavior_label)
+        
+        self.close_behavior_combo = QComboBox()
+        self.close_behavior_combo.addItem("最小化到系统托盘", True)
+        self.close_behavior_combo.addItem("直接退出程序", False)
+        self.close_behavior_combo.currentIndexChanged.connect(self.on_close_behavior_changed)
+        close_behavior_layout.addWidget(self.close_behavior_combo)
+        
+        close_behavior_layout.addStretch()
+        window_layout.addLayout(close_behavior_layout)
+        
+        # 添加说明文本
+        close_behavior_info = QLabel("💡 最小化到系统托盘：程序将继续在后台运行\n💡 直接退出程序：完全关闭程序进程")
+        close_behavior_info.setStyleSheet("color: #666; font-size: 11px;")
+        close_behavior_info.setWordWrap(True)
+        window_layout.addWidget(close_behavior_info)
+        
+        window_group.setLayout(window_layout)
+        settings_layout.addWidget(window_group)
+        
         # 日志设置
         log_group = QGroupBox("日志设置")
         log_layout = QVBoxLayout()
@@ -839,6 +866,11 @@ class MainWindow(QMainWindow):
         autostart_text = "已启用" if self.monitor.config_manager.auto_start else "已禁用"
         html.append(f'<p class="status-item">🔁 开机自启: <span class="{autostart_class}" style="font-weight: bold;">{autostart_text}</span></p>')
         
+        # 关闭行为状态
+        close_behavior_text = "最小化到后台" if self.monitor.config_manager.close_to_tray else "直接退出程序"
+        close_behavior_class = "status-normal"
+        html.append(f'<p class="status-item">🪟 关闭行为: <span class="{close_behavior_class}" style="font-weight: bold;">{close_behavior_text}</span></p>')
+        
         # 调试模式状态
         debug_class = "status-success" if self.monitor.config_manager.debug_mode else "status-disabled"
         debug_text = "已启用" if self.monitor.config_manager.debug_mode else "已禁用"
@@ -897,6 +929,14 @@ class MainWindow(QMainWindow):
         
         # 更新调试模式设置
         self.debug_checkbox.setChecked(self.monitor.config_manager.debug_mode)
+        
+        # 更新关闭行为设置
+        # 根据配置值设置下拉框选择
+        close_to_tray = self.monitor.config_manager.close_to_tray
+        for i in range(self.close_behavior_combo.count()):
+            if self.close_behavior_combo.itemData(i) == close_to_tray:
+                self.close_behavior_combo.setCurrentIndex(i)
+                break
         
         # 加载内存清理设置
         # 使用配置中的enabled属性设置复选框状态
@@ -1250,19 +1290,25 @@ class MainWindow(QMainWindow):
         # 退出应用
         QApplication.quit()
     
-    def changeEvent(self, event):
-        """处理窗口状态变化事件"""
-        if event.type() == QEvent.WindowStateChange and self.isMinimized():
-            # 窗口最小化时隐藏窗口
-            self.hide()
-            event.accept()
-        else:
-            super().changeEvent(event)
-    
     def closeEvent(self, event):
-        """直接退出程序"""
-        event.accept()
-        self.exit_app()
+        """处理窗口关闭事件"""
+        # 根据配置设置执行相应操作
+        if self.monitor.config_manager.close_to_tray:
+            # 最小化到后台
+            event.ignore()
+            self.hide()
+            # 如果托盘图标可见且通知开启，显示最小化提示
+            if hasattr(self, 'tray_icon') and self.tray_icon.isVisible() and self.monitor.config_manager.show_notifications:
+                self.tray_icon.showMessage(
+                    "ACE-KILLER",
+                    "程序已最小化到系统托盘，继续在后台运行",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000
+                )
+        else:
+            # 直接退出程序
+            event.accept()
+            self.exit_app()
 
     @Slot()
     def toggle_debug_mode(self):
@@ -1288,6 +1334,22 @@ class MainWindow(QMainWindow):
         
         # 立即更新状态显示
         self.update_status()
+
+    @Slot()
+    def on_close_behavior_changed(self):
+        """关闭行为选项变化时的处理"""
+        close_to_tray = self.close_behavior_combo.currentData()
+        if close_to_tray is not None:
+            self.monitor.config_manager.close_to_tray = close_to_tray
+            
+            # 保存配置
+            if self.monitor.config_manager.save_config():
+                logger.debug(f"关闭行为设置已更改并保存: {'最小化到后台' if close_to_tray else '直接退出'}")
+            else:
+                logger.warning(f"关闭行为设置已更改但保存失败: {'最小化到后台' if close_to_tray else '直接退出'}")
+            
+            # 立即更新状态显示
+            self.update_status()
 
     @Slot()
     def toggle_memory_cleanup(self):
