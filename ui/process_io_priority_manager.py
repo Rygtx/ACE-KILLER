@@ -17,6 +17,7 @@ from PySide6.QtGui import QIcon, QFont, QPalette, QColor
 from loguru import logger
 
 from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT, PERFORMANCE_MODE
+from ui.styles import TableStyles, ButtonStyles, ComboBoxStyles, ColorScheme, GroupBoxStyles, CheckBoxStyles, InputStyles, SpinBoxStyles, LabelStyles, RadioButtonStyles, TitleBarStyles
 
 
 class ProcessInfoWorker(QThread):
@@ -147,7 +148,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         self.refresh_btn = QPushButton("🔄 刷新进程列表")
         self.refresh_btn.setFixedSize(140, 35)
         self.refresh_btn.clicked.connect(self.refresh_process_list)
-        self.apply_button_style(self.refresh_btn, "#28a745")
+        self.refresh_btn.setStyleSheet(ButtonStyles.get_button_style("success"))
         button_layout.addWidget(self.refresh_btn)
         
         button_layout.addStretch()
@@ -156,7 +157,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         close_btn = QPushButton("关闭")
         close_btn.setFixedSize(80, 35)
         close_btn.clicked.connect(self.accept)
-        self.apply_button_style(close_btn, "#6c757d")
+        close_btn.setStyleSheet(ButtonStyles.get_button_style("secondary"))
         button_layout.addWidget(close_btn)
         
         layout.addLayout(button_layout)
@@ -168,6 +169,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 顶部过滤器组
         filter_group = QGroupBox("🔍 过滤器")
+        filter_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         filter_layout = QVBoxLayout(filter_group)
         
         # 第一行过滤器
@@ -176,6 +178,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         # 进程名过滤
         filter_row1.addWidget(QLabel("进程名:"))
         self.name_filter = QLineEdit()
+        self.name_filter.setStyleSheet(InputStyles.get_modern_input())
         self.name_filter.setPlaceholderText("输入进程名称进行过滤...")
         self.name_filter.textChanged.connect(self._schedule_filter)
         filter_row1.addWidget(self.name_filter)
@@ -183,6 +186,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         # 内存过滤
         filter_row1.addWidget(QLabel("内存大于:"))
         self.memory_filter = QSpinBox()
+        self.memory_filter.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
         self.memory_filter.setRange(0, 10000)
         self.memory_filter.setValue(10)  # 默认显示内存大于10MB的进程
         self.memory_filter.setSuffix(" MB")
@@ -199,17 +203,20 @@ class ProcessIoPriorityManagerDialog(QDialog):
         self.process_type_group = QButtonGroup()
         
         self.show_all_radio = QRadioButton("全部")
+        self.show_all_radio.setStyleSheet(RadioButtonStyles.get_modern_radio())
         self.show_all_radio.setChecked(True)
         self.show_all_radio.toggled.connect(self._schedule_filter)
         self.process_type_group.addButton(self.show_all_radio)
         filter_row2.addWidget(self.show_all_radio)
         
         self.show_user_radio = QRadioButton("用户进程")
+        self.show_user_radio.setStyleSheet(RadioButtonStyles.get_modern_radio())
         self.show_user_radio.toggled.connect(self._schedule_filter)
         self.process_type_group.addButton(self.show_user_radio)
         filter_row2.addWidget(self.show_user_radio)
         
         self.show_system_radio = QRadioButton("系统进程")
+        self.show_system_radio.setStyleSheet(RadioButtonStyles.get_modern_radio())
         self.show_system_radio.toggled.connect(self._schedule_filter)
         self.process_type_group.addButton(self.show_system_radio)
         filter_row2.addWidget(self.show_system_radio)
@@ -220,7 +227,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         clear_filter_btn = QPushButton("清除过滤器")
         clear_filter_btn.setFixedSize(100, 32)
         clear_filter_btn.clicked.connect(self.clear_filters)
-        self.apply_button_style(clear_filter_btn, "#17a2b8")
+        clear_filter_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
         filter_row2.addWidget(clear_filter_btn)
         
         filter_layout.addLayout(filter_row2)
@@ -287,6 +294,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
             "优化包括：根据性能模式自动设置CPU优先级、CPU亲和性调整、I/O优先级设置。\n"
             "这有助于持续优化这些进程的系统资源占用，减少对前台应用的影响。"
         )
+        info_label.setStyleSheet(LabelStyles.get_success_hint())
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
         
@@ -327,7 +335,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         clear_all_btn = QPushButton("🗑️ 清空列表")
         clear_all_btn.setFixedSize(110, 32)
         clear_all_btn.clicked.connect(self.clear_auto_optimize_list)
-        self.apply_button_style(clear_all_btn, "#dc3545")
+        clear_all_btn.setStyleSheet(ButtonStyles.get_button_style("danger"))
         stats_layout.addWidget(clear_all_btn)
         
         layout.addLayout(stats_layout)
@@ -364,94 +372,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
         header.setMinimumHeight(40)
         
         # 应用现代化CSS样式
-        table.setStyleSheet("""
-            QTableWidget {
-                background-color: #ffffff;
-                border: 1px solid #e0e0e0;
-                border-radius: 8px;
-                gridline-color: transparent;
-                selection-background-color: #e3f2fd;
-            }
-            
-            QTableWidget::item {
-                padding: 8px 12px;
-                border: none;
-                border-bottom: 1px solid #f5f5f5;
-            }
-            
-            QTableWidget::item:selected {
-                background-color: #e3f2fd;
-                color: #1976d2;
-            }
-            
-            QTableWidget::item:hover {
-                background-color: #f8f9fa;
-            }
-            
-            QTableWidget::item:alternate {
-                background-color: #fafafa;
-            }
-            
-            QHeaderView::section {
-                background-color: #f8f9fa;
-                color: #333333;
-                padding: 12px;
-                border: none;
-                border-right: 1px solid #e0e0e0;
-                border-bottom: 2px solid #e0e0e0;
-                font-weight: bold;
-            }
-            
-            QHeaderView::section:first {
-                border-top-left-radius: 8px;
-            }
-            
-            QHeaderView::section:last {
-                border-top-right-radius: 8px;
-                border-right: none;
-            }
-            
-            QHeaderView::section:hover {
-                background-color: #e9ecef;
-            }
-            
-            QHeaderView::down-arrow {
-                image: none;
-                border: none;
-                width: 0px;
-                height: 0px;
-            }
-            
-            QHeaderView::up-arrow {
-                image: none;
-                border: none;
-                width: 0px;
-                height: 0px;
-            }
-            
-            QScrollBar:vertical {
-                background: #f8f9fa;
-                width: 12px;
-                border-radius: 6px;
-                margin: 0px;
-            }
-            
-            QScrollBar::handle:vertical {
-                background: #c0c0c0;
-                border-radius: 6px;
-                min-height: 20px;
-            }
-            
-            QScrollBar::handle:vertical:hover {
-                background: #a0a0a0;
-            }
-            
-            QScrollBar::add-line:vertical,
-            QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-            }
-        """)
+        table.setStyleSheet(TableStyles.get_modern_table())
     
     def setup_timer(self):
         """设置定时器"""
@@ -585,15 +506,15 @@ class ProcessIoPriorityManagerDialog(QDialog):
         process_name = proc['name']
         if proc.get('is_system', False):
             process_name = f"🔒 {process_name}"  # 系统进程添加锁定图标
-            name_item.setForeground(QColor('#6c757d'))  # 系统进程使用灰色
+            name_item.setForeground(QColor(ColorScheme.PROCESS_SYSTEM()))  # 系统进程使用灰色
         else:
-            name_item.setForeground(QColor('#212529'))  # 用户进程使用深色
+            name_item.setForeground(QColor(ColorScheme.PROCESS_USER()))  # 用户进程使用深色
         name_item.setText(process_name)
         
         # 用户 - 添加用户类型颜色区分
         user_item = self._get_or_create_item(row, 2)
         username = proc['username']
-        user_color = '#dc3545' if proc.get('is_system', False) else '#495057'  # 系统用户红色，普通用户深灰色
+        user_color = ColorScheme.PROCESS_SYSTEM_USER() if proc.get('is_system', False) else ColorScheme.PROCESS_USER()
         user_item.setText(username)
         user_item.setForeground(QColor(user_color))
         
@@ -657,7 +578,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
             apply_btn = QPushButton("🚀 应用")
             apply_btn.setFixedSize(80, 30)
             apply_btn.setToolTip("应用当前选择的性能模式设置到进程，并添加到自动优化列表")
-            self.apply_button_style(apply_btn, "#007bff")
+            apply_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
             
             apply_btn.setProperty("process_info", proc)
             apply_btn.clicked.connect(lambda checked, btn=apply_btn: self.apply_performance_mode_by_button(btn))
@@ -858,7 +779,7 @@ class ProcessIoPriorityManagerDialog(QDialog):
                 # 删除按钮
                 delete_btn = QPushButton("🗑️ 删除")
                 delete_btn.setFixedSize(80, 30)  # 设置固定尺寸
-                self.apply_button_style(delete_btn, "#dc3545")
+                delete_btn.setStyleSheet(ButtonStyles.get_button_style("danger"))
                 # 将进程名存储在按钮中
                 delete_btn.setProperty("process_name", proc.get('name', ''))
                 delete_btn.clicked.connect(lambda checked, btn=delete_btn: self.delete_from_auto_optimize_list_by_button(btn))
@@ -914,131 +835,35 @@ class ProcessIoPriorityManagerDialog(QDialog):
     def get_status_display(self, status):
         """获取进程状态的显示样式"""
         status_map = {
-            'running': ('🟢', '#28a745'),
-            'sleeping': ('💤', '#6c757d'),
-            'disk-sleep': ('💾', '#17a2b8'),
-            'stopped': ('⏸️', '#ffc107'),
+            'running': ('🟢', ColorScheme.PROCESS_RUNNING()),
+            'sleeping': ('💤', ColorScheme.PROCESS_SYSTEM()),
+            'disk-sleep': ('💾', ColorScheme.INFO()),
+            'stopped': ('⏸️', ColorScheme.WARNING_BTN()),
             'tracing-stop': ('🔍', '#fd7e14'),
-            'zombie': ('💀', '#dc3545'),
+            'zombie': ('💀', ColorScheme.DANGER()),
             'dead': ('☠️', '#6f42c1'),
             'wake-kill': ('⚡', '#e83e8c'),
             'waking': ('🌅', '#20c997'),
-            'idle': ('😴', '#6c757d'),
+            'idle': ('😴', ColorScheme.PROCESS_SYSTEM()),
             'locked': ('🔒', '#fd7e14'),
-            'waiting': ('⏳', '#17a2b8')
+            'waiting': ('⏳', ColorScheme.INFO())
         }
-        return status_map.get(status.lower(), ('❓', '#6c757d'))
+        return status_map.get(status.lower(), ('❓', ColorScheme.PROCESS_SYSTEM()))
     
     def get_memory_display(self, memory_mb):
         """获取内存使用量的显示样式"""
         if memory_mb >= 1000:  # 大于1GB
-            return f"{memory_mb:.1f} MB", '#dc3545'  # 红色 - 高内存使用
+            return f"{memory_mb:.1f} MB", ColorScheme.MEMORY_HIGH()  # 红色 - 高内存使用
         elif memory_mb >= 500:  # 500MB-1GB
             return f"{memory_mb:.1f} MB", '#fd7e14'  # 橙色 - 中等内存使用
         elif memory_mb >= 100:  # 100MB-500MB
-            return f"{memory_mb:.1f} MB", '#ffc107'  # 黄色 - 一般内存使用
+            return f"{memory_mb:.1f} MB", ColorScheme.WARNING_BTN()  # 黄色 - 一般内存使用
         else:  # 小于100MB
-            return f"{memory_mb:.1f} MB", '#28a745'  # 绿色 - 低内存使用
-    
-    def apply_button_style(self, button, primary_color="#007bff"):
-        """应用现代化按钮样式"""
-        button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {primary_color};
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-weight: 500;
-                font-size: 12px;
-            }}
-            
-            QPushButton:hover {{
-                background-color: {self.darken_color(primary_color, 0.1)};
-            }}
-            
-            QPushButton:pressed {{
-                background-color: {self.darken_color(primary_color, 0.2)};
-            }}
-            
-            QPushButton:disabled {{
-                background-color: #6c757d;
-                color: #ffffff;
-            }}
-        """)
-    
-    def darken_color(self, hex_color, factor):
-        """将颜色变暗"""
-        # 移除 # 号
-        hex_color = hex_color.lstrip('#')
-        # 将hex转换为RGB
-        rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-        # 变暗
-        darker_rgb = tuple(int(c * (1 - factor)) for c in rgb)
-        # 转换回hex
-        return f"#{darker_rgb[0]:02x}{darker_rgb[1]:02x}{darker_rgb[2]:02x}"
+            return f"{memory_mb:.1f} MB", ColorScheme.MEMORY_LOW()  # 绿色 - 低内存使用
     
     def apply_combo_style(self, combo):
         """应用现代化下拉框样式"""
-        combo.setStyleSheet("""
-            QComboBox {
-                background-color: #ffffff;
-                border: 1px solid #ced4da;
-                border-radius: 6px;
-                padding: 4px 8px;
-                font-size: 11px;
-                color: #495057;
-                min-width: 90px;
-                text-align: left;
-            }
-            
-            QComboBox:hover {
-                border-color: #80bdff;
-                background-color: #f8f9fa;
-            }
-            
-            QComboBox:focus {
-                border-color: #80bdff;
-            }
-            
-            QComboBox::drop-down {
-                border: none;
-                width: 20px;
-                padding-right: 8px;
-            }
-            
-            QComboBox::down-arrow {
-                image: none;
-                border: none;
-                width: 0px;
-                height: 0px;
-            }
-            
-            QComboBox QAbstractItemView {
-                background-color: #ffffff;
-                border: 1px solid #ced4da;
-                border-radius: 6px;
-                selection-background-color: #e3f2fd;
-                selection-color: #1976d2;
-                padding: 4px;
-            }
-            
-            QComboBox QAbstractItemView::item {
-                height: 32px;
-                padding: 6px 12px;
-                border: none;
-                border-radius: 4px;
-            }
-            
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #f8f9fa;
-            }
-            
-            QComboBox QAbstractItemView::item:selected {
-                background-color: #e3f2fd;
-                color: #1976d2;
-            }
-        """)
+        combo.setStyleSheet(ComboBoxStyles.get_modern_combo())
     
     def delete_from_auto_optimize_list_by_button(self, button):
         """通过按钮从自动优化列表中删除进程"""
