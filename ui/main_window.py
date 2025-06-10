@@ -143,14 +143,12 @@ class MainWindow(QMainWindow):
         
         # 创建内容区域
         content_widget = QWidget()
-        content_widget.setStyleSheet(MainWindowStyles.get_transparent_content())
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(8, 0, 8, 8)  # 添加边距以适应圆角
         main_layout.addWidget(content_widget)
         
         # 创建选项卡
         tabs = QTabWidget()
-        tabs.setStyleSheet(TabStyles.get_modern_tabs())
         content_layout.addWidget(tabs)
         
         # 状态选项卡
@@ -159,7 +157,6 @@ class MainWindow(QMainWindow):
         
         # 状态信息框
         status_group = QGroupBox("程序状态")
-        status_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         status_box_layout = QVBoxLayout()
         
         # 创建一个QLabel用于显示状态信息
@@ -186,7 +183,6 @@ class MainWindow(QMainWindow):
         
         # 进程监控组
         process_group = QGroupBox("🚫 ACE反作弊弹窗监控")
-        process_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         process_box_layout = QVBoxLayout()
         
         # 添加ACE反作弊说明标签
@@ -195,7 +191,6 @@ class MainWindow(QMainWindow):
             "⚡ 功能说明：自动检测并终止ACE反作弊安装弹窗，防止强制安装\n"
             "💡 提示: 进程优化设置在进程重启后会恢复默认值，建议将常用进程添加到自动优化列表中实现持续优化。"
         )
-        ace_info_label.setStyleSheet(LabelStyles.get_info_hint())
         ace_info_label.setWordWrap(True)
         process_box_layout.addWidget(ace_info_label)
         
@@ -204,7 +199,6 @@ class MainWindow(QMainWindow):
         
         # 添加监控开关
         self.monitor_checkbox = QCheckBox("启用ACE弹窗监控")
-        self.monitor_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.monitor_checkbox.setChecked(self.monitor.running)
         self.monitor_checkbox.stateChanged.connect(self.toggle_process_monitor)
         status_layout.addWidget(self.monitor_checkbox)
@@ -218,7 +212,6 @@ class MainWindow(QMainWindow):
         
         # 添加I/O优先级设置功能到进程监控选项卡
         io_priority_group = QGroupBox("🚀 进程优先级管理")
-        io_priority_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         io_priority_layout = QVBoxLayout()
         
         # 添加说明标签
@@ -237,14 +230,12 @@ class MainWindow(QMainWindow):
         
         # 进程管理按钮（主要功能）
         self.process_manager_btn = QPushButton("🔍 进程管理器")
-        self.process_manager_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
         self.process_manager_btn.clicked.connect(self.show_process_manager)
         self.process_manager_btn.setToolTip("打开进程管理器，查看所有进程并进行完整优化")
         main_buttons_layout.addWidget(self.process_manager_btn)
         
         # 管理自动优化列表按钮
         self.manage_io_list_btn = QPushButton("⚙️ 自动优化列表")
-        self.manage_io_list_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
         self.manage_io_list_btn.clicked.connect(self.show_auto_optimize_tab)
         self.manage_io_list_btn.setToolTip("查看和管理自动优化列表")
         main_buttons_layout.addWidget(self.manage_io_list_btn)
@@ -254,12 +245,10 @@ class MainWindow(QMainWindow):
         
         # 快捷操作分组
         quick_actions_group = QGroupBox("🚀 快捷操作")
-        quick_actions_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         quick_actions_layout = QVBoxLayout()
         
         # 优化反作弊进程按钮
         self.optimize_anticheat_btn = QPushButton("🛡️ 一键优化反作弊进程")
-        self.optimize_anticheat_btn.setStyleSheet(ButtonStyles.get_button_style("success"))
         self.optimize_anticheat_btn.clicked.connect(self.optimize_anticheat_processes)
         self.optimize_anticheat_btn.setToolTip("一键优化所有已知反作弊进程，提升游戏体验")
         quick_actions_layout.addWidget(self.optimize_anticheat_btn)
@@ -276,22 +265,18 @@ class MainWindow(QMainWindow):
         
         # 自动清理选项
         auto_group = QGroupBox("自动清理")
-        auto_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         auto_layout = QVBoxLayout()
         
         # 定时选项
         self.clean_option1 = QCheckBox("定时清理(每5分钟)，截取进程工作集")
-        self.clean_option1.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option1.stateChanged.connect(lambda state: self.toggle_clean_option(0, state))
         auto_layout.addWidget(self.clean_option1)
         
         self.clean_option2 = QCheckBox("定时清理(每5分钟)，清理系统缓存")
-        self.clean_option2.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option2.stateChanged.connect(lambda state: self.toggle_clean_option(1, state))
         auto_layout.addWidget(self.clean_option2)
         
         self.clean_option3 = QCheckBox("定时清理(每5分钟)，用全部可能的方法清理内存")
-        self.clean_option3.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option3.stateChanged.connect(lambda state: self.toggle_clean_option(2, state))
         auto_layout.addWidget(self.clean_option3)
         
@@ -299,17 +284,15 @@ class MainWindow(QMainWindow):
         
         # 使用比例超出80%的选项
         self.clean_option4 = QCheckBox("若内存使用量超出80%，截取进程工作集")
-        self.clean_option4.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
+
         self.clean_option4.stateChanged.connect(lambda state: self.toggle_clean_option(3, state))
         auto_layout.addWidget(self.clean_option4)
         
         self.clean_option5 = QCheckBox("若内存使用量超出80%，清理系统缓存")
-        self.clean_option5.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option5.stateChanged.connect(lambda state: self.toggle_clean_option(4, state))
         auto_layout.addWidget(self.clean_option5)
         
         self.clean_option6 = QCheckBox("若内存使用量超出80%，用全部可能的方法清理内存")
-        self.clean_option6.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option6.stateChanged.connect(lambda state: self.toggle_clean_option(5, state))
         auto_layout.addWidget(self.clean_option6)
         
@@ -318,18 +301,15 @@ class MainWindow(QMainWindow):
         
         # 其他选项
         options_group = QGroupBox("选项")
-        options_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         options_layout = QHBoxLayout()
 
         # 启用内存清理
         self.memory_checkbox = QCheckBox("启用内存清理")
-        self.memory_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.memory_checkbox.stateChanged.connect(self.toggle_memory_cleanup)
         options_layout.addWidget(self.memory_checkbox)
         
         # 暴力模式
         self.brute_mode_checkbox = QCheckBox("深度清理模式(调用Windows系统API)")
-        self.brute_mode_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.brute_mode_checkbox.stateChanged.connect(self.toggle_brute_mode)
         self.brute_mode_checkbox.setToolTip("深度清理模式会使用Windows系统API清理所有进程的工作集，效率更高但更激进；\n"
                                            "不开启则会逐个进程分别清理工作集，相对温和但效率较低。")
@@ -340,14 +320,12 @@ class MainWindow(QMainWindow):
         
         # 自定义配置选项
         custom_group = QGroupBox("自定义配置")
-        custom_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         custom_layout = QGridLayout()
         
         # 清理间隔设置
         interval_label = QLabel("清理间隔(秒):")
         interval_label.setStyleSheet(LabelStyles.get_modern_label())
         self.interval_spinbox = QSpinBox()
-        self.interval_spinbox.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
         self.interval_spinbox.setMinimum(60)  # 最小1分钟
         self.interval_spinbox.setMaximum(3600)  # 最大1小时
         self.interval_spinbox.setSingleStep(30)  # 步长30秒
@@ -359,9 +337,7 @@ class MainWindow(QMainWindow):
         
         # 内存占用阈值设置
         threshold_label = QLabel("内存阈值(%):")
-        threshold_label.setStyleSheet(LabelStyles.get_modern_label())
         self.threshold_spinbox = QSpinBox()
-        self.threshold_spinbox.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
         self.threshold_spinbox.setMinimum(15)  # 最小30%
         self.threshold_spinbox.setMaximum(95)  # 最大95%
         self.threshold_spinbox.setSingleStep(5)  # 步长5%
@@ -373,9 +349,7 @@ class MainWindow(QMainWindow):
         
         # 冷却时间设置
         cooldown_label = QLabel("冷却时间(秒):")
-        cooldown_label.setStyleSheet(LabelStyles.get_modern_label())
         self.cooldown_spinbox = QSpinBox()
-        self.cooldown_spinbox.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
         self.cooldown_spinbox.setMinimum(30)  # 最小30秒
         self.cooldown_spinbox.setMaximum(300)  # 最大5分钟
         self.cooldown_spinbox.setSingleStep(10)  # 步长10秒
@@ -387,7 +361,6 @@ class MainWindow(QMainWindow):
         
         # 添加描述标签
         description_label = QLabel("注意: 清理间隔不能小于1分钟，冷却时间用于防止短时间内重复触发清理")
-        description_label.setStyleSheet(LabelStyles.get_info_hint())
         description_label.setWordWrap(True)
         custom_layout.addWidget(description_label, 1, 2, 1, 2)
         
@@ -396,7 +369,6 @@ class MainWindow(QMainWindow):
         
         # 手动清理按钮
         buttons_group = QGroupBox("手动清理")
-        buttons_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         buttons_layout = QVBoxLayout()
 
         # 按钮水平布局
@@ -404,19 +376,16 @@ class MainWindow(QMainWindow):
         
         # 截取进程工作集按钮
         self.clean_workingset_btn = QPushButton("截取进程工作集")
-        self.clean_workingset_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
         self.clean_workingset_btn.clicked.connect(self.manual_clean_workingset)
         btn_row_layout.addWidget(self.clean_workingset_btn)
         
         # 清理系统缓存按钮
         self.clean_syscache_btn = QPushButton("清理系统缓存")
-        self.clean_syscache_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
         self.clean_syscache_btn.clicked.connect(self.manual_clean_syscache)
         btn_row_layout.addWidget(self.clean_syscache_btn)
         
         # 全面清理按钮
         self.clean_all_btn = QPushButton("执行全部已知清理(不推荐)")
-        self.clean_all_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
         self.clean_all_btn.clicked.connect(self.manual_clean_all)
         btn_row_layout.addWidget(self.clean_all_btn)
         
@@ -424,7 +393,6 @@ class MainWindow(QMainWindow):
         
         # 添加提示文本
         warning_label = QLabel("⚠️ 如果已经开启游戏不建议点击全部已知清理，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡")
-        warning_label.setStyleSheet(LabelStyles.get_warning_hint())
         warning_label.setWordWrap(True)
         buttons_layout.addWidget(warning_label)
         
@@ -433,7 +401,6 @@ class MainWindow(QMainWindow):
         
         # 添加状态显示
         memory_status = QGroupBox("内存状态")
-        memory_status.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         memory_status_layout = QVBoxLayout()
         
         # 创建内存信息标签
@@ -453,7 +420,6 @@ class MainWindow(QMainWindow):
         
         # 创建内存使用进度条
         self.memory_progress = QProgressBar()
-        self.memory_progress.setStyleSheet(ProgressBarStyles.get_modern_progress())
         self.memory_progress.setMinimum(0)
         self.memory_progress.setMaximum(100)
         self.memory_progress.setValue(0)
@@ -476,10 +442,8 @@ class MainWindow(QMainWindow):
         
         # 通知设置
         notify_group = QGroupBox("通知设置")
-        notify_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         notify_layout = QVBoxLayout()
         self.notify_checkbox = QCheckBox("启用Windows通知")
-        self.notify_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.notify_checkbox.stateChanged.connect(self.toggle_notifications)
         notify_layout.addWidget(self.notify_checkbox)
         notify_group.setLayout(notify_layout)
@@ -487,10 +451,8 @@ class MainWindow(QMainWindow):
         
         # 启动设置
         startup_group = QGroupBox("启动设置")
-        startup_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         startup_layout = QVBoxLayout()
         self.startup_checkbox = QCheckBox("开机自启动")
-        self.startup_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.startup_checkbox.stateChanged.connect(self.toggle_auto_start)
         startup_layout.addWidget(self.startup_checkbox)
         startup_group.setLayout(startup_layout)
@@ -498,7 +460,6 @@ class MainWindow(QMainWindow):
         
         # 窗口行为设置
         window_group = QGroupBox("窗口行为设置")
-        window_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         window_layout = QVBoxLayout()
         
         # 关闭行为选择
@@ -507,7 +468,6 @@ class MainWindow(QMainWindow):
         close_behavior_layout.addWidget(close_behavior_label)
         
         self.close_behavior_combo = QComboBox()
-        self.close_behavior_combo.setStyleSheet(ComboBoxStyles.get_modern_combo())
         self.close_behavior_combo.addItem("最小化到系统托盘", True)
         self.close_behavior_combo.addItem("直接退出程序", False)
         self.close_behavior_combo.currentIndexChanged.connect(self.on_close_behavior_changed)
@@ -518,7 +478,6 @@ class MainWindow(QMainWindow):
         
         # 添加说明文本
         close_behavior_info = QLabel("💡 最小化到系统托盘：程序将继续在后台运行\n💡 直接退出程序：完全关闭程序进程")
-        close_behavior_info.setStyleSheet(LabelStyles.get_info_hint())
         close_behavior_info.setWordWrap(True)
         window_layout.addWidget(close_behavior_info)
         
@@ -527,10 +486,8 @@ class MainWindow(QMainWindow):
         
         # 日志设置
         log_group = QGroupBox("日志设置")
-        log_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         log_layout = QVBoxLayout()
         self.debug_checkbox = QCheckBox("启用调试模式")
-        self.debug_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.debug_checkbox.stateChanged.connect(self.toggle_debug_mode)
         log_layout.addWidget(self.debug_checkbox)
         log_group.setLayout(log_layout)
@@ -538,7 +495,6 @@ class MainWindow(QMainWindow):
         
         # 主题设置
         theme_group = QGroupBox("主题设置")
-        theme_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         theme_layout = QVBoxLayout()
         
         # 主题选择水平布局
@@ -546,19 +502,16 @@ class MainWindow(QMainWindow):
         
         # 浅色主题按钮
         self.light_theme_btn = QPushButton("浅色")
-        self.light_theme_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
         self.light_theme_btn.clicked.connect(lambda: self.switch_theme("light"))
         theme_buttons_layout.addWidget(self.light_theme_btn)
         
         # 跟随系统按钮
         self.auto_theme_btn = QPushButton("跟随系统")
-        self.auto_theme_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
         self.auto_theme_btn.clicked.connect(lambda: self.switch_theme("auto"))
         theme_buttons_layout.addWidget(self.auto_theme_btn)
         
         # 深色主题按钮
         self.dark_theme_btn = QPushButton("深色")
-        self.dark_theme_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
         self.dark_theme_btn.clicked.connect(lambda: self.switch_theme("dark"))
         theme_buttons_layout.addWidget(self.dark_theme_btn)
         
@@ -568,24 +521,20 @@ class MainWindow(QMainWindow):
         
         # 添加操作按钮
         actions_group = QGroupBox("操作")
-        actions_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         actions_layout = QHBoxLayout()
         
         # 打开配置目录按钮
         self.config_dir_btn = QPushButton("打开配置目录")
-        self.config_dir_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
         self.config_dir_btn.clicked.connect(self.open_config_dir)
         actions_layout.addWidget(self.config_dir_btn)
         
         # 检查更新按钮
         self.check_update_btn = QPushButton("检查更新")
-        self.check_update_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
         self.check_update_btn.clicked.connect(self.check_update)
         actions_layout.addWidget(self.check_update_btn)
         
         # 关于按钮
         self.about_btn = QPushButton("关于")
-        self.about_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
         self.about_btn.clicked.connect(self.show_about)
         actions_layout.addWidget(self.about_btn)
         
@@ -594,12 +543,10 @@ class MainWindow(QMainWindow):
         
         # 添加ACE服务管理功能
         service_group = QGroupBox("ACE服务管理")
-        service_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         service_layout = QVBoxLayout()
         
         # 提醒文本
         warning_label = QLabel("⚠️ 警告：以下操作需要管理员权限，并会影响ACE反作弊服务")
-        warning_label.setStyleSheet(LabelStyles.get_error_hint())
         service_layout.addWidget(warning_label)
         
         # 创建按钮布局
@@ -607,28 +554,24 @@ class MainWindow(QMainWindow):
         
         # 开启反作弊程序按钮
         self.start_ace_btn = QPushButton("开启反作弊程序")
-        self.start_ace_btn.setStyleSheet(ButtonStyles.get_button_style("success"))
         self.start_ace_btn.setToolTip("执行启动ACE反作弊程序命令")
         self.start_ace_btn.clicked.connect(self.start_ace_program)
         service_buttons_layout.addWidget(self.start_ace_btn)
         
         # 卸载ACE程序按钮
         self.uninstall_ace_btn = QPushButton("卸载反作弊程序")
-        self.uninstall_ace_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
         self.uninstall_ace_btn.setToolTip("执行ACE反作弊程序卸载命令")
         self.uninstall_ace_btn.clicked.connect(self.uninstall_ace_program)
         service_buttons_layout.addWidget(self.uninstall_ace_btn)
         
         # 停止ACE服务按钮
         self.stop_service_btn = QPushButton("停止ACE服务")
-        self.stop_service_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
         self.stop_service_btn.setToolTip("停止ACE-GAME、ACE-BASE、AntiCheatExpert Service、AntiCheatExpert Protection服务")
         self.stop_service_btn.clicked.connect(self.stop_ace_services)
         service_buttons_layout.addWidget(self.stop_service_btn)
         
         # 删除ACE服务按钮
         self.delete_service_btn = QPushButton("删除ACE服务")
-        self.delete_service_btn.setStyleSheet(ButtonStyles.get_button_style("danger"))
         self.delete_service_btn.setToolTip("删除ACE-GAME、ACE-BASE、AntiCheatExpert Service、AntiCheatExpert Protection服务")
         self.delete_service_btn.clicked.connect(self.delete_ace_services)
         service_buttons_layout.addWidget(self.delete_service_btn)
@@ -1198,13 +1141,9 @@ class MainWindow(QMainWindow):
         
         if not mem_info:
             self.memory_info_label.setText("无法获取内存信息")
-            self.memory_info_label.setStyleSheet(LabelStyles.get_modern_label())
             self.cache_info_label.setText("系统缓存: 无法获取信息")
-            self.cache_info_label.setStyleSheet(LabelStyles.get_modern_label())
             self.config_info_label.setText("配置信息: 无法获取信息")
-            self.config_info_label.setStyleSheet(LabelStyles.get_modern_label())
             self.clean_stats_label.setText("清理统计: 暂无数据")
-            self.clean_stats_label.setStyleSheet(LabelStyles.get_modern_label())
             self.memory_progress.setValue(0)
             return
             
@@ -1217,7 +1156,6 @@ class MainWindow(QMainWindow):
         
         # 更新标签文本
         self.memory_info_label.setText(f"物理内存: {used_gb:.1f}GB / {total_gb:.1f}GB ({used_percent:.1f}%)")
-        self.memory_info_label.setStyleSheet(LabelStyles.get_modern_label())
         
         # 更新缓存信息标签
         if cache_info:
@@ -1242,7 +1180,6 @@ class MainWindow(QMainWindow):
                       f"触发阈值 {self.memory_cleaner.threshold}% | "
                       f"冷却时间 {self.memory_cleaner.cooldown_time}秒")
         self.config_info_label.setText(config_text)
-        self.config_info_label.setStyleSheet(LabelStyles.get_modern_label())
         
         # 更新进度条
         self.memory_progress.setValue(int(used_percent))
@@ -1262,7 +1199,6 @@ class MainWindow(QMainWindow):
                      f"清理次数: {stats['clean_count']} | "
                      f"最后清理: {stats['last_clean_time']}")
         self.clean_stats_label.setText(stats_text)
-        self.clean_stats_label.setStyleSheet(LabelStyles.get_modern_label())
     
     @Slot()
     def toggle_notifications(self):

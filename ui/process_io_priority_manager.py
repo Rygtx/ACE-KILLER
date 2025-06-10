@@ -148,7 +148,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         self.refresh_btn = QPushButton("🔄 刷新进程列表")
         self.refresh_btn.setFixedSize(140, 35)
         self.refresh_btn.clicked.connect(self.refresh_process_list)
-        self.refresh_btn.setStyleSheet(ButtonStyles.get_button_style("success"))
         button_layout.addWidget(self.refresh_btn)
         
         button_layout.addStretch()
@@ -157,7 +156,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         close_btn = QPushButton("关闭")
         close_btn.setFixedSize(80, 35)
         close_btn.clicked.connect(self.accept)
-        close_btn.setStyleSheet(ButtonStyles.get_button_style("secondary"))
         button_layout.addWidget(close_btn)
         
         layout.addLayout(button_layout)
@@ -169,7 +167,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         
         # 顶部过滤器组
         filter_group = QGroupBox("🔍 过滤器")
-        filter_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         filter_layout = QVBoxLayout(filter_group)
         
         # 第一行过滤器
@@ -178,7 +175,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         # 进程名过滤
         filter_row1.addWidget(QLabel("进程名:"))
         self.name_filter = QLineEdit()
-        self.name_filter.setStyleSheet(InputStyles.get_modern_input())
         self.name_filter.setPlaceholderText("输入进程名称进行过滤...")
         self.name_filter.textChanged.connect(self._schedule_filter)
         filter_row1.addWidget(self.name_filter)
@@ -186,7 +182,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         # 内存过滤
         filter_row1.addWidget(QLabel("内存大于:"))
         self.memory_filter = QSpinBox()
-        self.memory_filter.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
         self.memory_filter.setRange(0, 10000)
         self.memory_filter.setValue(10)  # 默认显示内存大于10MB的进程
         self.memory_filter.setSuffix(" MB")
@@ -203,20 +198,17 @@ class ProcessIoPriorityManagerDialog(QDialog):
         self.process_type_group = QButtonGroup()
         
         self.show_all_radio = QRadioButton("全部")
-        self.show_all_radio.setStyleSheet(RadioButtonStyles.get_modern_radio())
         self.show_all_radio.setChecked(True)
         self.show_all_radio.toggled.connect(self._schedule_filter)
         self.process_type_group.addButton(self.show_all_radio)
         filter_row2.addWidget(self.show_all_radio)
         
         self.show_user_radio = QRadioButton("用户进程")
-        self.show_user_radio.setStyleSheet(RadioButtonStyles.get_modern_radio())
         self.show_user_radio.toggled.connect(self._schedule_filter)
         self.process_type_group.addButton(self.show_user_radio)
         filter_row2.addWidget(self.show_user_radio)
         
         self.show_system_radio = QRadioButton("系统进程")
-        self.show_system_radio.setStyleSheet(RadioButtonStyles.get_modern_radio())
         self.show_system_radio.toggled.connect(self._schedule_filter)
         self.process_type_group.addButton(self.show_system_radio)
         filter_row2.addWidget(self.show_system_radio)
@@ -227,7 +219,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         clear_filter_btn = QPushButton("清除过滤器")
         clear_filter_btn.setFixedSize(100, 32)
         clear_filter_btn.clicked.connect(self.clear_filters)
-        clear_filter_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
         filter_row2.addWidget(clear_filter_btn)
         
         filter_layout.addLayout(filter_row2)
@@ -294,7 +285,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
             "优化包括：根据性能模式自动设置CPU优先级、CPU亲和性调整、I/O优先级设置。\n"
             "这有助于持续优化这些进程的系统资源占用，减少对前台应用的影响。"
         )
-        info_label.setStyleSheet(LabelStyles.get_success_hint())
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
         
@@ -335,7 +325,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         clear_all_btn = QPushButton("🗑️ 清空列表")
         clear_all_btn.setFixedSize(110, 32)
         clear_all_btn.clicked.connect(self.clear_auto_optimize_list)
-        clear_all_btn.setStyleSheet(ButtonStyles.get_button_style("danger"))
         stats_layout.addWidget(clear_all_btn)
         
         layout.addLayout(stats_layout)
@@ -370,9 +359,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
         header.setFont(header_font)
         header.setDefaultAlignment(Qt.AlignCenter)
         header.setMinimumHeight(40)
-        
-        # 应用现代化CSS样式
-        table.setStyleSheet(TableStyles.get_modern_table())
     
     def setup_timer(self):
         """设置定时器"""
@@ -552,7 +538,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
             performance_mode_combo.setCurrentIndex(2)  # 默认选择"正常模式"
             performance_mode_combo.setFixedHeight(30)   # 设置固定高度
             performance_mode_combo.setMinimumWidth(120) # 设置最小宽度，确保文本完整显示
-            self.apply_combo_style(performance_mode_combo)
             
             # 设置改进的工具提示
             performance_mode_combo.setToolTip(
@@ -578,7 +563,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
             apply_btn = QPushButton("🚀 应用")
             apply_btn.setFixedSize(80, 30)
             apply_btn.setToolTip("应用当前选择的性能模式设置到进程，并添加到自动优化列表")
-            apply_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
             
             apply_btn.setProperty("process_info", proc)
             apply_btn.clicked.connect(lambda checked, btn=apply_btn: self.apply_performance_mode_by_button(btn))
@@ -779,7 +763,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
                 # 删除按钮
                 delete_btn = QPushButton("🗑️ 删除")
                 delete_btn.setFixedSize(80, 30)  # 设置固定尺寸
-                delete_btn.setStyleSheet(ButtonStyles.get_button_style("danger"))
                 # 将进程名存储在按钮中
                 delete_btn.setProperty("process_name", proc.get('name', ''))
                 delete_btn.clicked.connect(lambda checked, btn=delete_btn: self.delete_from_auto_optimize_list_by_button(btn))
@@ -860,10 +843,6 @@ class ProcessIoPriorityManagerDialog(QDialog):
             return f"{memory_mb:.1f} MB", ColorScheme.WARNING_BTN()  # 黄色 - 一般内存使用
         else:  # 小于100MB
             return f"{memory_mb:.1f} MB", ColorScheme.MEMORY_LOW()  # 绿色 - 低内存使用
-    
-    def apply_combo_style(self, combo):
-        """应用现代化下拉框样式"""
-        combo.setStyleSheet(ComboBoxStyles.get_modern_combo())
     
     def delete_from_auto_optimize_list_by_button(self, button):
         """通过按钮从自动优化列表中删除进程"""

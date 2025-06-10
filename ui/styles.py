@@ -179,8 +179,8 @@ class MainWindowStyles:
         colors = ThemeManager.get_colors()
         return f"""
         QWidget {{
-                background-color: {colors.GRAY_1};
-            border-radius: 8px;
+            background-color: {colors.GRAY_1};
+            border-radius: 15px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }}
     """
@@ -644,9 +644,9 @@ class CheckBoxStyles:
         QCheckBox::indicator:checked {{
                 background-color: {colors.PRIMARY_6};
                 border-color: {colors.PRIMARY_6};
-            image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOSIgdmlld0JveD0iMCAwIDEyIDkiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xMC4yIDEuNEw0LjQgNy4yTDEuOCA0LjYiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSIxLjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOSIgdmlld0JveD0iMCAwIDEyIDkiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xMC4yIDEuNEw0LjQgNy4yTDEuOCA0LjYiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSIxLjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
         }}
-        
+
         QCheckBox::indicator:checked:hover {{
                 background-color: {colors.PRIMARY_5};
         }}
@@ -751,19 +751,20 @@ class GroupBoxStyles:
                 color: {colors.GRAY_9};
                 background-color: {colors.GRAY_1};
                 border: 1px solid {colors.GRAY_4};
-            border-radius: 6px;
-            margin-top: 8px;
+            border-radius: 8px;
+            margin-top: 2px;
             padding-top: 8px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }}
         
         QGroupBox::title {{
             subcontrol-origin: margin;
-            subcontrol-position: top left;
-            padding: 0 6px;
+            subcontrol-position: top center;
+            padding: 0 10px;
                 background-color: {colors.GRAY_1};
                 color: {colors.GRAY_9};
         }}
+
     """
 
 
@@ -1160,4 +1161,4 @@ class StyleApplier:
             }}
         """
         
-        app.setStyleSheet(global_style) 
+        app.setStyleSheet(global_style)
