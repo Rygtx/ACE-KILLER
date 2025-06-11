@@ -61,12 +61,33 @@ jobs:
 
       - name: 更新版本号
         run: |
-          $mainWindowPath = "ui/main_window.py"
-          (Get-Content -Path $mainWindowPath -Raw) -replace '版本: 1.0.0', "版本: ${{ github.event.inputs.version }}" | Set-Content -Path $mainWindowPath -Encoding utf8
+          # 更新 VERSION 文件
+          echo "${{ github.event.inputs.version }}" | Out-File -FilePath "VERSION" -Encoding utf8 -NoNewline
+          Write-Host "✅ 已更新 VERSION 文件为: ${{ github.event.inputs.version }}"
+          
+          # 更新 utils/version_checker.py 中的版本号
+          $versionCheckerPath = "utils/version_checker.py"
+          if (Test-Path $versionCheckerPath) {
+            (Get-Content -Path $versionCheckerPath -Raw) -replace '__version__ = ".*"', '__version__ = "${{ github.event.inputs.version }}"' | Set-Content -Path $versionCheckerPath -Encoding utf8
+            Write-Host "✅ 已更新 version_checker.py 中的版本号"
+          } else {
+            Write-Warning "⚠️ 未找到 version_checker.py 文件"
+          }
+          
+          # 验证版本号更新
+          Write-Host "📋 VERSION 文件内容:"
+          Get-Content "VERSION"
+          
+          Write-Host "📋 version_checker.py 中的版本号:"
+          Select-String -Path $versionCheckerPath -Pattern '__version__ = ".*"'
         shell: pwsh
       
       - name: 使用Nuitka打包应用程序
         run: |
+          # 设置版本号环境变量
+          $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
+          Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
+          
           $icon_path = "assets/icon/favicon.ico"
           python -m nuitka --standalone `
             --assume-yes-for-downloads `
@@ -79,6 +100,10 @@ jobs:
             --lto=yes `
             --jobs=$env:NUMBER_OF_PROCESSORS `
             --output-filename=ACE-KILLER.exe `
+            --product-name="ACE-KILLER" `
+            --product-version="${{ github.event.inputs.version }}" `
+            --file-description="ACE反作弊监控工具 v${{ github.event.inputs.version }}" `
+            --copyright="Copyright (c) 2024 CassianVale" `
             --nofollow-import-to=tkinter,PIL.ImageTk `
             --prefer-source-code `
             --python-flag=no_site `
@@ -88,6 +113,37 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONLEGACYWINDOWSSTDIO: 1
+          ACE_KILLER_VERSION: ${{ github.event.inputs.version }}
+
+      - name: 验证版本号
+        run: |
+          Write-Host "🔍 验证版本号设置..."
+          
+          # 检查环境变量
+          Write-Host "环境变量 ACE_KILLER_VERSION: $env:ACE_KILLER_VERSION"
+          
+          # 检查VERSION文件
+          if (Test-Path "VERSION") {
+            $versionFileContent = Get-Content "VERSION" -Raw
+            Write-Host "VERSION文件内容: '$versionFileContent'"
+          }
+          
+          # 检查构建是否成功
+          if (Test-Path "main.dist") {
+            Write-Host "✅ 构建目录存在"
+            if (Test-Path "main.dist/ACE-KILLER.exe") {
+              $fileInfo = Get-Item "main.dist/ACE-KILLER.exe"
+              $fileSizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
+              Write-Host "✅ 可执行文件已生成 (大小: ${fileSizeMB} MB)"
+            } else {
+              Write-Error "❌ 可执行文件未找到"
+            }
+          } else {
+            Write-Error "❌ 构建目录未找到"
+          }
+        shell: pwsh
+        env:
+          ACE_KILLER_VERSION: ${{ github.event.inputs.version }}
           
       - name: 压缩可执行文件目录
         run: |
@@ -115,13 +171,25 @@ jobs:
           tag_name: v${{ github.event.inputs.version }}
           name: ACE-KILLER v${{ github.event.inputs.version }}
           body: |
-            ### 更新日志
+            ### 🚀 更新日志
             ${{ github.event.inputs.release_notes }}
             
-            ### 安装说明
-            1. 下载ZIP文件并解压
-            2. 右键点击ACE-KILLER.exe，选择“以管理员身份运行”
-
+            ### 📥 安装说明
+            1. 下载 `ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip` 文件
+            2. 解压到任意目录
+            3. 右键点击 `ACE-KILLER.exe`，选择"以管理员身份运行"
+            4. 首次运行时，可在设置页面检查是否为最新版本
+            
+            ### ⚠️ 系统要求
+            - Windows 10/11 x64
+            - 需要管理员权限
+            
+            ### 🔍 如何检查更新
+            1. 打开程序主界面
+            2. 切换到"设置"选项卡
+            3. 点击"检查更新"按钮
+            4. 如有新版本会自动提示并可直接跳转下载
+            
           # 添加覆盖选项
           draft: false
           prerelease: false

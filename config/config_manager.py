@@ -28,6 +28,7 @@ class ConfigManager:
         self.log_retention_days = 7  # 默认日志保留天数
         self.log_rotation = "1 day"  # 默认日志轮转周期
         self.debug_mode = False  # 调试模式默认值
+        self.theme = "light"  # 主题设置默认值（light/dark）
         
         # 内存清理设置
         self.memory_cleaner_enabled = False  # 内存清理开关默认值
@@ -82,7 +83,8 @@ class ConfigManager:
             },
             'application': {
                 'auto_start': False,
-                'close_to_tray': True
+                'close_to_tray': True,
+                'theme': 'light'
             },
             'monitor': {
                 'enabled': False
@@ -157,6 +159,16 @@ class ConfigManager:
                     self.close_to_tray = bool(config_data['application']['close_to_tray'])
                     logger.debug(f"已从配置文件加载关闭行为设置: {'最小化到后台' if self.close_to_tray else '直接退出'}")
                 
+                # 读取主题设置
+                if 'application' in config_data and 'theme' in config_data['application']:
+                    theme_value = config_data['application']['theme']
+                    if theme_value in ['light', 'dark']:
+                        self.theme = theme_value
+                        logger.debug(f"已从配置文件加载主题设置: {self.theme}")
+                    else:
+                        logger.warning(f"配置文件中的主题值无效: {theme_value}，使用默认值: light")
+                        self.theme = 'light'
+                
                 # 读取监控设置
                 if 'monitor' in config_data and 'enabled' in config_data['monitor']:
                     self.monitor_enabled = bool(config_data['monitor']['enabled'])
@@ -228,6 +240,7 @@ class ConfigManager:
             self.debug_mode = default_config['logging']['debug_mode']
             self.auto_start = default_config['application']['auto_start']
             self.close_to_tray = default_config['application']['close_to_tray']
+            self.theme = default_config['application']['theme']
             self.monitor_enabled = default_config['monitor']['enabled']
             
             # 加载内存清理默认设置
@@ -272,7 +285,8 @@ class ConfigManager:
                 },
                 'application': {
                     'auto_start': self.auto_start,
-                    'close_to_tray': self.close_to_tray
+                    'close_to_tray': self.close_to_tray,
+                    'theme': self.theme
                 },
                 'monitor': {
                     'enabled': self.monitor_enabled

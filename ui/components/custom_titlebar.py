@@ -8,7 +8,6 @@ from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QParalle
 from PySide6.QtGui import QIcon
 from ui.components.circle_button import CircleButton
 from utils.logger import logger
-from ui.styles import TitleBarStyles
 
 @dataclass
 class TitleBarConfig:
@@ -77,11 +76,6 @@ class CustomTitleBar(QWidget):
         self._setup_layout()
         self._create_title()
         self._create_buttons()
-        self._setup_style()
-    
-    def _setup_style(self):
-        """设置标题栏样式"""
-        self.setStyleSheet(TitleBarStyles.get_custom_titlebar())
 
     def _setup_layout(self):
         """设置布局"""
@@ -91,7 +85,21 @@ class CustomTitleBar(QWidget):
 
     def _create_title(self):
         """创建标题标签"""
+        # 创建图标标签
+        self.icon_label = QLabel()
+        icon_path = self._get_icon_path("favicon")
+        if icon_path:
+            icon = QIcon(icon_path)
+            pixmap = icon.pixmap(QSize(16, 16))  # 设置图标大小为16x16
+            self.icon_label.setPixmap(pixmap)
+        else:
+            logger.warning("favicon图标未找到，跳过图标显示")
+        
+        # 创建标题文字标签
         self.title_label = QLabel(self.parent.windowTitle())
+        
+        # 添加到布局
+        self.layout.addWidget(self.icon_label)
         self.layout.addWidget(self.title_label)
         self.layout.addStretch()
 

@@ -10,19 +10,16 @@ import sys
 import threading
 import subprocess
 import time
-import darkdetect
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QLabel, QCheckBox, QSystemTrayIcon, QMenu, 
-    QListWidget, QListWidgetItem, QGroupBox, QTabWidget, QFrame,
-    QMessageBox, QScrollArea, QStyle, QDialog, QLineEdit, QFormLayout,
-    QGridLayout, QProgressDialog, QProgressBar, QComboBox, QTableWidget,
-    QTableWidgetItem, QHeaderView, QAbstractItemView, QSpinBox, QRadioButton
+    QGroupBox, QTabWidget, QFrame, QMessageBox, QScrollArea, QStyle,
+    QGridLayout, QProgressDialog, QProgressBar, QComboBox, QSpinBox, QRadioButton
 )
-from PySide6.QtCore import Qt, Signal, QSize, QObject, Slot, QTimer, QEvent, QThread, QMetaObject
-from PySide6.QtGui import QIcon, QPixmap, QColor, QAction, QPainterPath, QRegion
-from loguru import logger
-
+from PySide6.QtCore import Qt, Signal, Slot, QTimer
+from PySide6.QtGui import QIcon, QAction, QPainterPath, QRegion, QPainter, QBrush, QPen, QColor
+from utils.logger import logger
+from utils.version_checker import get_version_checker, get_current_version, create_update_message
 from utils.notification import send_notification
 from core.system_utils import enable_auto_start, disable_auto_start
 from utils.memory_cleaner import get_memory_cleaner
@@ -30,43 +27,43 @@ from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT,
 from ui.process_io_priority_manager import show_process_io_priority_manager
 from ui.components.custom_titlebar import CustomTitleBar
 from ui.styles import (
-    MainWindowStyles, ProgressBarStyles, ColorScheme, ButtonStyles, 
-    GroupBoxStyles, TabStyles, CheckBoxStyles, InputStyles, SpinBoxStyles, 
-    ComboBoxStyles, LabelStyles, StyleApplier, ThemeManager, TitleBarStyles,
-    RadioButtonStyles
+    ColorScheme, StyleHelper, theme_manager, StatusHTMLGenerator, StyleApplier,
+    AntColors, AntColorsDark
 )
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QWidget):
     """主窗口"""
     
-    configChanged = Signal()
-    
-    # 添加进度更新信号作为类属性
+    # 进度更新信号
     progress_update_signal = Signal(int)
     
-    # 添加删除服务相关的信号
+    # 删除服务相关信号
     delete_progress_signal = Signal(int)
-    delete_result_signal = Signal(str, int, int)  # result_text, success_count, total_count
+    delete_result_signal = Signal(str, int, int)
     
-    # 添加停止服务相关的信号
+    # 停止服务相关信号
     stop_progress_signal = Signal(int)
-    stop_result_signal = Signal(str, int, int)  # result_text, success_count, total_count
+    stop_result_signal = Signal(str, int, int)
     
     def __init__(self, monitor, icon_path=None, start_minimized=False):
         super().__init__()
         
         self.monitor = monitor
         self.icon_path = icon_path
-        self.current_theme = "auto"  # 支持 "light", "dark", "auto"
-        self.start_minimized = start_minimized  # 是否在启动时最小化
+        self.current_theme = monitor.config_manager.theme
+        self.start_minimized = start_minimized
         
-        # 添加标志记录窗口是否通过自定义标题栏最小化到托盘
+        # 自定义标题栏最小化相关
         self.is_custom_minimized = False
-        self.original_geometry = None  # 保存原始几何信息
+        self.original_geometry = None
         
         # 初始化内存清理管理器
         self.memory_cleaner = get_memory_cleaner()
+        
+        # 初始化版本检查器
+        self.version_checker = get_version_checker()
+        self.version_checker.check_finished.connect(self._on_version_check_finished)
         
         # 连接信号到槽函数
         self.progress_update_signal.connect(self._update_progress_dialog_value)
@@ -78,28 +75,54 @@ class MainWindow(QMainWindow):
         self.setup_ui()
         self.setup_tray()
         
-        # 添加定时器，定期更新状态
+        # 连接主题切换信号 - 当主题改变时自动应用组件属性
+        theme_manager.theme_changed.connect(self.apply_component_properties)
+        
+        # 初始化定时器和设置
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.update_status)
         self.update_timer.start(1000)
         
+        # 应用初始主题
+        theme_manager.set_theme(self.current_theme)
+        
         # 初始加载设置
         self.load_settings()
         
-        # 应用圆角遮罩
-        self.apply_rounded_corners()
-    
-    def apply_rounded_corners(self):
-        """应用圆角遮罩到窗口"""
-        from PySide6.QtGui import QPainterPath, QRegion
+        # 初始应用组件属性
+        self.apply_component_properties()
         
+        # 初始应用圆角遮罩
+        QTimer.singleShot(10, self.apply_rounded_mask)
+    
+    def paintEvent(self, event):
+        """绘制圆角窗口背景"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        
+        # 获取当前主题颜色
+        colors = AntColorsDark if theme_manager.get_current_theme() == "dark" else AntColors
+        
+        # 绘制圆角背景
+        painter.setBrush(QBrush(QColor(colors.GRAY_1)))
+        painter.setPen(QPen(QColor(colors.GRAY_4), 1))
+        
+        path = QPainterPath()
+        path.addRoundedRect(self.rect().adjusted(1, 1, -1, -1), 12, 12)
+        painter.drawPath(path)
+    
+    def showEvent(self, event):
+        """窗口显示时应用圆角遮罩"""
+        super().showEvent(event)
+        # 延迟应用圆角遮罩
+        QTimer.singleShot(10, self.apply_rounded_mask)
+    
+    def apply_rounded_mask(self):
+        """应用圆角遮罩到窗口"""
         try:
-            # 获取窗口大小
-            rect = self.rect()
-            
             # 创建圆角路径
             path = QPainterPath()
-            path.addRoundedRect(rect.x(), rect.y(), rect.width(), rect.height(), 12, 12)
+            path.addRoundedRect(self.rect(), 12, 12)
             
             # 应用遮罩
             region = QRegion(path.toFillPolygon().toPolygon())
@@ -112,30 +135,25 @@ class MainWindow(QMainWindow):
         """窗口大小改变时重新应用圆角遮罩"""
         super().resizeEvent(event)
         # 延迟应用遮罩以确保窗口完全调整大小后再应用
-        QTimer.singleShot(10, self.apply_rounded_corners)
+        QTimer.singleShot(10, self.apply_rounded_mask)
     
     def setup_ui(self):
         """设置用户界面"""
         self.setWindowTitle("ACE-KILLER")
-        self.setMinimumSize(600, 500)
+        self.setMinimumSize(600, 600)
         
         # 设置无边框窗口
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowSystemMenuHint)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_OpaquePaintEvent, False)
         
         if self.icon_path and os.path.exists(self.icon_path):
             self.setWindowIcon(QIcon(self.icon_path))
         
-        # 创建主布局
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        # 设置圆角样式
-        central_widget.setStyleSheet(MainWindowStyles.get_rounded_window())
-        
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)  # 移除默认边距
-        main_layout.setSpacing(0)  # 移除间距
+        # 创建主布局 - 直接在QWidget上
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
         # 添加自定义标题栏
         self.custom_titlebar = CustomTitleBar(self)
@@ -143,15 +161,13 @@ class MainWindow(QMainWindow):
         
         # 创建内容区域
         content_widget = QWidget()
-        content_widget.setStyleSheet(MainWindowStyles.get_transparent_content())
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(8, 0, 8, 8)  # 添加边距以适应圆角
+        content_layout.setContentsMargins(8, 0, 8, 8)
         main_layout.addWidget(content_widget)
         
         # 创建选项卡
-        tabs = QTabWidget()
-        tabs.setStyleSheet(TabStyles.get_modern_tabs())
-        content_layout.addWidget(tabs)
+        self.tabs = QTabWidget()
+        content_layout.addWidget(self.tabs)
         
         # 状态选项卡
         status_tab = QWidget()
@@ -159,7 +175,6 @@ class MainWindow(QMainWindow):
         
         # 状态信息框
         status_group = QGroupBox("程序状态")
-        status_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         status_box_layout = QVBoxLayout()
         
         # 创建一个QLabel用于显示状态信息
@@ -186,25 +201,23 @@ class MainWindow(QMainWindow):
         
         # 进程监控组
         process_group = QGroupBox("🚫 ACE反作弊弹窗监控")
-        process_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         process_box_layout = QVBoxLayout()
         
         # 添加ACE反作弊说明标签
-        ace_info_label = QLabel(
+        self.ace_info_label = QLabel(
             "🎯 监控目标：ACE-Tray.exe（反作弊安装弹窗进程）\n"
             "⚡ 功能说明：自动检测并终止ACE反作弊安装弹窗，防止强制安装\n"
             "💡 提示: 进程优化设置在进程重启后会恢复默认值，建议将常用进程添加到自动优化列表中实现持续优化。"
         )
-        ace_info_label.setStyleSheet(LabelStyles.get_info_hint())
-        ace_info_label.setWordWrap(True)
-        process_box_layout.addWidget(ace_info_label)
+        self.ace_info_label.setWordWrap(True)
+        StyleHelper.set_label_type(self.ace_info_label, "info")
+        process_box_layout.addWidget(self.ace_info_label)
         
         # 添加监控状态显示
         status_layout = QHBoxLayout()
         
         # 添加监控开关
         self.monitor_checkbox = QCheckBox("启用ACE弹窗监控")
-        self.monitor_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.monitor_checkbox.setChecked(self.monitor.running)
         self.monitor_checkbox.stateChanged.connect(self.toggle_process_monitor)
         status_layout.addWidget(self.monitor_checkbox)
@@ -218,33 +231,30 @@ class MainWindow(QMainWindow):
         
         # 添加I/O优先级设置功能到进程监控选项卡
         io_priority_group = QGroupBox("🚀 进程优先级管理")
-        io_priority_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         io_priority_layout = QVBoxLayout()
         
         # 添加说明标签
-        io_priority_label = QLabel(
+        self.io_priority_label = QLabel(
             "🎯 通过调整进程优先级可以显著改善系统响应速度和性能表现。\n"
             "💡 支持完整优化：I/O优先级、CPU优先级、CPU亲和性和性能模式设置。\n"
             "✨ 特别适用于优化反作弊、杀毒、下载等后台程序，减少对前台应用的影响。\n"
             "💡 提示: 进程优化设置在进程重启后会恢复默认值，建议将常用进程添加到自动优化列表中实现持续优化。"
         )
-        io_priority_label.setStyleSheet(LabelStyles.get_success_hint())
-        io_priority_label.setWordWrap(True)
-        io_priority_layout.addWidget(io_priority_label)
+        self.io_priority_label.setWordWrap(True)
+        StyleHelper.set_label_type(self.io_priority_label, "success")
+        io_priority_layout.addWidget(self.io_priority_label)
         
         # 主要功能按钮布局
         main_buttons_layout = QHBoxLayout()
         
         # 进程管理按钮（主要功能）
         self.process_manager_btn = QPushButton("🔍 进程管理器")
-        self.process_manager_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
         self.process_manager_btn.clicked.connect(self.show_process_manager)
         self.process_manager_btn.setToolTip("打开进程管理器，查看所有进程并进行完整优化")
         main_buttons_layout.addWidget(self.process_manager_btn)
         
         # 管理自动优化列表按钮
         self.manage_io_list_btn = QPushButton("⚙️ 自动优化列表")
-        self.manage_io_list_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
         self.manage_io_list_btn.clicked.connect(self.show_auto_optimize_tab)
         self.manage_io_list_btn.setToolTip("查看和管理自动优化列表")
         main_buttons_layout.addWidget(self.manage_io_list_btn)
@@ -254,12 +264,10 @@ class MainWindow(QMainWindow):
         
         # 快捷操作分组
         quick_actions_group = QGroupBox("🚀 快捷操作")
-        quick_actions_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         quick_actions_layout = QVBoxLayout()
         
         # 优化反作弊进程按钮
         self.optimize_anticheat_btn = QPushButton("🛡️ 一键优化反作弊进程")
-        self.optimize_anticheat_btn.setStyleSheet(ButtonStyles.get_button_style("success"))
         self.optimize_anticheat_btn.clicked.connect(self.optimize_anticheat_processes)
         self.optimize_anticheat_btn.setToolTip("一键优化所有已知反作弊进程，提升游戏体验")
         quick_actions_layout.addWidget(self.optimize_anticheat_btn)
@@ -276,22 +284,18 @@ class MainWindow(QMainWindow):
         
         # 自动清理选项
         auto_group = QGroupBox("自动清理")
-        auto_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         auto_layout = QVBoxLayout()
         
         # 定时选项
         self.clean_option1 = QCheckBox("定时清理(每5分钟)，截取进程工作集")
-        self.clean_option1.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option1.stateChanged.connect(lambda state: self.toggle_clean_option(0, state))
         auto_layout.addWidget(self.clean_option1)
         
         self.clean_option2 = QCheckBox("定时清理(每5分钟)，清理系统缓存")
-        self.clean_option2.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option2.stateChanged.connect(lambda state: self.toggle_clean_option(1, state))
         auto_layout.addWidget(self.clean_option2)
         
         self.clean_option3 = QCheckBox("定时清理(每5分钟)，用全部可能的方法清理内存")
-        self.clean_option3.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option3.stateChanged.connect(lambda state: self.toggle_clean_option(2, state))
         auto_layout.addWidget(self.clean_option3)
         
@@ -299,17 +303,15 @@ class MainWindow(QMainWindow):
         
         # 使用比例超出80%的选项
         self.clean_option4 = QCheckBox("若内存使用量超出80%，截取进程工作集")
-        self.clean_option4.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
+
         self.clean_option4.stateChanged.connect(lambda state: self.toggle_clean_option(3, state))
         auto_layout.addWidget(self.clean_option4)
         
         self.clean_option5 = QCheckBox("若内存使用量超出80%，清理系统缓存")
-        self.clean_option5.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option5.stateChanged.connect(lambda state: self.toggle_clean_option(4, state))
         auto_layout.addWidget(self.clean_option5)
         
         self.clean_option6 = QCheckBox("若内存使用量超出80%，用全部可能的方法清理内存")
-        self.clean_option6.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.clean_option6.stateChanged.connect(lambda state: self.toggle_clean_option(5, state))
         auto_layout.addWidget(self.clean_option6)
         
@@ -318,18 +320,15 @@ class MainWindow(QMainWindow):
         
         # 其他选项
         options_group = QGroupBox("选项")
-        options_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         options_layout = QHBoxLayout()
 
         # 启用内存清理
         self.memory_checkbox = QCheckBox("启用内存清理")
-        self.memory_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.memory_checkbox.stateChanged.connect(self.toggle_memory_cleanup)
         options_layout.addWidget(self.memory_checkbox)
         
         # 暴力模式
         self.brute_mode_checkbox = QCheckBox("深度清理模式(调用Windows系统API)")
-        self.brute_mode_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.brute_mode_checkbox.stateChanged.connect(self.toggle_brute_mode)
         self.brute_mode_checkbox.setToolTip("深度清理模式会使用Windows系统API清理所有进程的工作集，效率更高但更激进；\n"
                                            "不开启则会逐个进程分别清理工作集，相对温和但效率较低。")
@@ -340,14 +339,11 @@ class MainWindow(QMainWindow):
         
         # 自定义配置选项
         custom_group = QGroupBox("自定义配置")
-        custom_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         custom_layout = QGridLayout()
         
         # 清理间隔设置
         interval_label = QLabel("清理间隔(秒):")
-        interval_label.setStyleSheet(LabelStyles.get_modern_label())
         self.interval_spinbox = QSpinBox()
-        self.interval_spinbox.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
         self.interval_spinbox.setMinimum(60)  # 最小1分钟
         self.interval_spinbox.setMaximum(3600)  # 最大1小时
         self.interval_spinbox.setSingleStep(30)  # 步长30秒
@@ -359,9 +355,7 @@ class MainWindow(QMainWindow):
         
         # 内存占用阈值设置
         threshold_label = QLabel("内存阈值(%):")
-        threshold_label.setStyleSheet(LabelStyles.get_modern_label())
         self.threshold_spinbox = QSpinBox()
-        self.threshold_spinbox.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
         self.threshold_spinbox.setMinimum(15)  # 最小30%
         self.threshold_spinbox.setMaximum(95)  # 最大95%
         self.threshold_spinbox.setSingleStep(5)  # 步长5%
@@ -373,9 +367,7 @@ class MainWindow(QMainWindow):
         
         # 冷却时间设置
         cooldown_label = QLabel("冷却时间(秒):")
-        cooldown_label.setStyleSheet(LabelStyles.get_modern_label())
         self.cooldown_spinbox = QSpinBox()
-        self.cooldown_spinbox.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
         self.cooldown_spinbox.setMinimum(30)  # 最小30秒
         self.cooldown_spinbox.setMaximum(300)  # 最大5分钟
         self.cooldown_spinbox.setSingleStep(10)  # 步长10秒
@@ -386,9 +378,9 @@ class MainWindow(QMainWindow):
         custom_layout.addWidget(self.cooldown_spinbox, 1, 1)
         
         # 添加描述标签
-        description_label = QLabel("注意: 清理间隔不能小于1分钟，冷却时间用于防止短时间内重复触发清理")
-        description_label.setStyleSheet(LabelStyles.get_info_hint())
+        description_label = QLabel("⚠ 注意: 清理间隔不能小于1分钟，冷却时间用于防止短时间内重复触发清理")
         description_label.setWordWrap(True)
+        StyleHelper.set_label_type(description_label, "warning")
         custom_layout.addWidget(description_label, 1, 2, 1, 2)
         
         custom_group.setLayout(custom_layout)
@@ -396,7 +388,6 @@ class MainWindow(QMainWindow):
         
         # 手动清理按钮
         buttons_group = QGroupBox("手动清理")
-        buttons_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         buttons_layout = QVBoxLayout()
 
         # 按钮水平布局
@@ -404,28 +395,25 @@ class MainWindow(QMainWindow):
         
         # 截取进程工作集按钮
         self.clean_workingset_btn = QPushButton("截取进程工作集")
-        self.clean_workingset_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
         self.clean_workingset_btn.clicked.connect(self.manual_clean_workingset)
         btn_row_layout.addWidget(self.clean_workingset_btn)
         
         # 清理系统缓存按钮
         self.clean_syscache_btn = QPushButton("清理系统缓存")
-        self.clean_syscache_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
         self.clean_syscache_btn.clicked.connect(self.manual_clean_syscache)
         btn_row_layout.addWidget(self.clean_syscache_btn)
         
         # 全面清理按钮
         self.clean_all_btn = QPushButton("执行全部已知清理(不推荐)")
-        self.clean_all_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
         self.clean_all_btn.clicked.connect(self.manual_clean_all)
         btn_row_layout.addWidget(self.clean_all_btn)
         
         buttons_layout.addLayout(btn_row_layout)
         
         # 添加提示文本
-        warning_label = QLabel("⚠️ 如果已经开启游戏不建议点击全部已知清理，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡")
-        warning_label.setStyleSheet(LabelStyles.get_warning_hint())
+        warning_label = QLabel("❗ 如果已经开启游戏不建议点击全部已知清理，否则清理时可能导致现有游戏卡死，或者清理后一段时间内游戏变卡")
         warning_label.setWordWrap(True)
+        StyleHelper.set_label_type(warning_label, "error")
         buttons_layout.addWidget(warning_label)
         
         buttons_group.setLayout(buttons_layout)
@@ -433,7 +421,6 @@ class MainWindow(QMainWindow):
         
         # 添加状态显示
         memory_status = QGroupBox("内存状态")
-        memory_status.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         memory_status_layout = QVBoxLayout()
         
         # 创建内存信息标签
@@ -453,7 +440,6 @@ class MainWindow(QMainWindow):
         
         # 创建内存使用进度条
         self.memory_progress = QProgressBar()
-        self.memory_progress.setStyleSheet(ProgressBarStyles.get_modern_progress())
         self.memory_progress.setMinimum(0)
         self.memory_progress.setMaximum(100)
         self.memory_progress.setValue(0)
@@ -476,10 +462,8 @@ class MainWindow(QMainWindow):
         
         # 通知设置
         notify_group = QGroupBox("通知设置")
-        notify_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         notify_layout = QVBoxLayout()
         self.notify_checkbox = QCheckBox("启用Windows通知")
-        self.notify_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.notify_checkbox.stateChanged.connect(self.toggle_notifications)
         notify_layout.addWidget(self.notify_checkbox)
         notify_group.setLayout(notify_layout)
@@ -487,10 +471,8 @@ class MainWindow(QMainWindow):
         
         # 启动设置
         startup_group = QGroupBox("启动设置")
-        startup_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         startup_layout = QVBoxLayout()
         self.startup_checkbox = QCheckBox("开机自启动")
-        self.startup_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.startup_checkbox.stateChanged.connect(self.toggle_auto_start)
         startup_layout.addWidget(self.startup_checkbox)
         startup_group.setLayout(startup_layout)
@@ -498,7 +480,6 @@ class MainWindow(QMainWindow):
         
         # 窗口行为设置
         window_group = QGroupBox("窗口行为设置")
-        window_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         window_layout = QVBoxLayout()
         
         # 关闭行为选择
@@ -507,7 +488,6 @@ class MainWindow(QMainWindow):
         close_behavior_layout.addWidget(close_behavior_label)
         
         self.close_behavior_combo = QComboBox()
-        self.close_behavior_combo.setStyleSheet(ComboBoxStyles.get_modern_combo())
         self.close_behavior_combo.addItem("最小化到系统托盘", True)
         self.close_behavior_combo.addItem("直接退出程序", False)
         self.close_behavior_combo.currentIndexChanged.connect(self.on_close_behavior_changed)
@@ -518,8 +498,8 @@ class MainWindow(QMainWindow):
         
         # 添加说明文本
         close_behavior_info = QLabel("💡 最小化到系统托盘：程序将继续在后台运行\n💡 直接退出程序：完全关闭程序进程")
-        close_behavior_info.setStyleSheet(LabelStyles.get_info_hint())
         close_behavior_info.setWordWrap(True)
+        StyleHelper.set_label_type(close_behavior_info, "info")
         window_layout.addWidget(close_behavior_info)
         
         window_group.setLayout(window_layout)
@@ -527,10 +507,8 @@ class MainWindow(QMainWindow):
         
         # 日志设置
         log_group = QGroupBox("日志设置")
-        log_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         log_layout = QVBoxLayout()
         self.debug_checkbox = QCheckBox("启用调试模式")
-        self.debug_checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
         self.debug_checkbox.stateChanged.connect(self.toggle_debug_mode)
         log_layout.addWidget(self.debug_checkbox)
         log_group.setLayout(log_layout)
@@ -538,68 +516,37 @@ class MainWindow(QMainWindow):
         
         # 主题设置
         theme_group = QGroupBox("主题设置")
-        theme_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         theme_layout = QVBoxLayout()
         
         # 主题选择水平布局
         theme_buttons_layout = QHBoxLayout()
+        theme_buttons_layout.setSpacing(8)  # 增加按钮间距
         
         # 浅色主题按钮
-        self.light_theme_btn = QPushButton("浅色")
-        self.light_theme_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
+        self.light_theme_btn = QPushButton("☀️ 浅色模式")
         self.light_theme_btn.clicked.connect(lambda: self.switch_theme("light"))
+        self.light_theme_btn.setToolTip("切换到浅色主题模式")
+        self.light_theme_btn.setMinimumHeight(32)  # 增加按钮高度
         theme_buttons_layout.addWidget(self.light_theme_btn)
         
-        # 跟随系统按钮
-        self.auto_theme_btn = QPushButton("跟随系统")
-        self.auto_theme_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
-        self.auto_theme_btn.clicked.connect(lambda: self.switch_theme("auto"))
-        theme_buttons_layout.addWidget(self.auto_theme_btn)
-        
         # 深色主题按钮
-        self.dark_theme_btn = QPushButton("深色")
-        self.dark_theme_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
+        self.dark_theme_btn = QPushButton("🌙 深色模式")
         self.dark_theme_btn.clicked.connect(lambda: self.switch_theme("dark"))
+        self.dark_theme_btn.setToolTip("切换到深色主题模式")
+        self.dark_theme_btn.setMinimumHeight(32)
         theme_buttons_layout.addWidget(self.dark_theme_btn)
         
         theme_layout.addLayout(theme_buttons_layout)
         theme_group.setLayout(theme_layout)
         settings_layout.addWidget(theme_group)
         
-        # 添加操作按钮
-        actions_group = QGroupBox("操作")
-        actions_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
-        actions_layout = QHBoxLayout()
-        
-        # 打开配置目录按钮
-        self.config_dir_btn = QPushButton("打开配置目录")
-        self.config_dir_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
-        self.config_dir_btn.clicked.connect(self.open_config_dir)
-        actions_layout.addWidget(self.config_dir_btn)
-        
-        # 检查更新按钮
-        self.check_update_btn = QPushButton("检查更新")
-        self.check_update_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
-        self.check_update_btn.clicked.connect(self.check_update)
-        actions_layout.addWidget(self.check_update_btn)
-        
-        # 关于按钮
-        self.about_btn = QPushButton("关于")
-        self.about_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
-        self.about_btn.clicked.connect(self.show_about)
-        actions_layout.addWidget(self.about_btn)
-        
-        actions_group.setLayout(actions_layout)
-        settings_layout.addWidget(actions_group)
-        
         # 添加ACE服务管理功能
         service_group = QGroupBox("ACE服务管理")
-        service_group.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
         service_layout = QVBoxLayout()
         
         # 提醒文本
         warning_label = QLabel("⚠️ 警告：以下操作需要管理员权限，并会影响ACE反作弊服务")
-        warning_label.setStyleSheet(LabelStyles.get_error_hint())
+        StyleHelper.set_label_type(warning_label, "error")
         service_layout.addWidget(warning_label)
         
         # 创建按钮布局
@@ -607,28 +554,24 @@ class MainWindow(QMainWindow):
         
         # 开启反作弊程序按钮
         self.start_ace_btn = QPushButton("开启反作弊程序")
-        self.start_ace_btn.setStyleSheet(ButtonStyles.get_button_style("success"))
         self.start_ace_btn.setToolTip("执行启动ACE反作弊程序命令")
         self.start_ace_btn.clicked.connect(self.start_ace_program)
         service_buttons_layout.addWidget(self.start_ace_btn)
         
         # 卸载ACE程序按钮
         self.uninstall_ace_btn = QPushButton("卸载反作弊程序")
-        self.uninstall_ace_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
         self.uninstall_ace_btn.setToolTip("执行ACE反作弊程序卸载命令")
         self.uninstall_ace_btn.clicked.connect(self.uninstall_ace_program)
         service_buttons_layout.addWidget(self.uninstall_ace_btn)
         
         # 停止ACE服务按钮
         self.stop_service_btn = QPushButton("停止ACE服务")
-        self.stop_service_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
         self.stop_service_btn.setToolTip("停止ACE-GAME、ACE-BASE、AntiCheatExpert Service、AntiCheatExpert Protection服务")
         self.stop_service_btn.clicked.connect(self.stop_ace_services)
         service_buttons_layout.addWidget(self.stop_service_btn)
         
         # 删除ACE服务按钮
         self.delete_service_btn = QPushButton("删除ACE服务")
-        self.delete_service_btn.setStyleSheet(ButtonStyles.get_button_style("danger"))
         self.delete_service_btn.setToolTip("删除ACE-GAME、ACE-BASE、AntiCheatExpert Service、AntiCheatExpert Protection服务")
         self.delete_service_btn.clicked.connect(self.delete_ace_services)
         service_buttons_layout.addWidget(self.delete_service_btn)
@@ -638,24 +581,56 @@ class MainWindow(QMainWindow):
         service_group.setLayout(service_layout)
         settings_layout.addWidget(service_group)
         
+        # 添加操作按钮
+        actions_group = QGroupBox("操作")
+        actions_layout = QHBoxLayout()
+        
+        # 打开配置目录按钮
+        self.config_dir_btn = QPushButton("打开配置目录")
+        self.config_dir_btn.clicked.connect(self.open_config_dir)
+        actions_layout.addWidget(self.config_dir_btn)
+        
+        # 检查更新按钮
+        self.check_update_btn = QPushButton("检查更新")
+        self.check_update_btn.clicked.connect(self.check_update)
+        actions_layout.addWidget(self.check_update_btn)
+        
+        # 关于按钮
+        self.about_btn = QPushButton("关于")
+        self.about_btn.clicked.connect(self.show_about)
+        actions_layout.addWidget(self.about_btn)
+        
+        actions_group.setLayout(actions_layout)
+        settings_layout.addWidget(actions_group)
+        
+        # 版本信息显示
+        version_group = QGroupBox("版本信息")
+        version_layout = QVBoxLayout()
+        
+        # 获取当前版本号
+        current_version = get_current_version()
+        self.version_label = QLabel(f"当前版本: v{current_version}")
+        self.version_label.setAlignment(Qt.AlignCenter)
+        StyleHelper.set_label_type(self.version_label, "info")
+        version_layout.addWidget(self.version_label)
+        
+        version_group.setLayout(version_layout)
+        settings_layout.addWidget(version_group)
+        
         # 添加空白占位
         settings_layout.addStretch()
         
         # 添加选项卡
-        tabs.addTab(status_tab, "  程序状态  ")
-        tabs.addTab(process_tab, "  进程监控  ")
-        tabs.addTab(memory_tab, "  内存清理  ")
-        tabs.addTab(settings_tab, "  设置  ")
+        self.tabs.addTab(status_tab, "  程序状态  ")
+        self.tabs.addTab(process_tab, "  进程监控  ")
+        self.tabs.addTab(memory_tab, "  内存清理  ")
+        self.tabs.addTab(settings_tab, "  设置  ")
     
     def setup_tray(self):
         """设置系统托盘图标"""
         self.tray_icon = QSystemTrayIcon(self)
-        if self.icon_path and os.path.exists(self.icon_path):
-            self.tray_icon.setIcon(QIcon(self.icon_path))
-        else:
-            # 使用系统预设图标
-            self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
-        
+        self.tray_icon.setIcon(QIcon(self.icon_path))
+
         # 创建托盘菜单
         tray_menu = QMenu()
         
@@ -699,11 +674,6 @@ class MainWindow(QMainWindow):
         light_theme_action = QAction("浅色", self)
         light_theme_action.triggered.connect(lambda: self.switch_theme("light"))
         theme_menu.addAction(light_theme_action)
-        
-        # 跟随系统动作
-        auto_theme_action = QAction("跟随系统", self)
-        auto_theme_action.triggered.connect(lambda: self.switch_theme("auto"))
-        theme_menu.addAction(auto_theme_action)
         
         # 深色主题动作
         dark_theme_action = QAction("深色", self)
@@ -753,177 +723,142 @@ class MainWindow(QMainWindow):
         exit_action = QAction("退出", self)
         exit_action.triggered.connect(self.confirm_exit)
         tray_menu.addAction(exit_action)
-        
-    
+
     @Slot(str)
     def switch_theme(self, theme):
         """
         切换应用程序主题
         
         Args:
-            theme: 主题类型，可以是 "light"、"dark" 或 "auto"
+            theme: 主题类型，可以是 "light" 或 "dark"
         """
         if theme != self.current_theme:
             self.current_theme = theme
             
-            if theme == "auto":
-                # 使用系统主题
-                detected_theme = "dark" if darkdetect.isDark() else "light"
-                ThemeManager.set_theme(detected_theme)
-                logger.debug(f"主题已设置为跟随系统 (当前检测到: {detected_theme})")
+            # 保存主题设置到配置文件
+            self.monitor.config_manager.theme = theme
+            if self.monitor.config_manager.save_config():
+                logger.debug(f"主题设置已保存到配置文件: {theme}")
             else:
-                # 使用指定主题
-                ThemeManager.set_theme(theme)
-                logger.debug(f"主题已设置为: {theme}")
+                logger.warning(f"主题设置保存失败: {theme}")
             
-            # 重新应用样式
-            self.apply_current_theme()
+            # 使用指定主题
+            theme_manager.set_theme(theme)
+            logger.debug(f"主题已设置为: {theme}")
             
-                    # 立即更新状态显示
-        self.update_status()
+            # 主题切换现在通过信号自动完成，只需要应用组件属性
+            self.apply_component_properties()
+            
+            # 立即更新状态显示
+            self.update_status()
     
-    def apply_current_theme(self):
-        """应用当前主题到所有UI组件"""
-        # 重新应用全局样式
-        app = QApplication.instance()
-        if app:
-            StyleApplier.apply_ant_design_theme(app)
-        
-        # 重新设置主窗口样式
-        central_widget = self.centralWidget()
-        if central_widget:
-            central_widget.setStyleSheet(MainWindowStyles.get_rounded_window())
-        
-        # 重新应用各组件样式
-        self.update_all_component_styles()
-        
-        # 重新应用圆角遮罩
-        self.apply_rounded_corners()
-    
-    def update_all_component_styles(self):
-        """更新所有组件的样式"""
+    def apply_component_properties(self):
+        """应用组件属性"""
         try:
-            # 更新标题栏样式
-            if hasattr(self, 'custom_titlebar'):
-                self.custom_titlebar.setStyleSheet(TitleBarStyles.get_custom_titlebar())
+            # 设置无边框窗口透明背景属性
+            StyleHelper.set_frameless_window_properties(self)
             
-            # 更新选项卡样式
-            tabs = self.findChildren(QTabWidget)
-            for tab in tabs:
-                tab.setStyleSheet(TabStyles.get_modern_tabs())
+            # 设置选项卡透明背景
+            if hasattr(self, 'tabs'):
+                StyleHelper.set_tab_page_transparent(self.tabs)
             
-            # 更新分组框样式
-            groupboxes = self.findChildren(QGroupBox)
-            for groupbox in groupboxes:
-                groupbox.setStyleSheet(GroupBoxStyles.get_modern_groupbox())
+            # 设置按钮类型属性
+            self.setup_button_properties()
             
-            # 更新按钮样式（需要根据按钮的类型重新设置）
-            self.update_button_styles()
+            # 设置标签类型属性
+            self.setup_label_properties()
             
-            # 更新复选框样式
-            checkboxes = self.findChildren(QCheckBox)
-            for checkbox in checkboxes:
-                checkbox.setStyleSheet(CheckBoxStyles.get_modern_checkbox())
+            # 设置进度条类型属性
+            self.setup_progress_properties()
             
-            # 更新单选按钮样式
-            radiobuttons = self.findChildren(QRadioButton)
-            for radiobutton in radiobuttons:
-                radiobutton.setStyleSheet(RadioButtonStyles.get_modern_radio())
+            # 重新绘制窗口以应用新主题
+            self.update()
             
-            # 更新输入框样式
-            lineedits = self.findChildren(QLineEdit)
-            for lineedit in lineedits:
-                lineedit.setStyleSheet(InputStyles.get_modern_input())
-            
-            # 更新下拉框样式
-            comboboxes = self.findChildren(QComboBox)
-            for combobox in comboboxes:
-                combobox.setStyleSheet(ComboBoxStyles.get_modern_combo())
-            
-            # 更新数字输入框样式
-            spinboxes = self.findChildren(QSpinBox)
-            for spinbox in spinboxes:
-                spinbox.setStyleSheet(SpinBoxStyles.get_modern_spinbox())
-            
-            # 更新进度条样式
-            progressbars = self.findChildren(QProgressBar)
-            for progressbar in progressbars:
-                progressbar.setStyleSheet(ProgressBarStyles.get_modern_progress())
-            
-            # 更新标签样式（根据类型重新设置）
-            self.update_label_styles()
+            # 重新应用圆角遮罩
+            self.apply_rounded_mask()
             
         except Exception as e:
-            logger.error(f"更新组件样式失败: {str(e)}")
+            logger.error(f"应用组件属性失败: {str(e)}")
     
-    def update_button_styles(self):
-        """更新所有按钮的样式"""
-        # 主要功能按钮
-        if hasattr(self, 'process_manager_btn'):
-            self.process_manager_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
-        if hasattr(self, 'optimize_anticheat_btn'):
-            self.optimize_anticheat_btn.setStyleSheet(ButtonStyles.get_button_style("success"))
-        if hasattr(self, 'manage_io_list_btn'):
-            self.manage_io_list_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
-        
-        # 内存清理按钮
-        if hasattr(self, 'clean_workingset_btn'):
-            self.clean_workingset_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
-        if hasattr(self, 'clean_syscache_btn'):
-            self.clean_syscache_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
-        if hasattr(self, 'clean_all_btn'):
-            self.clean_all_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
-        
-        # 设置按钮
-        if hasattr(self, 'config_dir_btn'):
-            self.config_dir_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
-        if hasattr(self, 'check_update_btn'):
-            self.check_update_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
-        if hasattr(self, 'about_btn'):
-            self.about_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
-        
-        # 主题切换按钮
-        if hasattr(self, 'light_theme_btn'):
-            self.light_theme_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
-        if hasattr(self, 'auto_theme_btn'):
-            self.auto_theme_btn.setStyleSheet(ButtonStyles.get_button_style("primary"))
-        if hasattr(self, 'dark_theme_btn'):
-            self.dark_theme_btn.setStyleSheet(ButtonStyles.get_button_style("default"))
-        
-        # 服务管理按钮
-        if hasattr(self, 'start_ace_btn'):
-            self.start_ace_btn.setStyleSheet(ButtonStyles.get_button_style("success"))
-        if hasattr(self, 'uninstall_ace_btn'):
-            self.uninstall_ace_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
-        if hasattr(self, 'stop_service_btn'):
-            self.stop_service_btn.setStyleSheet(ButtonStyles.get_button_style("warning"))
-        if hasattr(self, 'delete_service_btn'):
-            self.delete_service_btn.setStyleSheet(ButtonStyles.get_button_style("danger"))
+    def setup_button_properties(self):
+        """设置按钮属性"""
+        try:
+            # 主要功能按钮
+            if hasattr(self, 'process_manager_btn'):
+                StyleHelper.set_button_type(self.process_manager_btn, "primary")
+            if hasattr(self, 'optimize_anticheat_btn'):
+                StyleHelper.set_button_type(self.optimize_anticheat_btn, "success")
+            if hasattr(self, 'manage_io_list_btn'):
+                StyleHelper.set_button_type(self.manage_io_list_btn, "default")
+            
+            # 内存清理按钮
+            if hasattr(self, 'clean_workingset_btn'):
+                StyleHelper.set_button_type(self.clean_workingset_btn, "primary")
+            if hasattr(self, 'clean_syscache_btn'):
+                StyleHelper.set_button_type(self.clean_syscache_btn, "primary")
+            if hasattr(self, 'clean_all_btn'):
+                StyleHelper.set_button_type(self.clean_all_btn, "warning")
+            
+            # 设置按钮
+            if hasattr(self, 'config_dir_btn'):
+                StyleHelper.set_button_type(self.config_dir_btn, "default")
+            if hasattr(self, 'check_update_btn'):
+                StyleHelper.set_button_type(self.check_update_btn, "default")
+            if hasattr(self, 'about_btn'):
+                StyleHelper.set_button_type(self.about_btn, "default")
+            
+            # 主题切换按钮
+            if hasattr(self, 'light_theme_btn'):
+                btn_type = "selected" if self.current_theme == "light" else "default"
+                StyleHelper.set_button_type(self.light_theme_btn, btn_type)
+            if hasattr(self, 'dark_theme_btn'):
+                btn_type = "selected" if self.current_theme == "dark" else "default"
+                StyleHelper.set_button_type(self.dark_theme_btn, btn_type)
+            
+            # 服务管理按钮
+            if hasattr(self, 'start_ace_btn'):
+                StyleHelper.set_button_type(self.start_ace_btn, "success")
+            if hasattr(self, 'uninstall_ace_btn'):
+                StyleHelper.set_button_type(self.uninstall_ace_btn, "warning")
+            if hasattr(self, 'stop_service_btn'):
+                StyleHelper.set_button_type(self.stop_service_btn, "warning")
+            if hasattr(self, 'delete_service_btn'):
+                StyleHelper.set_button_type(self.delete_service_btn, "danger")
+                
+        except Exception as e:
+            logger.error(f"设置按钮属性失败: {str(e)}")
     
-    def update_label_styles(self):
-        """更新所有标签的样式"""
-        # 更新特定的提示标签
-        if hasattr(self, 'ace_info_label'):
-            self.ace_info_label.setStyleSheet(LabelStyles.get_info_hint())
-        if hasattr(self, 'io_priority_label'):
-            self.io_priority_label.setStyleSheet(LabelStyles.get_success_hint())
-        
-        # 查找并更新警告标签
-        warning_labels = self.findChildren(QLabel)
-        for label in warning_labels:
-            text = label.text()
-            if "⚠️" in text and "警告" in text:
-                label.setStyleSheet(LabelStyles.get_error_hint())
-            elif "💡" in text:
-                label.setStyleSheet(LabelStyles.get_info_hint())
+    def setup_label_properties(self):
+        """设置标签属性"""
+        try:
+            # 重新应用主题状态标签的样式
+            if hasattr(self, 'current_theme_label'):
+                theme_name = "浅色" if self.current_theme == "light" else "深色"
+                icon = "☀️" if self.current_theme == "light" else "🌙"
+                status_text = f"{icon} 当前状态：{theme_name}主题"
+                label_type = "success" if self.current_theme == "light" else "info"
+                
+                self.current_theme_label.setText(status_text)
+                StyleHelper.set_label_type(self.current_theme_label, label_type)
+                    
+        except Exception as e:
+            logger.error(f"设置标签属性失败: {str(e)}")
+    
+    def setup_progress_properties(self):
+        """设置进度条属性"""
+        try:
+            # 内存进度条将在update_memory_status方法中动态设置
+            pass
+        except Exception as e:
+            logger.error(f"设置进度条属性失败: {str(e)}")
     
     def get_status_html(self):
         """获取HTML格式的状态信息"""
         if not self.monitor:
             return "<p>程序未启动</p>"
         
-        # 创建HTML样式
-        style = MainWindowStyles.get_status_html_style()
+        # 使用新的状态HTML生成器
+        style = StatusHTMLGenerator.get_html_style()
         
         html = [style]
         
@@ -943,7 +878,7 @@ class MainWindow(QMainWindow):
         html.append('<div class="card">')
         html.append('<div class="section-title">进程状态</div>')
         
-        # ACE进程状态(ACE反作弊程序是否安装提示弹窗) - 移动到程序状态区域
+        # ACE进程状态(ACE反作弊程序是否安装提示弹窗)
         ace_running = self.monitor.is_process_running(self.monitor.anticheat_name) is not None
         
         if ace_running and self.monitor.anticheat_killed:
@@ -1074,7 +1009,7 @@ class MainWindow(QMainWindow):
         html.append(f'<p class="status-item">🐛 调试模式: <span class="{debug_class}" style="font-weight: bold;">{debug_text}</span></p>')
         
         # 主题状态
-        html.append(f'<p class="status-item">🎨 当前主题: <span class="status-normal">{self._get_theme_display_name()}</span></p>')
+        html.append(f'<p class="status-item">🎨 当前主题: <span class="status-normal" style="font-weight: bold;">{self._get_theme_display_name()}</span></p>')
         
         html.append('</div>')
         
@@ -1089,10 +1024,8 @@ class MainWindow(QMainWindow):
         """获取主题的显示名称"""
         if self.current_theme == "light":
             return "浅色"
-        elif self.current_theme == "dark":
+        else:  # dark
             return "深色"
-        else:  # auto
-            return "跟随系统"
     
     def load_settings(self):
         """加载设置到UI"""
@@ -1198,13 +1131,9 @@ class MainWindow(QMainWindow):
         
         if not mem_info:
             self.memory_info_label.setText("无法获取内存信息")
-            self.memory_info_label.setStyleSheet(LabelStyles.get_modern_label())
             self.cache_info_label.setText("系统缓存: 无法获取信息")
-            self.cache_info_label.setStyleSheet(LabelStyles.get_modern_label())
             self.config_info_label.setText("配置信息: 无法获取信息")
-            self.config_info_label.setStyleSheet(LabelStyles.get_modern_label())
             self.clean_stats_label.setText("清理统计: 暂无数据")
-            self.clean_stats_label.setStyleSheet(LabelStyles.get_modern_label())
             self.memory_progress.setValue(0)
             return
             
@@ -1217,7 +1146,6 @@ class MainWindow(QMainWindow):
         
         # 更新标签文本
         self.memory_info_label.setText(f"物理内存: {used_gb:.1f}GB / {total_gb:.1f}GB ({used_percent:.1f}%)")
-        self.memory_info_label.setStyleSheet(LabelStyles.get_modern_label())
         
         # 更新缓存信息标签
         if cache_info:
@@ -1226,34 +1154,39 @@ class MainWindow(QMainWindow):
             cache_percent = (cache_size_gb / total_gb) * 100 if total_gb > 0 else 0
             self.cache_info_label.setText(f"系统缓存: 当前 {cache_size_gb:.1f}GB ({cache_percent:.1f}%) | 峰值 {cache_peak_gb:.1f}GB")
             
-            # 根据缓存占用设置颜色
+            # 根据缓存占用设置标签类型
             if cache_percent > 30:
-                self.cache_info_label.setStyleSheet(f"color: {ColorScheme.MEMORY_HIGH()};")  # 红色
+                StyleHelper.set_label_type(self.cache_info_label, "error")
             elif cache_percent > 20:
-                self.cache_info_label.setStyleSheet(f"color: {ColorScheme.MEMORY_MEDIUM()};")  # 橙色
+                StyleHelper.set_label_type(self.cache_info_label, "warning")
             else:
-                self.cache_info_label.setStyleSheet(LabelStyles.get_modern_label())  # 默认颜色
+                # 清除标签类型，使用默认样式
+                self.cache_info_label.setProperty("labelType", None)
+                self.cache_info_label.style().unpolish(self.cache_info_label)
+                self.cache_info_label.style().polish(self.cache_info_label)
         else:
             self.cache_info_label.setText("系统缓存: 无法获取信息")
-            self.cache_info_label.setStyleSheet(LabelStyles.get_modern_label())
+            # 清除标签类型，使用默认样式
+            self.cache_info_label.setProperty("labelType", None)
+            self.cache_info_label.style().unpolish(self.cache_info_label)
+            self.cache_info_label.style().polish(self.cache_info_label)
         
         # 更新配置信息标签
         config_text = (f"配置: 清理间隔 {self.memory_cleaner.clean_interval}秒 | "
                       f"触发阈值 {self.memory_cleaner.threshold}% | "
                       f"冷却时间 {self.memory_cleaner.cooldown_time}秒")
         self.config_info_label.setText(config_text)
-        self.config_info_label.setStyleSheet(LabelStyles.get_modern_label())
         
         # 更新进度条
         self.memory_progress.setValue(int(used_percent))
         
-        # 根据内存使用率设置进度条颜色
+        # 根据内存使用率设置进度条类型
         if used_percent >= 80:
-            self.memory_progress.setStyleSheet(ProgressBarStyles.get_memory_progress_high())
+            StyleHelper.set_progress_type(self.memory_progress, "memory-high")
         elif used_percent >= 60:
-            self.memory_progress.setStyleSheet(ProgressBarStyles.get_memory_progress_medium())
+            StyleHelper.set_progress_type(self.memory_progress, "memory-medium")
         else:
-            self.memory_progress.setStyleSheet(ProgressBarStyles.get_memory_progress_low())
+            StyleHelper.set_progress_type(self.memory_progress, "memory-low")
             
         # 更新清理统计信息
         stats = self.memory_cleaner.get_clean_stats()
@@ -1262,16 +1195,22 @@ class MainWindow(QMainWindow):
                      f"清理次数: {stats['clean_count']} | "
                      f"最后清理: {stats['last_clean_time']}")
         self.clean_stats_label.setText(stats_text)
-        self.clean_stats_label.setStyleSheet(LabelStyles.get_modern_label())
     
-    @Slot()
-    def toggle_notifications(self):
-        """切换通知开关"""
-        self.monitor.config_manager.show_notifications = self.notify_checkbox.isChecked()
-        # 同步更新托盘菜单选项
-        self.notify_action.blockSignals(True)
-        self.notify_action.setChecked(self.monitor.config_manager.show_notifications)
-        self.notify_action.blockSignals(False)
+    def _toggle_notifications(self, from_tray=False):
+        """通用通知切换方法"""
+        if from_tray:
+            self.monitor.config_manager.show_notifications = self.notify_action.isChecked()
+            # 同步更新主窗口选项
+            self.notify_checkbox.blockSignals(True)
+            self.notify_checkbox.setChecked(self.monitor.config_manager.show_notifications)
+            self.notify_checkbox.blockSignals(False)
+        else:
+            self.monitor.config_manager.show_notifications = self.notify_checkbox.isChecked()
+            # 同步更新托盘菜单选项
+            self.notify_action.blockSignals(True)
+            self.notify_action.setChecked(self.monitor.config_manager.show_notifications)
+            self.notify_action.blockSignals(False)
+        
         # 保存配置
         if self.monitor.config_manager.save_config():
             logger.debug(f"通知状态已更改并保存: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
@@ -1282,18 +1221,41 @@ class MainWindow(QMainWindow):
         self.update_status()
     
     @Slot()
+    def toggle_notifications(self):
+        """切换通知开关"""
+        self._toggle_notifications(from_tray=False)
+    
+    @Slot()
     def toggle_notifications_from_tray(self):
         """从托盘菜单切换通知开关"""
-        self.monitor.config_manager.show_notifications = self.notify_action.isChecked()
-        # 同步更新主窗口选项
-        self.notify_checkbox.blockSignals(True)
-        self.notify_checkbox.setChecked(self.monitor.config_manager.show_notifications)
-        self.notify_checkbox.blockSignals(False)
+        self._toggle_notifications(from_tray=True)
+    
+    def _toggle_auto_start(self, from_tray=False):
+        """通用自启动切换方法"""
+        if from_tray:
+            self.monitor.config_manager.auto_start = self.startup_action.isChecked()
+            # 同步更新主窗口选项
+            self.startup_checkbox.blockSignals(True)
+            self.startup_checkbox.setChecked(self.monitor.config_manager.auto_start)
+            self.startup_checkbox.blockSignals(False)
+        else:
+            self.monitor.config_manager.auto_start = self.startup_checkbox.isChecked()
+            # 同步更新托盘菜单选项
+            self.startup_action.blockSignals(True)
+            self.startup_action.setChecked(self.monitor.config_manager.auto_start)
+            self.startup_action.blockSignals(False)
+        
+        # 修改注册表
+        if self.monitor.config_manager.auto_start:
+            enable_auto_start()
+        else:
+            disable_auto_start()
+        
         # 保存配置
         if self.monitor.config_manager.save_config():
-            logger.debug(f"通知状态已更改并保存: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
+            logger.debug(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
         else:
-            logger.warning(f"通知状态已更改但保存失败: {'开启' if self.monitor.config_manager.show_notifications else '关闭'}")
+            logger.warning(f"开机自启状态已更改但保存失败: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
         
         # 立即更新状态显示
         self.update_status()
@@ -1301,47 +1263,48 @@ class MainWindow(QMainWindow):
     @Slot()
     def toggle_auto_start(self):
         """切换开机自启动开关"""
-        self.monitor.config_manager.auto_start = self.startup_checkbox.isChecked()
-        # 同步更新托盘菜单选项
-        self.startup_action.blockSignals(True)
-        self.startup_action.setChecked(self.monitor.config_manager.auto_start)
-        self.startup_action.blockSignals(False)
-        
-        # 修改注册表
-        if self.monitor.config_manager.auto_start:
-            enable_auto_start()
-        else:
-            disable_auto_start()
-        
-        # 保存配置
-        if self.monitor.config_manager.save_config():
-            logger.debug(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
-        else:
-            logger.warning(f"开机自启状态已更改但保存失败: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
-        
-        # 立即更新状态显示
-        self.update_status()
+        self._toggle_auto_start(from_tray=False)
     
     @Slot()
     def toggle_auto_start_from_tray(self):
         """从托盘菜单切换开机自启动开关"""
-        self.monitor.config_manager.auto_start = self.startup_action.isChecked()
-        # 同步更新主窗口选项
-        self.startup_checkbox.blockSignals(True)
-        self.startup_checkbox.setChecked(self.monitor.config_manager.auto_start)
-        self.startup_checkbox.blockSignals(False)
+        self._toggle_auto_start(from_tray=True)
+    
+    def _toggle_process_monitor(self, from_tray=False):
+        """通用进程监控切换方法"""
+        enabled = self.monitor_action.isChecked() if from_tray else self.monitor_checkbox.isChecked()
         
-        # 修改注册表
-        if self.monitor.config_manager.auto_start:
-            enable_auto_start()
+        if enabled:
+            self.monitor.running = True
+            self.monitor.start_monitors()
+            logger.debug("监控程序已启动")
         else:
-            disable_auto_start()
+            self.monitor.running = False
+            self.monitor.stop_monitors()
+            self.monitor.anticheat_killed = False
+            self.monitor.scanprocess_optimized = False
+            logger.debug("监控程序已停止")
+        
+        # 保存监控状态到配置管理器
+        self.monitor.config_manager.monitor_enabled = enabled
+        
+        # 同步界面状态
+        if from_tray:
+            # 同步主窗口状态
+            self.monitor_checkbox.blockSignals(True)
+            self.monitor_checkbox.setChecked(enabled)
+            self.monitor_checkbox.blockSignals(False)
+        else:
+            # 同步托盘菜单状态
+            self.monitor_action.blockSignals(True)
+            self.monitor_action.setChecked(enabled)
+            self.monitor_action.blockSignals(False)
         
         # 保存配置
         if self.monitor.config_manager.save_config():
-            logger.debug(f"开机自启状态已更改并保存: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
+            logger.debug(f"监控状态已更改并保存: {'开启' if enabled else '关闭'}")
         else:
-            logger.warning(f"开机自启状态已更改但保存失败: {'开启' if self.monitor.config_manager.auto_start else '关闭'}")
+            logger.warning(f"监控状态已更改但保存失败: {'开启' if enabled else '关闭'}")
         
         # 立即更新状态显示
         self.update_status()
@@ -1349,66 +1312,12 @@ class MainWindow(QMainWindow):
     @Slot()
     def toggle_process_monitor(self):
         """切换进程监控开关"""
-        enabled = self.monitor_checkbox.isChecked()
-        if enabled:
-            self.monitor.running = True
-            self.monitor.start_monitors()
-            logger.debug("监控程序已启动")
-        else:
-            self.monitor.running = False
-            self.monitor.stop_monitors()
-            self.monitor.anticheat_killed = False
-            self.monitor.scanprocess_optimized = False
-            logger.debug("监控程序已停止")
-        
-        # 保存监控状态到配置管理器
-        self.monitor.config_manager.monitor_enabled = enabled
-        
-        # 同步托盘菜单状态
-        self.monitor_action.blockSignals(True)
-        self.monitor_action.setChecked(enabled)
-        self.monitor_action.blockSignals(False)
-        
-        # 保存配置
-        if self.monitor.config_manager.save_config():
-            logger.debug(f"监控状态已更改并保存: {'开启' if enabled else '关闭'}")
-        else:
-            logger.warning(f"监控状态已更改但保存失败: {'开启' if enabled else '关闭'}")
-        
-        # 立即更新状态显示
-        self.update_status()
+        self._toggle_process_monitor(from_tray=False)
     
     @Slot()
     def toggle_process_monitor_from_tray(self):
         """从托盘菜单切换进程监控开关"""
-        enabled = self.monitor_action.isChecked()
-        if enabled:
-            self.monitor.running = True
-            self.monitor.start_monitors()
-            logger.debug("监控程序已启动")
-        else:
-            self.monitor.running = False
-            self.monitor.stop_monitors()
-            self.monitor.anticheat_killed = False
-            self.monitor.scanprocess_optimized = False
-            logger.debug("监控程序已停止")
-        
-        # 保存监控状态到配置管理器
-        self.monitor.config_manager.monitor_enabled = enabled
-        
-        # 同步主窗口状态
-        self.monitor_checkbox.blockSignals(True)
-        self.monitor_checkbox.setChecked(enabled)
-        self.monitor_checkbox.blockSignals(False)
-        
-        # 保存配置
-        if self.monitor.config_manager.save_config():
-            logger.debug(f"监控状态已更改并保存: {'开启' if enabled else '关闭'}")
-        else:
-            logger.warning(f"监控状态已更改但保存失败: {'开启' if enabled else '关闭'}")
-        
-        # 立即更新状态显示
-        self.update_status()
+        self._toggle_process_monitor(from_tray=True)
     
     @Slot()
     def open_config_dir(self):
@@ -1436,17 +1345,69 @@ class MainWindow(QMainWindow):
     @Slot()
     def check_update(self):
         """检查更新"""
-        QMessageBox.information(self, "检查更新", "请前往 GitHub 项目页面获取最新版本。")
-        # 可以调用系统浏览器打开项目地址
-        import webbrowser
-        webbrowser.open("https://github.com/cassianvale/ACE-KILLER/releases/latest")
+        # 显示正在检查的消息
+        self.check_update_btn.setText("检查中...")
+        self.check_update_btn.setEnabled(False)
+        
+        # 异步检查更新
+        self.version_checker.check_for_updates_async()
+    
+    @Slot(bool, str, str, str, str)
+    def _on_version_check_finished(self, has_update, current_ver, latest_ver, update_info_str, error_msg):
+        """版本检查完成的处理函数"""
+        # 恢复按钮状态
+        self.check_update_btn.setText("检查更新")
+        self.check_update_btn.setEnabled(True)
+        
+        # 更新版本显示标签
+        if has_update and latest_ver:
+            self.version_label.setText(f"当前版本: v{current_ver} | 最新版本: v{latest_ver} 🆕")
+            StyleHelper.set_label_type(self.version_label, "warning")
+        else:
+            self.version_label.setText(f"当前版本: v{current_ver}")
+            StyleHelper.set_label_type(self.version_label, "info")
+        
+        # 创建并显示消息
+        title, message, msg_type = create_update_message(
+            has_update, current_ver, latest_ver, update_info_str, error_msg
+        )
+        
+        if msg_type == "error":
+            # 显示错误消息，询问是否手动访问GitHub
+            reply = QMessageBox.question(
+                self, title, message + "\n\n是否前往 GitHub 项目页面？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                import webbrowser
+                webbrowser.open("https://github.com/cassianvale/ACE-KILLER/releases/latest")
+                
+        elif msg_type == "update":
+            # 有新版本，询问是否前往下载
+            reply = QMessageBox.question(
+                self, title, message,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            if reply == QMessageBox.Yes:
+                import webbrowser
+                import json
+                try:
+                    update_info = json.loads(update_info_str)
+                    release_url = update_info.get('url', 'https://github.com/cassianvale/ACE-KILLER/releases/latest')
+                    webbrowser.open(release_url)
+                except:
+                    webbrowser.open("https://github.com/cassianvale/ACE-KILLER/releases/latest")
+                    
+        else:  # info - 已是最新版本
+            QMessageBox.information(self, title, message)
     
     @Slot()
     def show_about(self):
         """显示关于对话框"""
         QMessageBox.about(self, "关于 ACE-KILLER", 
                          "ACE-KILLER\n\n"
-                         "版本: 1.0.0\n"
                          "作者: CassianVale\n\n"
                          "GitHub: https://github.com/cassianvale/ACE-KILLER\n\n"
                          "ACE-KILLER是一款游戏优化工具，用于监控并优化游戏进程")
@@ -2030,14 +1991,6 @@ class MainWindow(QMainWindow):
         # 显示对话框
         dialog.exec()
         
-        # 刷新状态显示，因为用户可能在列表中做了修改
-        self.update_status()
-
-    @Slot()
-    def show_io_priority_list(self):
-        """显示I/O优先级进程列表管理对话框"""
-        # 使用新的通用进程管理器
-        dialog = show_process_io_priority_manager(self, self.monitor.config_manager)
         # 刷新状态显示，因为用户可能在列表中做了修改
         self.update_status()
 
