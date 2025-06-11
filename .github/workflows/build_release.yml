@@ -115,20 +115,20 @@ jobs:
             Write-Host "✅ 找到主图标文件: $icon_path"
           }
           
-          if (-not (Test-Path "assets")) {
-            Write-Error "❌ assets目录不存在"
+          if (-not (Test-Path "assets/icon")) {
+            Write-Error "❌ assets/icon目录不存在"
             exit 1
           } else {
-            Write-Host "✅ 找到assets资源目录"
-            Write-Host "📁 assets目录内容:"
-            Get-ChildItem -Recurse "assets" | Format-Table Name, FullName -AutoSize
+            Write-Host "✅ 找到assets/icon资源目录"
+            Write-Host "📁 assets/icon目录内容:"
+            Get-ChildItem -Recurse "assets/icon" | Format-Table Name, FullName -AutoSize
           }
           
           python -m nuitka --standalone `
             --assume-yes-for-downloads `
             --windows-console-mode=disable `
             --windows-icon-from-ico=$icon_path `
-            --include-data-dir=assets=assets `
+            --include-data-dir=assets/icon=assets/icon `
             --windows-uac-admin `
             --remove-output `
             --enable-plugin=pyside6 `
