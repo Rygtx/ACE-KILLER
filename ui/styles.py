@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-UI样式定义文件 - Ant Design风格
-统一管理所有界面样式，支持明暗主题切换
+Ant Design风格UI样式定义
 """
+
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QWidget
 
 
 class AntColors:
@@ -141,434 +143,212 @@ class AntColorsDark:
     GRAY_13 = "#ffffff"         # 纯白
 
 
-class ThemeManager:
+class ThemeManager(QObject):
     """主题管理器"""
     
-    _current_theme = "light"  # 默认浅色主题
+    # 主题切换信号
+    theme_changed = Signal(str)  # 发送新主题名称
     
-    @classmethod
-    def set_theme(cls, theme: str):
-        """设置当前主题"""
-        if theme in ["light", "dark", "auto"]:
-            cls._current_theme = theme
+    def __init__(self):
+        super().__init__()
+        self._current_theme = "light"
+        self._light_stylesheet = None
+        self._dark_stylesheet = None
+        self._generate_stylesheets()
     
-    @classmethod
-    def get_current_theme(cls) -> str:
-        """获取当前主题"""
-        return cls._current_theme
+    def _generate_stylesheets(self):
+        """预生成浅色和深色两套完整样式表"""
+        # 生成浅色主题样式表
+        self._light_stylesheet = self._build_complete_stylesheet(AntColors)
+        
+        # 生成深色主题样式表
+        self._dark_stylesheet = self._build_complete_stylesheet(AntColorsDark)
     
-    @classmethod
-    def get_colors(cls):
-        """根据当前主题获取颜色"""
-        if cls._current_theme == "dark":
-            return AntColorsDark
-        else:
-            return AntColors
-    
-    @classmethod
-    def is_dark_theme(cls) -> bool:
-        """判断是否为深色主题"""
-        return cls._current_theme == "dark"
-
-
-class MainWindowStyles:
-    """主窗口样式 - Ant Design风格"""
-    
-    @staticmethod
-    def get_rounded_window():
-        colors = ThemeManager.get_colors()
+    def _build_complete_stylesheet(self, colors):
+        """构建完整的样式表"""
         return f"""
-        QWidget {{
-            background-color: {colors.GRAY_1};
-            border-radius: 15px;
+        /* === 全局样式 === */
+        * {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }}
-    """
-    
-    @staticmethod
-    def get_transparent_content():
-        return """
-        QWidget {
+
+        QWidget {{
+            background-color: {colors.GRAY_1};
+            color: {colors.GRAY_9};
+        }}
+        
+        /* === 无边框主窗口透明背景设置 === */
+        QWidget[windowType="frameless"] {{
             background-color: transparent;
-        }
-    """
-    
-    @staticmethod
-    def get_status_html_style():
-        colors = ThemeManager.get_colors()
-        return f"""
-        <style>
-            .card {{
-                margin: 12px 0;
-                padding: 16px;
-                border-radius: 8px;
-                    background-color: {colors.GRAY_1};
-                    border: 1px solid {colors.GRAY_4};
-            }}
-            .section-title {{
-                font-size: 16px;
-                font-weight: 600;
-                margin-bottom: 12px;
-                    color: {colors.GRAY_10};
-                line-height: 1.5;
-            }}
-            .status-success {{
-                    color: {colors.SUCCESS_6};
-                font-weight: 500;
-            }}
-            .status-warning {{
-                    color: {colors.WARNING_6};
-                font-weight: 500;
-            }}
-            .status-error {{
-                    color: {colors.ERROR_6};
-                font-weight: 500;
-            }}
-            .status-normal {{
-                    color: {colors.GRAY_8};
-                font-weight: 500;
-            }}
-            .status-disabled {{
-                    color: {colors.GRAY_6};
-                font-weight: 400;
-            }}
-            .status-item {{
-                margin: 8px 0;
-                line-height: 1.5;
-                font-size: 14px;
-            }}
-            .memory-bar {{
-                height: 8px;
-                    background-color: {colors.GRAY_4};
-                border-radius: 4px;
-                margin: 8px 0;
-                position: relative;
-                overflow: hidden;
-            }}
-            .memory-bar-fill {{
-                height: 100%;
-                    background-color: {colors.PRIMARY_6};
-                border-radius: 4px;
-            }}
-            .update-time {{
-                font-size: 12px;
-                    color: {colors.GRAY_7};
-                text-align: right;
-                margin-top: 12px;
-                font-style: italic;
-            }}
-        </style>
-    """
-
-
-class TitleBarStyles:
-    """标题栏样式 - Ant Design风格"""
-    
-    @staticmethod
-    def get_custom_titlebar():
-        colors = ThemeManager.get_colors()
-        return f"""
+        }}
+        
+        QTabWidget[windowType="frameless"]::pane {{
+            background-color: transparent;
+        }}
+        
+        /* 选项卡页面透明背景 */
+        QWidget[tabPage="true"] {{
+            background-color: transparent;
+        }}
+        
+        /* === 自定义标题栏 === */
         CustomTitleBar {{
-                background-color: {colors.GRAY_1};
+            background-color: {colors.GRAY_1};
             border: none;
             border-top-left-radius: 8px;
             border-top-right-radius: 8px;
-                border-bottom: 1px solid {colors.GRAY_4};
+            border-bottom: 1px solid {colors.GRAY_4};
         }}
-        QLabel {{
+        
+        CustomTitleBar QLabel {{
             font-size: 14px;
             font-weight: 600;
-                color: {colors.GRAY_9};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: {colors.GRAY_9};
         }}
-    """
-
-
-class TableStyles:
-    """表格样式 - Ant Design Table风格"""
-    
-    @staticmethod
-    def get_modern_table():
-        colors = ThemeManager.get_colors()
-        return f"""
-        QTableWidget {{
-                background-color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_4};
-            border-radius: 6px;
-                gridline-color: {colors.GRAY_4};
-                selection-background-color: {colors.PRIMARY_1};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        
+        /* === 按钮样式 === */
+        QPushButton {{
+            background-color: {colors.PRIMARY_6};
+            color: {"#ffffff" if colors == AntColors else colors.GRAY_13};
+            border: 1px solid {colors.PRIMARY_6};
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-weight: 500;
             font-size: 12px;
+            min-height: 25px;
+            outline: none;
         }}
         
-        QTableWidget::item {{
-            padding: 8px 12px;
-            border: none;
-                border-bottom: 1px solid {colors.GRAY_3};
-                color: {colors.GRAY_9};
+        QPushButton:hover {{
+            background-color: {colors.PRIMARY_5};
+            border-color: {colors.PRIMARY_5};
         }}
         
-        QTableWidget::item:selected {{
-                background-color: {colors.PRIMARY_1};
-                color: {colors.PRIMARY_7};
+        QPushButton:pressed {{
+            background-color: {colors.PRIMARY_7};
+            border-color: {colors.PRIMARY_7};
         }}
         
-        QTableWidget::item:hover {{
-                background-color: {colors.GRAY_2};
+        QPushButton:disabled {{
+            background-color: {colors.GRAY_3};
+            color: {colors.GRAY_6};
+            border-color: {colors.GRAY_4};
         }}
         
-        QTableWidget::item:alternate {{
-                background-color: {colors.GRAY_2};
+        QPushButton:focus {{
+            border-color: {colors.PRIMARY_6};
+            border-width: 2px;
         }}
         
-        QHeaderView::section {{
-                background-color: {colors.GRAY_2};
-                color: {colors.GRAY_9};
-            padding: 8px 12px;
-            border: none;
-                border-right: 1px solid {colors.GRAY_4};
-                border-bottom: 1px solid {colors.GRAY_4};
+        /* 按钮变体 */
+        QPushButton[buttonType="success"] {{
+            background-color: {colors.SUCCESS_6};
+            border-color: {colors.SUCCESS_6};
+            color: {"#ffffff" if colors == AntColors else colors.GRAY_13};
+        }}
+        
+        QPushButton[buttonType="success"]:hover {{
+            background-color: {colors.SUCCESS_5};
+            border-color: {colors.SUCCESS_5};
+        }}
+        
+        QPushButton[buttonType="warning"] {{
+            background-color: {colors.WARNING_6};
+            border-color: {colors.WARNING_6};
+            color: {"#ffffff" if colors == AntColors else colors.GRAY_13};
+        }}
+        
+        QPushButton[buttonType="warning"]:hover {{
+            background-color: {colors.WARNING_5};
+            border-color: {colors.WARNING_5};
+        }}
+        
+        QPushButton[buttonType="danger"] {{
+            background-color: {colors.ERROR_6};
+            border-color: {colors.ERROR_6};
+            color: {"#ffffff" if colors == AntColors else colors.GRAY_13};
+        }}
+        
+        QPushButton[buttonType="danger"]:hover {{
+            background-color: {colors.ERROR_5};
+            border-color: {colors.ERROR_5};
+        }}
+        
+        QPushButton[buttonType="default"] {{
+            background-color: {colors.GRAY_1};
+            color: {colors.GRAY_9};
+            border-color: {colors.GRAY_5};
+        }}
+        
+        QPushButton[buttonType="default"]:hover {{
+            background-color: {colors.GRAY_2};
+            border-color: {colors.PRIMARY_5};
+        }}
+        
+        /* 选中状态的按钮样式 */
+        QPushButton[buttonType="selected"] {{
+            background-color: {colors.PRIMARY_1};
+            color: {colors.PRIMARY_7};
+            border-color: {colors.PRIMARY_6};
+            border-width: 2px;
             font-weight: 600;
-            font-size: 12px;
         }}
         
-        QHeaderView::section:first {{
-            border-top-left-radius: 6px;
+        QPushButton[buttonType="selected"]:hover {{
+            background-color: {colors.PRIMARY_2};
+            border-color: {colors.PRIMARY_5};
         }}
         
-        QHeaderView::section:last {{
-            border-top-right-radius: 6px;
-            border-right: none;
+        QPushButton[buttonType="selected"]:pressed {{
+            background-color: {colors.PRIMARY_3};
+            border-color: {colors.PRIMARY_7};
         }}
         
-        QHeaderView::section:hover {{
-                background-color: {colors.GRAY_3};
-        }}
-        
-        QHeaderView::down-arrow {{
-            image: none;
-            border: none;
-            width: 0px;
-            height: 0px;
-        }}
-        
-        QHeaderView::up-arrow {{
-            image: none;
-            border: none;
-            width: 0px;
-            height: 0px;
-        }}
-        
-        QScrollBar:vertical {{
-                background: {colors.GRAY_3};
-            width: 8px;
-            border-radius: 4px;
-            margin: 0px;
-        }}
-        
-        QScrollBar::handle:vertical {{
-                background: {colors.GRAY_6};
-            border-radius: 4px;
-            min-height: 20px;
-        }}
-        
-        QScrollBar::handle:vertical:hover {{
-                background: {colors.GRAY_7};
-        }}
-        
-        QScrollBar::add-line:vertical,
-        QScrollBar::sub-line:vertical {{
-            border: none;
-            background: none;
-        }}
-    """
-
-
-class ButtonStyles:
-    """按钮样式 - Ant Design Button风格"""
-    
-    @staticmethod
-    def get_button_style(button_type="primary"):
-        """获取按钮样式"""
-        colors = ThemeManager.get_colors()
-        
-        # 预定义的按钮类型
-        button_configs = {
-            "primary": {
-                "bg": colors.PRIMARY_6,
-                "bg_hover": colors.PRIMARY_5,
-                "bg_active": colors.PRIMARY_7,
-                "color": colors.GRAY_1 if not ThemeManager.is_dark_theme() else colors.GRAY_13,
-                "border": colors.PRIMARY_6
-            },
-            "default": {
-                "bg": colors.GRAY_1,
-                "bg_hover": colors.GRAY_2,
-                "bg_active": colors.GRAY_3,
-                "color": colors.GRAY_9,
-                "border": colors.GRAY_5
-            },
-            "success": {
-                "bg": colors.SUCCESS_6,
-                "bg_hover": colors.SUCCESS_5,
-                "bg_active": colors.SUCCESS_7,
-                "color": colors.GRAY_1 if not ThemeManager.is_dark_theme() else colors.GRAY_13,
-                "border": colors.SUCCESS_6
-            },
-            "warning": {
-                "bg": colors.WARNING_6,
-                "bg_hover": colors.WARNING_5,
-                "bg_active": colors.WARNING_7,
-                "color": colors.GRAY_1 if not ThemeManager.is_dark_theme() else colors.GRAY_13,
-                "border": colors.WARNING_6
-            },
-            "danger": {
-                "bg": colors.ERROR_6,
-                "bg_hover": colors.ERROR_5,
-                "bg_active": colors.ERROR_7,
-                "color": colors.GRAY_1 if not ThemeManager.is_dark_theme() else colors.GRAY_13,
-                "border": colors.ERROR_6
-            },
-            "secondary": {
-                "bg": colors.GRAY_6,
-                "bg_hover": colors.GRAY_5,
-                "bg_active": colors.GRAY_7,
-                "color": colors.GRAY_1 if not ThemeManager.is_dark_theme() else colors.GRAY_13,
-                "border": colors.GRAY_6
-            }
-        }
-        
-        config = button_configs.get(button_type, button_configs["primary"])
-        
-        return f"""
-            QPushButton {{
-                background-color: {config["bg"]};
-                color: {config["color"]};
-                border: 1px solid {config["border"]};
-                border-radius: 4px;
-                padding: 4px 12px;
-                font-weight: 400;
-                font-size: 12px;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                min-height: 28px;
-                outline: none;
-            }}
-            
-            QPushButton:hover {{
-                background-color: {config["bg_hover"]};
-                border-color: {config["bg_hover"]};
-            }}
-            
-            QPushButton:pressed {{
-                background-color: {config["bg_active"]};
-                border-color: {config["bg_active"]};
-            }}
-            
-            QPushButton:disabled {{
-                background-color: {colors.GRAY_3};
-                color: {colors.GRAY_6};
-                border-color: {colors.GRAY_4};
-            }}
-            
-            QPushButton:focus {{
-                border-color: {colors.PRIMARY_6};
-                border-width: 2px;
-            }}
-        """
-    
-    @staticmethod
-    def get_text_button_style():
-        """获取文本按钮样式"""
-        colors = ThemeManager.get_colors()
-        return f"""
-            QPushButton {{
-                background-color: transparent;
-                color: {colors.PRIMARY_6};
-                border: none;
-                border-radius: 4px;
-                padding: 4px 6px;
-                font-weight: 400;
-                font-size: 12px;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            }}
-            
-            QPushButton:hover {{
-                background-color: {colors.PRIMARY_1};
-                color: {colors.PRIMARY_5};
-            }}
-            
-            QPushButton:pressed {{
-                background-color: {colors.PRIMARY_2};
-                color: {colors.PRIMARY_7};
-            }}
-            
-            QPushButton:disabled {{
-                color: {colors.GRAY_6};
-            }}
-        """
-
-
-class InputStyles:
-    """输入框样式 - Ant Design Input风格"""
-    
-    @staticmethod
-    def get_modern_input():
-        colors = ThemeManager.get_colors()
-        return f"""
+        /* === 输入框样式 === */
         QLineEdit {{
-                background-color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_5};
+            background-color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_5};
             border-radius: 4px;
             padding: 4px 8px;
             font-size: 12px;
-                color: {colors.GRAY_9};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: {colors.GRAY_9};
             min-height: 26px;
         }}
         
         QLineEdit:hover {{
-                border-color: {colors.PRIMARY_5};
+            border-color: {colors.PRIMARY_5};
         }}
         
         QLineEdit:focus {{
-                border-color: {colors.PRIMARY_6};
+            border-color: {colors.PRIMARY_6};
             outline: none;
             border-width: 2px;
         }}
         
         QLineEdit:disabled {{
-                background-color: {colors.GRAY_3};
-                color: {colors.GRAY_6};
-                border-color: {colors.GRAY_4};
+            background-color: {colors.GRAY_3};
+            color: {colors.GRAY_6};
+            border-color: {colors.GRAY_4};
         }}
-    """
-
-
-class ComboBoxStyles:
-    """下拉框样式 - Ant Design Select风格"""
-    
-    @staticmethod
-    def get_modern_combo():
-        colors = ThemeManager.get_colors()
-        return f"""
+        
+        /* === 下拉框样式 === */
         QComboBox {{
-                background-color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_5};
+            background-color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_5};
             border-radius: 4px;
             padding: 4px 8px;
             font-size: 12px;
-                color: {colors.GRAY_9};
+            color: {colors.GRAY_9};
             min-width: 100px;
             min-height: 26px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }}
         
         QComboBox:hover {{
-                border-color: {colors.PRIMARY_5};
+            border-color: {colors.PRIMARY_5};
         }}
         
         QComboBox:focus {{
-                border-color: {colors.PRIMARY_6};
+            border-color: {colors.PRIMARY_6};
             outline: none;
             border-width: 2px;
         }}
@@ -580,18 +360,17 @@ class ComboBoxStyles:
         }}
         
         QComboBox::down-arrow {{
-            image: none;
-            border: none;
-            width: 0px;
-            height: 0px;
+            image: url(assets/icon/arrow-down.svg);
+            width: 8px;
+            height: 6px;
         }}
         
         QComboBox QAbstractItemView {{
-                background-color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_4};
+            background-color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_4};
             border-radius: 4px;
-                selection-background-color: {colors.PRIMARY_1};
-                selection-color: {colors.PRIMARY_7};
+            selection-background-color: {colors.PRIMARY_1};
+            selection-color: {colors.PRIMARY_7};
             padding: 2px;
             outline: none;
         }}
@@ -601,31 +380,22 @@ class ComboBoxStyles:
             padding: 4px 8px;
             border: none;
             border-radius: 3px;
-                color: {colors.GRAY_9};
+            color: {colors.GRAY_9};
         }}
         
         QComboBox QAbstractItemView::item:hover {{
-                background-color: {colors.GRAY_2};
+            background-color: {colors.GRAY_2};
         }}
         
         QComboBox QAbstractItemView::item:selected {{
-                background-color: {colors.PRIMARY_1};
-                color: {colors.PRIMARY_7};
+            background-color: {colors.PRIMARY_1};
+            color: {colors.PRIMARY_7};
         }}
-    """
-
-
-class CheckBoxStyles:
-    """复选框样式 - Ant Design Checkbox风格"""
-    
-    @staticmethod
-    def get_modern_checkbox():
-        colors = ThemeManager.get_colors()
-        return f"""
+        
+        /* === 复选框样式 === */
         QCheckBox {{
             font-size: 12px;
-                color: {colors.GRAY_9};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: {colors.GRAY_9};
             spacing: 6px;
         }}
         
@@ -633,43 +403,35 @@ class CheckBoxStyles:
             width: 14px;
             height: 14px;
             border-radius: 2px;
-                border: 1px solid {colors.GRAY_5};
-                background-color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_5};
+            background-color: {colors.GRAY_1};
         }}
         
         QCheckBox::indicator:hover {{
-                border-color: {colors.PRIMARY_6};
+            border-color: {colors.PRIMARY_6};
         }}
         
         QCheckBox::indicator:checked {{
-                background-color: {colors.PRIMARY_6};
-                border-color: {colors.PRIMARY_6};
-                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOSIgdmlld0JveD0iMCAwIDEyIDkiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xMC4yIDEuNEw0LjQgNy4yTDEuOCA0LjYiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSIxLjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
+            background-color: {colors.PRIMARY_6};
+            border-color: {colors.PRIMARY_6};
+            image: url(assets/icon/check.svg);
         }}
-
+        
         QCheckBox::indicator:checked:hover {{
-                background-color: {colors.PRIMARY_5};
+            background-color: {colors.PRIMARY_5};
         }}
         
         QCheckBox::indicator:disabled {{
-                background-color: {colors.GRAY_3};
-                border-color: {colors.GRAY_4};
+            background-color: {colors.GRAY_3};
+            border-color: {colors.GRAY_4};
         }}
-    """
-
-
-class RadioButtonStyles:
-    """单选按钮样式 - Ant Design Radio风格"""
-    
-    @staticmethod
-    def get_modern_radio():
-        colors = ThemeManager.get_colors()
-        return f"""
+        
+        /* === 单选按钮样式 === */
         QRadioButton {{
             font-size: 12px;
             color: {colors.GRAY_9};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             spacing: 6px;
+            background-color: transparent;
         }}
         
         QRadioButton::indicator {{
@@ -694,254 +456,160 @@ class RadioButtonStyles:
             background-color: {colors.GRAY_3};
             border-color: {colors.GRAY_4};
         }}
-        """
-
-
-class ProgressBarStyles:
-    """进度条样式 - Ant Design Progress风格"""
-    
-    @staticmethod
-    def get_modern_progress():
-        colors = ThemeManager.get_colors()
-        return f"""
+        
+        /* === 进度条样式 === */
         QProgressBar {{
             border: none;
             border-radius: 3px;
-                background-color: {colors.GRAY_3};
+            background-color: {colors.GRAY_3};
             text-align: center;
             font-size: 11px;
-                color: {colors.GRAY_8};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: {colors.GRAY_8};
             max-height: 16px;
         }}
         
         QProgressBar::chunk {{
             border-radius: 3px;
-                background-color: {colors.PRIMARY_6};
+            background-color: {colors.PRIMARY_6};
         }}
-    """
-    
-    # 内存使用率进度条颜色
-    @staticmethod
-    def get_memory_progress_low():
-        colors = ThemeManager.get_colors()
-        return f"QProgressBar::chunk {{ background-color: {colors.SUCCESS_6}; }}"
-    
-    @staticmethod
-    def get_memory_progress_medium():
-        colors = ThemeManager.get_colors()
-        return f"QProgressBar::chunk {{ background-color: {colors.WARNING_6}; }}"
-    
-    @staticmethod
-    def get_memory_progress_high():
-        colors = ThemeManager.get_colors()
-        return f"QProgressBar::chunk {{ background-color: {colors.ERROR_6}; }}"
-
-
-class GroupBoxStyles:
-    """分组框样式 - Ant Design Card风格"""
-    
-    @staticmethod
-    def get_modern_groupbox():
-        colors = ThemeManager.get_colors()
-        return f"""
+        
+        /* 内存进度条变体 */
+        QProgressBar[progressType="memory-low"]::chunk {{
+            background-color: {colors.SUCCESS_6};
+        }}
+        
+        QProgressBar[progressType="memory-medium"]::chunk {{
+            background-color: {colors.WARNING_6};
+        }}
+        
+        QProgressBar[progressType="memory-high"]::chunk {{
+            background-color: {colors.ERROR_6};
+        }}
+        
+        /* === 分组框样式 === */
         QGroupBox {{
             font-size: 13px;
             font-weight: 600;
-                color: {colors.GRAY_9};
-                background-color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_4};
-            border-radius: 8px;
+            color: {colors.GRAY_9};
+            background-color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_4};
+            border-radius: 10px;
             margin-top: 2px;
             padding-top: 8px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }}
         
         QGroupBox::title {{
             subcontrol-origin: margin;
             subcontrol-position: top center;
-            padding: 0 10px;
-                background-color: {colors.GRAY_1};
-                color: {colors.GRAY_9};
+            padding: 0px 10px;
+            background-color: {colors.GRAY_1};
+            color: {colors.GRAY_9};
         }}
-
-    """
-
-
-class TabStyles:
-    """选项卡样式 - Ant Design Tabs风格"""
-    
-    @staticmethod
-    def get_modern_tabs():
-        colors = ThemeManager.get_colors()
-        return f"""
+        
+        /* === 选项卡样式 === */
         QTabWidget::pane {{
-                border: 1px solid {colors.GRAY_4};
+            border: 1px solid {colors.GRAY_4};
             border-radius: 6px;
-                background-color: {colors.GRAY_1};
+            background-color: {colors.GRAY_1};
             margin-top: -1px;
         }}
         
         QTabBar::tab {{
-                background-color: {colors.GRAY_2};
-                color: {colors.GRAY_8};
+            background-color: {colors.GRAY_2};
+            color: {colors.GRAY_8};
             padding: 6px 12px;
             margin-right: 1px;
             border-top-left-radius: 6px;
             border-top-right-radius: 6px;
-                border: 1px solid {colors.GRAY_4};
+            border: 1px solid {colors.GRAY_4};
             border-bottom: none;
             font-size: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             min-width: 70px;
         }}
         
         QTabBar::tab:selected {{
-                background-color: {colors.GRAY_1};
-                color: {colors.PRIMARY_6};
-                border-color: {colors.GRAY_4};
-                border-bottom-color: {colors.GRAY_1};
+            background-color: {colors.GRAY_1};
+            color: {colors.PRIMARY_6};
+            border-color: {colors.GRAY_4};
+            border-bottom-color: {colors.GRAY_1};
         }}
         
         QTabBar::tab:hover:!selected {{
-                background-color: {colors.GRAY_3};
-                color: {colors.GRAY_9};
+            background-color: {colors.GRAY_3};
+            color: {colors.GRAY_9};
         }}
-    """
-
-
-class LabelStyles:
-    """标签样式 - Ant Design Typography风格"""
-    
-    @staticmethod
-    def get_modern_label():
-        colors = ThemeManager.get_colors()
-        return f"""
+        
+        /* === 标签样式 === */
         QLabel {{
-                color: {colors.GRAY_9};
+            color: {colors.GRAY_9};
             font-size: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.4;
         }}
-    """
-    
-    @staticmethod
-    def get_info_hint():
-        colors = ThemeManager.get_colors()
-        return f"""
-        QLabel {{
-                color: {colors.GRAY_7};
-            font-size: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.4;
+        
+        /* 标签变体 */
+        QLabel[labelType="info"] {{
+            color: {colors.GRAY_7};
             padding: 6px 8px;
-                background-color: {colors.GRAY_2};
-                border: 1px solid {colors.GRAY_4};
+            background-color: {colors.GRAY_2};
+            border: 1px solid {colors.GRAY_4};
             border-radius: 4px;
             margin: 3px 0;
         }}
-    """
-    
-    @staticmethod
-    def get_success_hint():
-        colors = ThemeManager.get_colors()
-        return f"""
-        QLabel {{
-                color: {colors.SUCCESS_7};
-            font-size: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.4;
+        
+        QLabel[labelType="success"] {{
+            color: {colors.SUCCESS_7};
             padding: 6px 8px;
-                background-color: {colors.SUCCESS_1};
-                border: 1px solid {colors.SUCCESS_3};
+            background-color: {colors.SUCCESS_1};
+            border: 1px solid {colors.SUCCESS_3};
             border-radius: 4px;
             margin: 3px 0;
         }}
-    """
-    
-    @staticmethod
-    def get_warning_hint():
-        colors = ThemeManager.get_colors()
-        return f"""
-        QLabel {{
-                color: {colors.WARNING_7};
-            font-size: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.4;
+        
+        QLabel[labelType="warning"] {{
+            color: {colors.WARNING_7};
             padding: 6px 8px;
-                background-color: {colors.WARNING_1};
-                border: 1px solid {colors.WARNING_3};
+            background-color: {colors.WARNING_1};
+            border: 1px solid {colors.WARNING_3};
             border-radius: 4px;
             margin: 3px 0;
         }}
-    """
-    
-    @staticmethod
-    def get_error_hint():
-        colors = ThemeManager.get_colors()
-        return f"""
-        QLabel {{
-                color: {colors.ERROR_7};
-            font-size: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.4;
+        
+        QLabel[labelType="error"] {{
+            color: {colors.ERROR_7};
             padding: 6px 8px;
-                background-color: {colors.ERROR_1};
-                border: 1px solid {colors.ERROR_3};
+            background-color: {colors.ERROR_1};
+            border: 1px solid {colors.ERROR_3};
             border-radius: 4px;
             margin: 3px 0;
         }}
-    """
-    
-    @staticmethod
-    def get_secondary_text():
-        colors = ThemeManager.get_colors()
-        return f"""
-        QLabel {{
-                color: {colors.GRAY_7};
-            font-size: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.4;
+        
+        QLabel[labelType="secondary"] {{
+            color: {colors.GRAY_7};
         }}
-    """
-    
-    @staticmethod
-    def get_small_text():
-        colors = ThemeManager.get_colors()
-        return f"""
-        QLabel {{
-                color: {colors.GRAY_8};
+        
+        QLabel[labelType="small"] {{
+            color: {colors.GRAY_8};
             font-size: 10px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.3;
         }}
-    """
-
-
-class SpinBoxStyles:
-    """数字输入框样式 - Ant Design InputNumber风格"""
-    
-    @staticmethod
-    def get_modern_spinbox():
-        colors = ThemeManager.get_colors()
-        return f"""
+        
+        /* === 数字输入框样式 === */
         QSpinBox {{
-                background-color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_5};
+            background-color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_5};
             border-radius: 4px;
             padding: 4px 8px;
             font-size: 12px;
-                color: {colors.GRAY_9};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: {colors.GRAY_9};
             min-height: 26px;
         }}
         
         QSpinBox:hover {{
-                border-color: {colors.PRIMARY_5};
+            border-color: {colors.PRIMARY_5};
         }}
         
         QSpinBox:focus {{
-                border-color: {colors.PRIMARY_6};
+            border-color: {colors.PRIMARY_6};
             outline: none;
             border-width: 2px;
         }}
@@ -950,215 +618,500 @@ class SpinBoxStyles:
             border: none;
             width: 16px;
             background-color: transparent;
+            border-radius: 2px;
         }}
         
         QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
-                background-color: {colors.GRAY_2};
+            background-color: {colors.GRAY_2};
         }}
-    """
+        
+        QSpinBox::up-arrow {{
+            image: url(assets/icon/arrow-up.svg);
+            width: 8px;
+            height: 6px;
+        }}
+        
+        QSpinBox::down-arrow {{
+            image: url(assets/icon/arrow-down.svg);
+            width: 8px;
+            height: 6px;
+        }}
+        
+        QSpinBox::up-arrow:hover {{
+            image: url(assets/icon/arrow-up.svg);
+        }}
+        
+        QSpinBox::down-arrow:hover {{
+            image: url(assets/icon/arrow-down.svg);
+        }}
+        
+        /* === 表格样式 === */
+        QTableWidget {{
+            background-color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_4};
+            border-radius: 6px;
+            gridline-color: {colors.GRAY_4};
+            selection-background-color: {colors.PRIMARY_1};
+            font-size: 12px;
+        }}
+        
+        QTableWidget::item {{
+            padding: 8px 12px;
+            border: none;
+            border-bottom: 1px solid {colors.GRAY_3};
+            color: {colors.GRAY_9};
+        }}
+        
+        QTableWidget::item:selected {{
+            background-color: {colors.PRIMARY_1};
+            color: {colors.PRIMARY_7};
+        }}
+        
+        QTableWidget::item:hover {{
+            background-color: {colors.GRAY_2};
+        }}
+        
+        QTableWidget::item:alternate {{
+            background-color: {colors.GRAY_2};
+        }}
+        
+        QHeaderView::section {{
+            background-color: {colors.GRAY_2};
+            color: {colors.GRAY_9};
+            padding: 8px 12px;
+            border: none;
+            border-right: 1px solid {colors.GRAY_4};
+            border-bottom: 1px solid {colors.GRAY_4};
+            font-weight: 600;
+            font-size: 12px;
+        }}
+        
+        QHeaderView::section:first {{
+            border-top-left-radius: 6px;
+        }}
+        
+        QHeaderView::section:last {{
+            border-top-right-radius: 6px;
+            border-right: none;
+        }}
+        
+        QHeaderView::section:hover {{
+            background-color: {colors.GRAY_3};
+        }}
+        
+        /* === 滚动条样式 === */
+        QScrollBar:vertical {{
+            background: {colors.GRAY_3};
+            width: 8px;
+            border-radius: 4px;
+            margin: 0px;
+        }}
+        
+        QScrollBar::handle:vertical {{
+            background: {colors.GRAY_6};
+            border-radius: 4px;
+            min-height: 20px;
+        }}
+        
+        QScrollBar::handle:vertical:hover {{
+            background: {colors.GRAY_7};
+        }}
+        
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {{
+            border: none;
+            background: none;
+        }}
+        
+        QScrollBar:horizontal {{
+            background: {colors.GRAY_3};
+            height: 8px;
+            border-radius: 4px;
+            margin: 0px;
+        }}
+        
+        QScrollBar::handle:horizontal {{
+            background: {colors.GRAY_6};
+            border-radius: 4px;
+            min-width: 20px;
+        }}
+        
+        QScrollBar::handle:horizontal:hover {{
+            background: {colors.GRAY_7};
+        }}
+        
+        QScrollBar::add-line:horizontal,
+        QScrollBar::sub-line:horizontal {{
+            border: none;
+            background: none;
+        }}
+        
+        /* === 消息框样式 === */
+        QMessageBox {{
+            background-color: {colors.GRAY_1};
+            border-radius: 8px;
+        }}
+
+        /* === 菜单样式 === */
+        QMenuBar {{
+            background-color: {colors.GRAY_1};
+            border-bottom: 1px solid {colors.GRAY_4};
+            color: {colors.GRAY_9};
+        }}
+        
+        QMenu {{
+            background-color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_4};
+            border-radius: 6px;
+            padding: 4px;
+        }}
+        
+        QMenu::item {{
+            padding: 8px 16px;
+            border-radius: 4px;
+        }}
+        
+        QMenu::item:selected {{
+            background-color: {colors.PRIMARY_1};
+            color: {colors.PRIMARY_7};
+        }}
+        
+        /* === 工具提示样式 === */
+        QToolTip {{
+            background-color: {colors.GRAY_10};
+            color: {colors.GRAY_1};
+            border: 1px solid {colors.GRAY_8};
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+        }}
+        """
+    
+    def set_theme(self, theme: str):
+        """设置主题并发送信号"""
+        if theme != self._current_theme:
+            self._current_theme = theme
+            self.theme_changed.emit(theme)
+    
+    def get_current_theme(self) -> str:
+        """获取当前主题"""
+        return self._current_theme
+    
+    def get_stylesheet(self, theme: str = None) -> str:
+        """获取指定主题的样式表"""
+        if theme is None:
+            theme = self._current_theme
+        
+        if theme == "dark":
+            return self._dark_stylesheet
+        else:
+            return self._light_stylesheet
+    
+    def is_dark_theme(self, theme: str = None) -> bool:
+        """判断是否为深色主题"""
+        if theme is None:
+            theme = self._current_theme
+        return theme == "dark"
+
+
+# 全局主题管理器实例
+theme_manager = ThemeManager()
+
+
+class StyleHelper:
+    """样式辅助类"""
+    
+    @staticmethod
+    def set_frameless_window_properties(window):
+        """为无边框窗口设置透明背景属性
+        
+        Args:
+            window: 主窗口实例
+
+        """
+        try:
+            # 设置主窗口属性
+            window.setProperty("windowType", "frameless")
+            
+            # 刷新样式
+            window.style().unpolish(window)
+            window.style().polish(window)
+        except Exception as e:
+            print(f"设置无边框窗口属性失败: {e}")
+    
+    @staticmethod
+    def set_tab_page_transparent(tab_widget):
+        """设置选项卡页面为透明背景
+        
+        Args:
+            tab_widget: QTabWidget实例
+        """
+        try:
+            if tab_widget is None:
+                return
+                
+            tab_widget.setProperty("windowType", "frameless")
+            
+            # 为所有选项卡页面设置透明属性
+            for i in range(tab_widget.count()):
+                page = tab_widget.widget(i)
+                if page:
+                    page.setProperty("tabPage", "true")
+                    page.style().unpolish(page)
+                    page.style().polish(page)
+            
+            tab_widget.style().unpolish(tab_widget)
+            tab_widget.style().polish(tab_widget)
+        except Exception as e:
+            print(f"设置选项卡透明背景失败: {e}")
+    
+    @staticmethod
+    def set_button_type(button, button_type: str):
+        """设置按钮类型
+        
+        Args:
+            button: QPushButton实例
+            button_type: 按钮类型 ('primary', 'success', 'warning', 'danger', 'default')
+        """
+        button.setProperty("buttonType", button_type)
+        button.style().unpolish(button)
+        button.style().polish(button)
+    
+    @staticmethod
+    def set_label_type(label, label_type: str):
+        """设置标签类型
+        
+        Args:
+            label: QLabel实例
+            label_type: 标签类型 ('info', 'success', 'warning', 'error', 'secondary', 'small')
+        """
+        label.setProperty("labelType", label_type)
+        label.style().unpolish(label)
+        label.style().polish(label)
+    
+    @staticmethod
+    def set_progress_type(progressbar, progress_type: str):
+        """设置进度条类型
+        
+        Args:
+            progressbar: QProgressBar实例
+            progress_type: 进度条类型 ('memory-low', 'memory-medium', 'memory-high')
+        """
+        progressbar.setProperty("progressType", progress_type)
+        progressbar.style().unpolish(progressbar)
+        progressbar.style().polish(progressbar)
+    
+    @staticmethod
+    def set_checkbox_style(checkbox, check_style: str = "default"):
+        """设置复选框勾选样式
+        
+        Args:
+            checkbox: QCheckBox实例
+            check_style: 勾选样式 ('default', 'unicode', 'simple')
+                - default: 使用SVG图标文件 (推荐)
+                - unicode: 使用Unicode字符 ✓
+                - simple: 使用CSS绘制简单勾选标记
+        """
+        if check_style != "default":
+            checkbox.setProperty("checkStyle", check_style)
+        else:
+            checkbox.setProperty("checkStyle", None)
+        checkbox.style().unpolish(checkbox)
+        checkbox.style().polish(checkbox)
+
+
+class StatusHTMLGenerator:
+    """状态HTML生成器"""
+    
+    @staticmethod
+    def get_html_style(theme: str = None) -> str:
+        """获取状态HTML的CSS样式"""
+        if theme is None:
+            theme = theme_manager.get_current_theme()
+        
+        colors = AntColorsDark if theme == "dark" else AntColors
+        
+        return f"""
+        <style>
+            .card {{
+                margin: 5px 0;
+                padding: 5px;
+                border-radius: 8px;
+                background-color: {colors.GRAY_1};
+                border: 1px solid {colors.GRAY_4};
+            }}
+            .section-title {{
+                font-size: 14px;
+                font-weight: 600;
+                margin-bottom: 5px;
+                color: {colors.GRAY_10};
+                line-height: 1.5;
+            }}
+            .status-success {{
+                color: {colors.SUCCESS_6};
+                font-weight: 500;
+            }}
+            .status-warning {{
+                color: {colors.WARNING_6};
+                font-weight: 500;
+            }}
+            .status-error {{
+                color: {colors.ERROR_6};
+                font-weight: 500;
+            }}
+            .status-normal {{
+                color: {colors.GRAY_8};
+                font-weight: 500;
+            }}
+            .status-disabled {{
+                color: {colors.GRAY_6};
+                font-weight: 400;
+            }}
+            .status-item {{
+                margin: 2px 0;
+                line-height: 1.5;
+                font-size: 12px;
+            }}
+            .update-time {{
+                font-size: 12px;
+                color: {colors.GRAY_7};
+                text-align: right;
+                margin-top: 12px;
+                font-style: italic;
+            }}
+        </style>
+        """
+
+
+# === 颜色方案和辅助类 ===
 
 
 class ColorScheme:
-    """颜色方案 - Ant Design颜色系统"""
+    """颜色方案 - 动态获取当前主题颜色"""
     
     @staticmethod
-    def get_colors():
-        """获取当前主题的颜色"""
-        return ThemeManager.get_colors()
+    def _get_colors():
+        theme = theme_manager.get_current_theme()
+        return AntColorsDark if theme == "dark" else AntColors
     
     @classmethod
     def SUCCESS(cls):
-        return cls.get_colors().SUCCESS_6
+        return cls._get_colors().SUCCESS_6
     
     @classmethod
     def WARNING(cls):
-        return cls.get_colors().WARNING_6
+        return cls._get_colors().WARNING_6
     
     @classmethod
     def ERROR(cls):
-        return cls.get_colors().ERROR_6
+        return cls._get_colors().ERROR_6
     
     @classmethod
     def NORMAL(cls):
-        return cls.get_colors().GRAY_9
+        return cls._get_colors().GRAY_9
     
     @classmethod
     def DISABLED(cls):
-        return cls.get_colors().GRAY_6
+        return cls._get_colors().GRAY_6
     
     @classmethod
     def INFO(cls):
-        return cls.get_colors().PRIMARY_6
+        return cls._get_colors().PRIMARY_6
     
     @classmethod
     def PRIMARY(cls):
-        return cls.get_colors().PRIMARY_6
+        return cls._get_colors().PRIMARY_6
     
     @classmethod
     def SUCCESS_BTN(cls):
-        return cls.get_colors().SUCCESS_6
+        return cls._get_colors().SUCCESS_6
     
     @classmethod
     def DANGER(cls):
-        return cls.get_colors().ERROR_6
+        return cls._get_colors().ERROR_6
     
     @classmethod
     def WARNING_BTN(cls):
-        return cls.get_colors().WARNING_6
+        return cls._get_colors().WARNING_6
     
     @classmethod
     def SECONDARY(cls):
-        return cls.get_colors().GRAY_6
+        return cls._get_colors().GRAY_6
     
     @classmethod
     def MEMORY_LOW(cls):
-        return cls.get_colors().SUCCESS_6
+        return cls._get_colors().SUCCESS_6
     
     @classmethod
     def MEMORY_MEDIUM(cls):
-        return cls.get_colors().WARNING_6
+        return cls._get_colors().WARNING_6
     
     @classmethod
     def MEMORY_HIGH(cls):
-        return cls.get_colors().ERROR_6
+        return cls._get_colors().ERROR_6
     
     @classmethod
     def PROCESS_RUNNING(cls):
-        return cls.get_colors().SUCCESS_6
+        return cls._get_colors().SUCCESS_6
     
     @classmethod
     def PROCESS_SYSTEM(cls):
-        return cls.get_colors().GRAY_7
+        return cls._get_colors().GRAY_7
     
     @classmethod
     def PROCESS_USER(cls):
-        return cls.get_colors().GRAY_9
+        return cls._get_colors().GRAY_9
     
     @classmethod
     def PROCESS_SYSTEM_USER(cls):
-        return cls.get_colors().ERROR_6
+        return cls._get_colors().ERROR_6
     
     @classmethod
     def TEXT_PRIMARY(cls):
-        return cls.get_colors().GRAY_9
+        return cls._get_colors().GRAY_9
     
     @classmethod
     def TEXT_SECONDARY(cls):
-        return cls.get_colors().GRAY_7
+        return cls._get_colors().GRAY_7
     
     @classmethod
     def TEXT_DISABLED(cls):
-        return cls.get_colors().GRAY_6
+        return cls._get_colors().GRAY_6
     
     @classmethod
     def BG_PRIMARY(cls):
-        return cls.get_colors().GRAY_1
+        return cls._get_colors().GRAY_1
     
     @classmethod
     def BG_SECONDARY(cls):
-        return cls.get_colors().GRAY_2
+        return cls._get_colors().GRAY_2
     
     @classmethod
     def BG_DISABLED(cls):
-        return cls.get_colors().GRAY_3
+        return cls._get_colors().GRAY_3
     
     @classmethod
     def BORDER_PRIMARY(cls):
-        return cls.get_colors().GRAY_5
+        return cls._get_colors().GRAY_5
     
     @classmethod
     def BORDER_SECONDARY(cls):
-        return cls.get_colors().GRAY_4
+        return cls._get_colors().GRAY_4
     
     @classmethod
     def BORDER_LIGHT(cls):
-        return cls.get_colors().GRAY_3
+        return cls._get_colors().GRAY_3
 
-
-# 全局样式应用器
 class StyleApplier:
     """样式应用器"""
     
     @staticmethod
     def apply_ant_design_theme(app):
         """应用Ant Design主题到整个应用"""
-        colors = ThemeManager.get_colors()
+        stylesheet = theme_manager.get_stylesheet()
+        app.setStyleSheet(stylesheet)
         
-        global_style = f"""
-            * {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            }}
-            
-            QWidget {{
-                background-color: {colors.GRAY_1};
-                color: {colors.GRAY_9};
-            }}
-            
-            QLabel {{
-                color: {colors.GRAY_9};
-                font-size: 14px;
-            }}
-            
-            QMessageBox {{
-                background-color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_4};
-                border-radius: 8px;
-            }}
-            
-            QMenuBar {{
-                background-color: {colors.GRAY_1};
-                border-bottom: 1px solid {colors.GRAY_4};
-                color: {colors.GRAY_9};
-            }}
-            
-            QMenu {{
-                background-color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_4};
-                border-radius: 6px;
-                padding: 4px;
-            }}
-            
-            QMenu::item {{
-                padding: 8px 16px;
-                border-radius: 4px;
-            }}
-            
-            QMenu::item:selected {{
-                background-color: {colors.PRIMARY_1};
-                color: {colors.PRIMARY_7};
-            }}
-            
-            QRadioButton {{
-                color: {colors.GRAY_9};
-                background-color: transparent;
-            }}
-            
-            QRadioButton::indicator {{
-                width: 14px;
-                height: 14px;
-                border-radius: 7px;
-                border: 1px solid {colors.GRAY_5};
-                background-color: {colors.GRAY_1};
-            }}
-            
-            QRadioButton::indicator:hover {{
-                border-color: {colors.PRIMARY_6};
-            }}
-            
-            QRadioButton::indicator:checked {{· 
-                border: 2px solid {colors.PRIMARY_6};
-                background-color: {colors.GRAY_1};
-                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOCIgaGVpZ2h0PSI4IiB2aWV3Qm94PSIwIDAgOCA4IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUgY3g9IjQiIGN5PSI0IiByPSI0IiBmaWxsPSIjMTg5MGZmIi8+PC9zdmc+);
-            }}
-            
-            QToolTip {{
-                background-color: {colors.GRAY_10};
-                color: {colors.GRAY_1};
-                border: 1px solid {colors.GRAY_8};
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 12px;
-            }}
-        """
-        
-        app.setStyleSheet(global_style)
+        # 连接主题变化信号
+        theme_manager.theme_changed.connect(
+            lambda theme: app.setStyleSheet(theme_manager.get_stylesheet(theme))
+        )
