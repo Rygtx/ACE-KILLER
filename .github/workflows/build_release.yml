@@ -211,14 +211,9 @@ jobs:
             ${{ github.event.inputs.release_notes }}
             
             ### 📥 安装说明
-            1. 下载 `ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip` 文件
+            1. 下载 zip 压缩包文件
             2. 解压到任意目录
             3. 右键点击 `ACE-KILLER.exe`，选择"以管理员身份运行"
-            4. 首次运行时，可在设置页面检查是否为最新版本
-            
-            ### ⚠️ 系统要求
-            - Windows 10/11 x64
-            - 需要管理员权限
             
             ### 🔍 如何检查更新
             1. 打开程序主界面
