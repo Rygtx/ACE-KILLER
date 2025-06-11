@@ -82,18 +82,53 @@ jobs:
           Select-String -Path $versionCheckerPath -Pattern '__version__ = ".*"'
         shell: pwsh
       
+      - name: 清理构建环境
+        run: |
+          # 清理可能存在的构建文件
+          if (Test-Path "main.dist") { Remove-Item -Recurse -Force "main.dist" }
+          if (Test-Path "main.build") { Remove-Item -Recurse -Force "main.build" }
+          if (Test-Path "main.onefile-build") { Remove-Item -Recurse -Force "main.onefile-build" }
+          if (Test-Path "nuitka-crash-report.xml") { Remove-Item -Force "nuitka-crash-report.xml" }
+          
+          # 清理Python缓存
+          Get-ChildItem -Path . -Recurse -Name "__pycache__" -ErrorAction SilentlyContinue | ForEach-Object { 
+            try { Remove-Item -Recurse -Force $_ } catch { Write-Warning "无法删除: $_" }
+          }
+          Get-ChildItem -Path . -Recurse -Name "*.pyc" -ErrorAction SilentlyContinue | ForEach-Object { 
+            try { Remove-Item -Force $_ } catch { Write-Warning "无法删除: $_" }
+          }
+          
+          Write-Host "✅ 构建环境已清理"
+        shell: pwsh
+
       - name: 使用Nuitka打包应用程序
         run: |
           # 设置版本号环境变量
           $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
           Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
           
+          # 检查资源文件
           $icon_path = "assets/icon/favicon.ico"
+          if (-not (Test-Path $icon_path)) {
+            Write-Warning "⚠️ 主图标文件不存在: $icon_path"
+          } else {
+            Write-Host "✅ 找到主图标文件: $icon_path"
+          }
+          
+          if (-not (Test-Path "assets")) {
+            Write-Error "❌ assets目录不存在"
+            exit 1
+          } else {
+            Write-Host "✅ 找到assets资源目录"
+            Write-Host "📁 assets目录内容:"
+            Get-ChildItem -Recurse "assets" | Format-Table Name, FullName -AutoSize
+          }
+          
           python -m nuitka --standalone `
             --assume-yes-for-downloads `
             --windows-console-mode=disable `
             --windows-icon-from-ico=$icon_path `
-            --include-data-files=$icon_path=favicon.ico `
+            --include-data-dir=assets=assets `
             --windows-uac-admin `
             --remove-output `
             --enable-plugin=pyside6 `
@@ -102,8 +137,7 @@ jobs:
             --output-filename=ACE-KILLER.exe `
             --product-name="ACE-KILLER" `
             --product-version="${{ github.event.inputs.version }}" `
-            --file-description="ACE反作弊监控工具 v${{ github.event.inputs.version }}" `
-            --copyright="Copyright (c) 2024 CassianVale" `
+            --copyright="Copyright (c) 2025 CassianVale" `
             --nofollow-import-to=tkinter,PIL.ImageTk `
             --prefer-source-code `
             --python-flag=no_site `
@@ -115,9 +149,9 @@ jobs:
           PYTHONLEGACYWINDOWSSTDIO: 1
           ACE_KILLER_VERSION: ${{ github.event.inputs.version }}
 
-      - name: 验证版本号
+      - name: 验证构建结果
         run: |
-          Write-Host "🔍 验证版本号设置..."
+          Write-Host "🔍 验证构建结果..."
           
           # 检查环境变量
           Write-Host "环境变量 ACE_KILLER_VERSION: $env:ACE_KILLER_VERSION"
@@ -131,6 +165,8 @@ jobs:
           # 检查构建是否成功
           if (Test-Path "main.dist") {
             Write-Host "✅ 构建目录存在"
+            
+            # 检查可执行文件
             if (Test-Path "main.dist/ACE-KILLER.exe") {
               $fileInfo = Get-Item "main.dist/ACE-KILLER.exe"
               $fileSizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
