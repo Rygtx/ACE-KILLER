@@ -11,7 +11,7 @@ import threading
 from typing import Optional, Tuple, Dict, Any
 from ctypes import wintypes
 import psutil
-from loguru import logger
+from utils.logger import logger
 from win32api import OpenProcess, CloseHandle
 from win32con import PROCESS_ALL_ACCESS
 from win32process import (

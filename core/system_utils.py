@@ -9,7 +9,7 @@ import ctypes
 import os
 import sys
 import winreg
-from loguru import logger
+from utils.logger import logger
 
 
 def run_as_admin():

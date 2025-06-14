@@ -15,6 +15,7 @@ from core.system_utils import run_as_admin, check_single_instance
 from utils.logger import setup_logger, logger
 from utils.notification import find_icon_path, send_notification, create_notification_thread
 from utils.process_io_priority import get_io_priority_service
+
 from ui.main_window import create_gui
 
 

@@ -10,7 +10,7 @@ import queue
 import threading
 import time
 import psutil
-from loguru import logger
+from utils.logger import logger
 from win32api import OpenProcess
 from win32con import PROCESS_ALL_ACCESS
 from win32process import SetPriorityClass, IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS

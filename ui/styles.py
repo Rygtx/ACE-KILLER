@@ -7,6 +7,7 @@ Ant Design风格UI样式定义
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QWidget
+from utils.logger import logger
 
 
 class AntColors:
@@ -823,11 +824,10 @@ class StyleHelper:
     
     @staticmethod
     def set_frameless_window_properties(window):
-        """为无边框窗口设置透明背景属性
+        """设置无边框窗口属性
         
         Args:
-            window: 主窗口实例
-
+            window: QWidget实例
         """
         try:
             # 设置主窗口属性
@@ -837,7 +837,7 @@ class StyleHelper:
             window.style().unpolish(window)
             window.style().polish(window)
         except Exception as e:
-            print(f"设置无边框窗口属性失败: {e}")
+            logger.error(f"设置无边框窗口属性失败: {e}")
     
     @staticmethod
     def set_tab_page_transparent(tab_widget):
@@ -863,7 +863,7 @@ class StyleHelper:
             tab_widget.style().unpolish(tab_widget)
             tab_widget.style().polish(tab_widget)
         except Exception as e:
-            print(f"设置选项卡透明背景失败: {e}")
+            logger.error(f"设置选项卡透明背景失败: {e}")
     
     @staticmethod
     def set_button_type(button, button_type: str):

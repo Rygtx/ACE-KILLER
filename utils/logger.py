@@ -8,7 +8,10 @@
 import os
 import sys
 import datetime
-from loguru import logger
+from loguru import logger as _logger
+
+# 统一logger实例
+logger = _logger
 
 
 def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day", debug_mode=False):
@@ -20,6 +23,9 @@ def setup_logger(log_dir, log_retention_days=7, log_rotation="1 day", debug_mode
         log_retention_days (int): 日志保留天数
         log_rotation (str): 日志轮转周期
         debug_mode (bool): 是否启用调试模式
+    
+    Returns:
+        logger: 配置好的logger实例
     """
     # 移除默认的日志处理器
     logger.remove()

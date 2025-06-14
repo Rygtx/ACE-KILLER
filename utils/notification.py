@@ -10,7 +10,7 @@ import sys
 import queue
 import threading
 import time
-from loguru import logger
+from utils.logger import logger
 from win11toast import notify
 
 

@@ -14,9 +14,10 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QThread
 from PySide6.QtGui import QIcon, QColor
-from loguru import logger
 
+from utils.logger import logger
 from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT, PERFORMANCE_MODE
+
 from ui.styles import ColorScheme, StyleHelper, theme_manager
 
 

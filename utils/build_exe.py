@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import shutil
+from utils.logger import logger
 
 # 设置标准输出编码为UTF-8，解决Windows环境下中文输出问题
 if sys.stdout.encoding != 'utf-8':
@@ -24,7 +25,7 @@ icon_path = os.path.join(root_dir, 'assets', 'icon', 'favicon.ico')
 try:
     import nuitka
 except ImportError:
-    print("Installing Nuitka...")
+    logger.info("正在安装 Nuitka...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "nuitka"])
 
 # PySide6相关设置
@@ -33,9 +34,9 @@ try:
     qt_plugins_path = QLibraryInfo.path(QLibraryInfo.PluginsPath)
     qt_translations_path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
     qt_binaries_path = QLibraryInfo.path(QLibraryInfo.BinariesPath)
-    print(f"[OK] Qt plugins path found: {qt_plugins_path}")
+    logger.debug(f"Qt插件路径已找到: {qt_plugins_path}")
 except ImportError:
-    print("[ERROR] Cannot import PySide6, please make sure it is installed")
+    logger.error("无法导入 PySide6，请确保已正确安装")
     sys.exit(1)
 
 # 构建Nuitka打包命令
@@ -68,8 +69,8 @@ cmd = [
     "main.py"
 ]
 
-print("[START] Starting Nuitka packaging...")
-print("[INFO] Packaging process may take a few minutes, please be patient...")
+logger.info("开始 Nuitka 打包...")
+logger.info("打包过程可能需要几分钟，请耐心等待...")
 
 # 执行打包命令
 try:
@@ -82,16 +83,16 @@ try:
     
     # 首先判断main_exe是否存在
     if os.path.exists(main_exe):
-        print(f"[SUCCESS] Packaging successful! Executable generated: {(main_exe)}")
+        logger.success(f"打包成功！生成的可执行文件: {main_exe}")
         
         # 输出文件大小信息
         size_mb = os.path.getsize(main_exe) / (1024 * 1024)
-        print(f"[INFO] Executable size: {size_mb:.2f} MB")
+        logger.info(f"可执行文件大小: {size_mb:.2f} MB")
     else:
-        print("[ERROR] Packaging complete, but executable file not found")
+        logger.error("打包完成，但未找到可执行文件")
         
 except subprocess.CalledProcessError as e:
-    print(f"[ERROR] Packaging failed: {e}")
+    logger.error(f"打包失败: {e}")
     sys.exit(1)
 
 # 压缩可执行文件目录
@@ -99,12 +100,12 @@ dist_dir = os.path.join(root_dir, "main.dist")
 zip_name = "ACE-KILLER-v1.0.0-x64"
 zip_path = os.path.join(root_dir, zip_name + ".zip")
 if os.path.exists(dist_dir):
-    print("[INFO] Compressing executable directory...")
+    logger.info("正在压缩可执行文件目录...")
     # 确保在正确的位置创建zip文件
     shutil.make_archive(os.path.join(root_dir, zip_name), 'zip', dist_dir)
-    print(f"[SUCCESS] Compression complete! Generated zip file: {zip_path}")
+    logger.success(f"压缩完成！生成的压缩包: {zip_path}")
 else:
-    print("[ERROR] Executable directory not found, cannot compress.")
+    logger.error("未找到可执行文件目录，无法压缩")
     sys.exit(1)
 
-print("[SUCCESS] ACE-KILLER Nuitka packaging and compression completed!")
+logger.success("ACE-KILLER Nuitka 打包和压缩完成！")

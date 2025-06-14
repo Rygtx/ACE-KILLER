@@ -4,7 +4,7 @@ import threading
 import ctypes
 from ctypes import windll, wintypes, byref, Structure, c_ulong, POINTER, sizeof
 import psutil
-from loguru import logger
+from utils.logger import logger
 import sys
 
 from ctypes import c_long
