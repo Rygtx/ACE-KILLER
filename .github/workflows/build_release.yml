@@ -58,6 +58,8 @@ jobs:
           pip install wheel --quiet
           pip install -r requirements.txt --quiet
           pip install nuitka zstandard ordered-set --quiet
+          # 确保网络相关依赖项正确安装
+          pip install requests urllib3 certifi charset-normalizer idna --quiet
 
       - name: 更新版本号
         run: |
@@ -107,6 +109,13 @@ jobs:
           $env:ACE_KILLER_VERSION = "v${{ github.event.inputs.version }}"
           Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION= v"${{ github.event.inputs.version }}" "
           
+          # 验证关键依赖项
+          Write-Host "🔍 验证关键依赖项..."
+          python -c "import requests; print(f'✅ requests 版本: {requests.__version__}')"
+          python -c "import certifi; print(f'✅ certifi 版本: {certifi.__version__}'); print(f'证书文件路径: {certifi.where()}')" 
+          python -c "import urllib3; print(f'✅ urllib3 版本: {urllib3.__version__}')"
+          python -c "import packaging; print(f'✅ packaging 版本: {packaging.__version__}')"
+          
           # 检查资源文件
           $icon_path = "assets/icon/favicon.ico"
           if (-not (Test-Path $icon_path)) {
@@ -132,7 +141,14 @@ jobs:
             --windows-uac-admin `
             --remove-output `
             --enable-plugin=pyside6 `
-            --mingw64 `
+            --include-package=requests `
+            --include-package=urllib3 `
+            --include-package=certifi `
+            --include-package=charset_normalizer `
+            --include-package=idna `
+            --include-package=packaging `
+            --include-package=win32com `
+            --include-data-files=certifi/cacert.pem `
             --lto=yes `
             --output-filename=ACE-KILLER.exe `
             --product-name="ACE-KILLER" `
