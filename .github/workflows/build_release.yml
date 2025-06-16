@@ -126,7 +126,7 @@ jobs:
           
           python -m nuitka --standalone `
             --assume-yes-for-downloads `
-            --windows-console-mode=disable `
+            --windows-console-mode=enable `
             --windows-icon-from-ico=$icon_path `
             --include-data-dir=assets/icon=assets/icon `
             --windows-uac-admin `
