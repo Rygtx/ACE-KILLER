@@ -141,9 +141,6 @@ jobs:
             --prefer-source-code `
             --python-flag=no_site `
             --python-flag=no_warnings `
-            --show-progress `
-            --show-memory `
-            --verbose `
             --report=compilation-report.xml `
             main.py
         shell: pwsh
@@ -165,6 +162,13 @@ jobs:
             Write-Host "VERSION文件内容: '$versionFileContent'"
           }
           
+          # 检查编译报告
+          if (Test-Path "compilation-report.xml") {
+            Write-Host "✅ 编译报告已生成"
+          } else {
+            Write-Warning "⚠️ 编译报告未找到"
+          }
+          
           # 检查构建是否成功
           if (Test-Path "main.dist") {
             Write-Host "✅ 构建目录存在"
@@ -183,6 +187,14 @@ jobs:
         shell: pwsh
         env:
           ACE_KILLER_VERSION: ${{ github.event.inputs.version }}
+
+      - name: 上传编译报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compilation-report-v${{ github.event.inputs.version }}
+          path: compilation-report.xml
+          retention-days: 30
           
       - name: 压缩可执行文件目录
         run: |
