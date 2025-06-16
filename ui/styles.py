@@ -170,7 +170,7 @@ class ThemeManager(QObject):
         return f"""
         /* === 全局样式 === */
         * {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', 'Microsoft YaHei UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Ubuntu, Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }}
 
         QWidget {{
