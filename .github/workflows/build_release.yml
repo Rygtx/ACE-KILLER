@@ -156,7 +156,17 @@ jobs:
           Write-Host "🐍 Python版本信息:"
           python --version
           python -c "import sys; print(f'Python路径: {sys.executable}')"
-          python -c "import nuitka; print(f'Nuitka版本: {nuitka.__version__}')"
+          # 使用命令行方式获取Nuitka版本信息，避免__version__属性问题
+          try {
+            $nuitkaVersion = python -m nuitka --version 2>&1 | Select-String "Nuitka" | Select-Object -First 1
+            if ($nuitkaVersion) {
+              Write-Host "Nuitka版本: $nuitkaVersion"
+            } else {
+              Write-Host "Nuitka版本: 已安装但无法获取版本信息"
+            }
+          } catch {
+            Write-Host "Nuitka版本: 获取失败 - $($_.Exception.Message)"
+          }
           
           # 检查磁盘空间
           Write-Host "💾 磁盘空间:"
@@ -212,6 +222,11 @@ jobs:
               --lto=yes `
               --output-filename=ACE-KILLER.exe `
               --product-name="ACE-KILLER" `
+              --product-version="${{ github.event.inputs.version }}" `
+              --file-version="${{ github.event.inputs.version }}" `
+              --file-description="ACE-KILLER - 反作弊进程优化工具" `
+              --copyright="© 2025 CassianVale" `
+              --trademarks="ACE-KILLER" `
               --nofollow-import-to=tkinter,PIL.ImageTk `
               --prefer-source-code `
               --python-flag=no_site `
@@ -278,7 +293,7 @@ jobs:
           Write-Host "🔍 验证构建结果..."
           
           # 检查环境变量
-          Write-Host "环境变量 ACE_KILLER_VERSION: v{{$env:ACE_KILLER_VERSION}"
+          Write-Host "环境变量 ACE_KILLER_VERSION: $env:ACE_KILLER_VERSION"
           
           # 检查VERSION文件
           if (Test-Path "VERSION") {
