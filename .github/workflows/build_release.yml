@@ -56,7 +56,7 @@ jobs:
           python -m pip install --upgrade pip --quiet
           pip install wheel --quiet
           pip install -r requirements.txt --quiet
-          pip install nuitka zstandard ordered-set --quiet
+          pip install nuitka==2.5.7 zstandard ordered-set --quiet
       - name: 更新版本号
         run: |
           # 更新 VERSION 文件
@@ -122,6 +122,10 @@ jobs:
             Get-ChildItem -Recurse "assets/icon" | Format-Table Name, FullName -AutoSize
           }
           
+          # 显示编译器信息
+          Write-Host "🔧 当前编译器信息:"
+          try { gcc --version | Select-Object -First 1 } catch { Write-Warning "GCC不可用" }
+          
           python -m nuitka --standalone `
             --assume-yes-for-downloads `
             --windows-console-mode=disable `
@@ -132,6 +136,7 @@ jobs:
             --remove-output `
             --enable-plugin=pyside6 `
             --lto=yes `
+            --mingw64 `
             --jobs=$env:NUMBER_OF_PROCESSORS `
             --output-filename=ACE-KILLER.exe `
             --product-name="ACE-KILLER" `
