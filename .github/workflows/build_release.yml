@@ -91,7 +91,10 @@ jobs:
           
           Write-Host ""
           Write-Host "📦 安装Windows特定依赖..."
-          pip install --timeout 300 winsdk==1.0.0b10 win11toast==0.35
+          
+          # 先安装win11toast
+          Write-Host "📦 安装win11toast..."
+          pip install --timeout 120 win11toast==0.35
           
           Write-Host ""
           Write-Host "📦 安装PySide6 (这可能需要几分钟)..."
@@ -116,6 +119,7 @@ jobs:
             } catch {
               Write-Warning "  ⚠️ $pkg : 检查失败"
             }
+
           }
           
           Write-Host ""
@@ -449,3 +453,4 @@ jobs:
           prerelease: false
           files: |
             ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip
+
