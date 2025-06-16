@@ -194,54 +194,47 @@ jobs:
           
           # 开始Nuitka编译，添加详细日志
           Write-Host "🚀 开始Nuitka编译..."
-          Write-Host "📋 完整编译命令:"
-          $nuitkaCmd = @(
-            "python", "-m", "nuitka",
-            "--standalone",
-            "--assume-yes-for-downloads",
-            "--windows-console-mode=disable",
-            "--windows-icon-from-ico=$icon_path",
-            "--include-data-dir=assets/icon=assets/icon",
-            "--windows-uac-admin",
-            "--remove-output",
-            "--enable-plugin=pyside6",
-            "--lto=yes",
-            "--output-filename=ACE-KILLER.exe",
-            "--product-name=ACE-KILLER",
-            "--product-version=${{ github.event.inputs.version }}",
-            "--copyright=Copyright (c) 2025 CassianVale",
-            "--nofollow-import-to=tkinter,PIL.ImageTk",
-            "--prefer-source-code",
-            "--python-flag=no_site",
-            "--python-flag=no_warnings",
-            "--verbose",
-            "--show-scons",
-            "--show-progress",
-            "--show-memory",
-            "--report=compilation-report.xml",
-            "--jobs=$env:NUMBER_OF_PROCESSORS",
-            "main.py"
-          )
           
-          Write-Host "命令: $($nuitkaCmd -join ' ')"
+          # 直接执行Nuitka命令，避免参数传递问题
+          Write-Host "📋 执行编译命令..."
           
-          # 执行编译
-          $process = Start-Process -FilePath "python" -ArgumentList ($nuitkaCmd[1..($nuitkaCmd.Count-1)]) -NoNewWindow -PassThru -Wait -RedirectStandardOutput "nuitka_output.log" -RedirectStandardError "nuitka_error.log"
-          
-          # 显示编译输出
-          Write-Host "📄 Nuitka标准输出:"
-          if (Test-Path "nuitka_output.log") {
-            Get-Content "nuitka_output.log" | ForEach-Object { Write-Host $_ }
-          }
-          
-          Write-Host "❌ Nuitka错误输出:"
-          if (Test-Path "nuitka_error.log") {
-            Get-Content "nuitka_error.log" | ForEach-Object { Write-Host $_ }
+          try {
+            # 使用PowerShell的调用操作符直接执行
+            & python -m nuitka `
+              --standalone `
+              --assume-yes-for-downloads `
+              --windows-console-mode=disable `
+              --windows-icon-from-ico="$icon_path" `
+              --include-data-dir=assets/icon=assets/icon `
+              --windows-uac-admin `
+              --remove-output `
+              --enable-plugin=pyside6 `
+              --lto=yes `
+              --output-filename=ACE-KILLER.exe `
+              --product-name="ACE-KILLER" `
+              --product-version="${{ github.event.inputs.version }}" `
+              --copyright="Copyright (c) 2025 CassianVale" `
+              --nofollow-import-to=tkinter,PIL.ImageTk `
+              --prefer-source-code `
+              --python-flag=no_site `
+              --python-flag=no_warnings `
+              --verbose `
+              --show-scons `
+              --show-progress `
+              --show-memory `
+              --report=compilation-report.xml `
+              --jobs=$env:NUMBER_OF_PROCESSORS `
+              main.py
+              
+            $exitCode = $LASTEXITCODE
+          } catch {
+            Write-Host "❌ 执行命令时发生异常: $($_.Exception.Message)"
+            $exitCode = 1
           }
           
           # 检查编译结果
-          if ($process.ExitCode -ne 0) {
-            Write-Error "❌ Nuitka编译失败，退出代码: $($process.ExitCode)"
+          if ($exitCode -ne 0) {
+            Write-Error "❌ Nuitka编译失败，退出代码: $exitCode"
             
             # 显示详细的崩溃报告
             if (Test-Path "nuitka-crash-report.xml") {
