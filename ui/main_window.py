@@ -140,7 +140,7 @@ class MainWindow(QWidget):
     def setup_ui(self):
         """设置用户界面"""
         self.setWindowTitle("ACE-KILLER")
-        self.setMinimumSize(600, 600)
+        self.setMinimumSize(600, 780)
         
         # 设置无边框窗口
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowSystemMenuHint)
@@ -340,6 +340,9 @@ class MainWindow(QWidget):
         # 自定义配置选项
         custom_group = QGroupBox("自定义配置")
         custom_layout = QGridLayout()
+        # 设置列间距
+        custom_layout.setHorizontalSpacing(8)
+        custom_layout.setVerticalSpacing(8)
         
         # 清理间隔设置
         interval_label = QLabel("清理间隔(秒):")
@@ -353,6 +356,9 @@ class MainWindow(QWidget):
         custom_layout.addWidget(interval_label, 0, 0)
         custom_layout.addWidget(self.interval_spinbox, 0, 1)
         
+        # 在第一列QSpinBox后面添加弹簧
+        custom_layout.setColumnStretch(2, 1)
+        
         # 内存占用阈值设置
         threshold_label = QLabel("内存阈值(%):")
         self.threshold_spinbox = QSpinBox()
@@ -362,8 +368,11 @@ class MainWindow(QWidget):
         self.threshold_spinbox.setValue(80)  # 默认80%
         self.threshold_spinbox.valueChanged.connect(self.update_memory_threshold)
         self.threshold_spinbox.setToolTip("当内存使用率超过此阈值时触发清理")
-        custom_layout.addWidget(threshold_label, 0, 2)
-        custom_layout.addWidget(self.threshold_spinbox, 0, 3)
+        custom_layout.addWidget(threshold_label, 0, 3)
+        custom_layout.addWidget(self.threshold_spinbox, 0, 4)
+        
+        # 在第二列QSpinBox后面添加弹簧
+        custom_layout.setColumnStretch(5, 1)
         
         # 冷却时间设置
         cooldown_label = QLabel("冷却时间(秒):")
@@ -381,7 +390,7 @@ class MainWindow(QWidget):
         description_label = QLabel("⚠ 注意: 清理间隔不能小于1分钟，冷却时间用于防止短时间内重复触发清理")
         description_label.setWordWrap(True)
         StyleHelper.set_label_type(description_label, "warning")
-        custom_layout.addWidget(description_label, 1, 2, 1, 2)
+        custom_layout.addWidget(description_label, 1, 3, 1, 3)
         
         custom_group.setLayout(custom_layout)
         memory_layout.addWidget(custom_group)

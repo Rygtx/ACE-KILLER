@@ -497,15 +497,15 @@ class ThemeManager(QObject):
             color: {colors.GRAY_9};
             background-color: {colors.GRAY_1};
             border: 1px solid {colors.GRAY_4};
-            border-radius: 10px;
-            margin-top: 2px;
+            border-radius: 6px;
+            margin-top: 8px;
             padding-top: 8px;
         }}
         
         QGroupBox::title {{
             subcontrol-origin: margin;
             subcontrol-position: top center;
-            padding: 0px 10px;
+            padding: 0px 5px;
             background-color: {colors.GRAY_1};
             color: {colors.GRAY_9};
         }}
@@ -553,7 +553,6 @@ class ThemeManager(QObject):
             border-bottom-color: {colors.GRAY_1}; /* 底部边框与面板颜色一致，实现无缝连接 */
             border-right: none; /* 右边框去掉，与下一个标签无缝連接 */
             margin-bottom: -1px; /* 向下延伸1px，确保完全覆盖面板边框 */
-            z-index: 1; /* 确保选中标签在最上层 */
         }}
         
         /* 第一个标签被选中时的特殊处理 */
