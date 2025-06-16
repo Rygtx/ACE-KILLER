@@ -90,6 +90,10 @@ jobs:
           if (Test-Path "main.onefile-build") { Remove-Item -Recurse -Force "main.onefile-build" }
           if (Test-Path "nuitka-crash-report.xml") { Remove-Item -Force "nuitka-crash-report.xml" }
           
+          # 清理之前的日志文件
+          if (Test-Path "nuitka_output.log") { Remove-Item -Force "nuitka_output.log" }
+          if (Test-Path "nuitka_error.log") { Remove-Item -Force "nuitka_error.log" }
+          
           # 清理Python缓存
           Get-ChildItem -Path . -Recurse -Name "__pycache__" -ErrorAction SilentlyContinue | ForEach-Object { 
             try { Remove-Item -Recurse -Force $_ } catch { Write-Warning "无法删除: $_" }
@@ -98,7 +102,40 @@ jobs:
             try { Remove-Item -Force $_ } catch { Write-Warning "无法删除: $_" }
           }
           
+          # 清理临时构建目录
+          Get-ChildItem -Path $env:TEMP -Name "nuitka_build_*" -ErrorAction SilentlyContinue | ForEach-Object {
+            try { Remove-Item -Recurse -Force "$env:TEMP\$_" } catch { Write-Warning "无法删除临时目录: $_" }
+          }
+          
           Write-Host "✅ 构建环境已清理"
+        shell: pwsh
+
+      - name: 设置Windows构建环境
+        run: |
+          # 设置Windows环境变量以改善构建稳定性
+          Write-Host "🔧 配置Windows构建环境..."
+          
+          # 设置编译器环境
+          $env:CL = "/MP"  # 启用多处理器编译
+          $env:LINK = "/MACHINE:X64"  # 明确指定64位
+          
+          # 设置Nuitka环境变量
+          $env:NUITKA_CACHE_DIR = "$env:TEMP\nuitka_cache"
+          if (-not (Test-Path $env:NUITKA_CACHE_DIR)) {
+            New-Item -ItemType Directory -Path $env:NUITKA_CACHE_DIR -Force | Out-Null
+          }
+          
+          # 设置更大的内存限制
+          $env:NUITKA_MEMORY_USAGE = "2048"
+          
+          # 禁用某些可能引起权限问题的功能
+          $env:NUITKA_DISABLE_CONSOLE_HANDLER = "1"
+          
+          Write-Host "✅ Windows构建环境已配置"
+          Write-Host "CL: $env:CL"
+          Write-Host "LINK: $env:LINK"
+          Write-Host "NUITKA_CACHE_DIR: $env:NUITKA_CACHE_DIR"
+          Write-Host "NUITKA_MEMORY_USAGE: $env:NUITKA_MEMORY_USAGE"
         shell: pwsh
 
       - name: 使用Nuitka打包应用程序
@@ -107,12 +144,32 @@ jobs:
           $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
           Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
           
+          # 显示系统信息
+          Write-Host "🖥️ 系统信息:"
+          Write-Host "OS: $env:OS"
+          Write-Host "Processor: $env:PROCESSOR_ARCHITECTURE"
+          Write-Host "Username: $env:USERNAME"
+          Write-Host "Temp Dir: $env:TEMP"
+          Write-Host "Working Dir: $(Get-Location)"
+          
+          # 显示Python和Nuitka版本信息
+          Write-Host "🐍 Python版本信息:"
+          python --version
+          python -c "import sys; print(f'Python路径: {sys.executable}')"
+          python -c "import nuitka; print(f'Nuitka版本: {nuitka.__version__}')"
+          
+          # 检查磁盘空间
+          Write-Host "💾 磁盘空间:"
+          Get-WmiObject -Class Win32_LogicalDisk | Select-Object DeviceID, @{Name="Size(GB)";Expression={[math]::Round($_.Size/1GB,2)}}, @{Name="FreeSpace(GB)";Expression={[math]::Round($_.FreeSpace/1GB,2)}} | Format-Table
+          
           # 检查资源文件
           $icon_path = "assets/icon/favicon.ico"
           if (-not (Test-Path $icon_path)) {
             Write-Warning "⚠️ 主图标文件不存在: $icon_path"
           } else {
             Write-Host "✅ 找到主图标文件: $icon_path"
+            $iconInfo = Get-Item $icon_path
+            Write-Host "📊 图标文件信息: 大小=${iconInfo.Length}字节, 创建时间=${iconInfo.CreationTime}"
           }
           
           if (-not (Test-Path "assets/icon")) {
@@ -124,29 +181,104 @@ jobs:
             Get-ChildItem -Recurse "assets/icon" | Format-Table Name, FullName -AutoSize
           }
           
-          python -m nuitka --standalone `
-            --assume-yes-for-downloads `
-            --windows-console-mode=disable `
-            --windows-icon-from-ico=$icon_path `
-            --include-data-dir=assets/icon=assets/icon `
-            --windows-uac-admin `
-            --remove-output `
-            --enable-plugin=pyside6 `
-            --lto=yes `
-            --output-filename=ACE-KILLER.exe `
-            --product-name="ACE-KILLER" `
-            --product-version="${{ github.event.inputs.version }}" `
-            --copyright="Copyright (c) 2025 CassianVale" `
-            --nofollow-import-to=tkinter,PIL.ImageTk `
-            --prefer-source-code `
-            --python-flag=no_site `
-            --python-flag=no_warnings `
-            main.py
+          # 检查当前目录权限
+          Write-Host "🔐 检查当前目录权限:"
+          $acl = Get-Acl "."
+          $acl.Access | Where-Object {$_.IdentityReference -like "*$env:USERNAME*"} | Format-Table IdentityReference, FileSystemRights, AccessControlType
+          
+          # 设置更宽松的临时目录权限
+          Write-Host "🔧 设置临时目录:"
+          $tempBuildDir = "$env:TEMP\nuitka_build_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+          New-Item -ItemType Directory -Path $tempBuildDir -Force | Out-Null
+          Write-Host "临时构建目录: $tempBuildDir"
+          
+          # 开始Nuitka编译，添加详细日志
+          Write-Host "🚀 开始Nuitka编译..."
+          Write-Host "📋 完整编译命令:"
+          $nuitkaCmd = @(
+            "python", "-m", "nuitka",
+            "--standalone",
+            "--assume-yes-for-downloads",
+            "--windows-console-mode=disable",
+            "--windows-icon-from-ico=$icon_path",
+            "--include-data-dir=assets/icon=assets/icon",
+            "--windows-uac-admin",
+            "--remove-output",
+            "--enable-plugin=pyside6",
+            "--lto=yes",
+            "--output-filename=ACE-KILLER.exe",
+            "--product-name=ACE-KILLER",
+            "--product-version=${{ github.event.inputs.version }}",
+            "--copyright=Copyright (c) 2025 CassianVale",
+            "--nofollow-import-to=tkinter,PIL.ImageTk",
+            "--prefer-source-code",
+            "--python-flag=no_site",
+            "--python-flag=no_warnings",
+            "--verbose",
+            "--show-scons",
+            "--show-progress",
+            "--show-memory",
+            "--report=compilation-report.xml",
+            "--jobs=$env:NUMBER_OF_PROCESSORS",
+            "main.py"
+          )
+          
+          Write-Host "命令: $($nuitkaCmd -join ' ')"
+          
+          # 执行编译
+          $process = Start-Process -FilePath "python" -ArgumentList ($nuitkaCmd[1..($nuitkaCmd.Count-1)]) -NoNewWindow -PassThru -Wait -RedirectStandardOutput "nuitka_output.log" -RedirectStandardError "nuitka_error.log"
+          
+          # 显示编译输出
+          Write-Host "📄 Nuitka标准输出:"
+          if (Test-Path "nuitka_output.log") {
+            Get-Content "nuitka_output.log" | ForEach-Object { Write-Host $_ }
+          }
+          
+          Write-Host "❌ Nuitka错误输出:"
+          if (Test-Path "nuitka_error.log") {
+            Get-Content "nuitka_error.log" | ForEach-Object { Write-Host $_ }
+          }
+          
+          # 检查编译结果
+          if ($process.ExitCode -ne 0) {
+            Write-Error "❌ Nuitka编译失败，退出代码: $($process.ExitCode)"
+            
+            # 显示详细的崩溃报告
+            if (Test-Path "nuitka-crash-report.xml") {
+              Write-Host "📋 Nuitka完整崩溃报告:"
+              Get-Content "nuitka-crash-report.xml" | ForEach-Object { Write-Host $_ }
+            }
+            
+            # 显示编译环境信息
+            Write-Host "🔍 编译环境诊断信息:"
+            Write-Host "当前工作目录: $(Get-Location)"
+            Write-Host "临时目录: $env:TEMP"
+            Write-Host "用户名: $env:USERNAME"
+            
+            # 检查是否有部分构建文件
+            if (Test-Path "main.build") {
+              Write-Host "📁 找到部分构建目录:"
+              Get-ChildItem "main.build" -Recurse | Select-Object -First 10 | Format-Table Name, FullName
+            }
+            
+            # 检查磁盘空间
+            Write-Host "💾 当前磁盘空间:"
+            Get-WmiObject -Class Win32_LogicalDisk | Where-Object {$_.DeviceID -eq "C:"} | Select-Object @{Name="FreeSpace(GB)";Expression={[math]::Round($_.FreeSpace/1GB,2)}}
+            
+            exit 1
+          }
+          
+          Write-Host "✅ Nuitka编译完成"
         shell: pwsh
         env:
           PYTHONIOENCODING: utf-8
           PYTHONLEGACYWINDOWSSTDIO: 1
           ACE_KILLER_VERSION: ${{ github.event.inputs.version }}
+          CL: /MP
+          LINK: /MACHINE:X64
+          NUITKA_CACHE_DIR: C:\temp\nuitka_cache
+          NUITKA_MEMORY_USAGE: 2048
+          NUITKA_DISABLE_CONSOLE_HANDLER: 1
 
       - name: 验证构建结果
         run: |
