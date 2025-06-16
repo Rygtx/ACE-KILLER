@@ -35,7 +35,7 @@ jobs:
       - name: 设置Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: 'pip'
           cache-dependency-path: 'requirements.txt'
 
@@ -105,7 +105,16 @@ jobs:
         run: |
           # 设置版本号环境变量
           $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
-          Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
+          Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=v${{ github.event.inputs.version }}"
+          
+          # 显示构建环境信息
+          Write-Host "🌍 构建环境信息:"
+          Write-Host "  - Python版本: $(python --version)"
+          Write-Host "  - Nuitka版本: $(python -m nuitka --version)"
+          Write-Host "  - 操作系统: $env:OS"
+          Write-Host "  - 处理器架构: $env:PROCESSOR_ARCHITECTURE"
+          Write-Host "  - 当前目录: $(Get-Location)"
+          Write-Host "  - 可用内存: $([math]::Round((Get-WmiObject Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)) GB"
           
           # 检查资源文件
           $icon_path = "assets/icon/favicon.ico"
@@ -113,6 +122,8 @@ jobs:
             Write-Warning "⚠️ 主图标文件不存在: $icon_path"
           } else {
             Write-Host "✅ 找到主图标文件: $icon_path"
+            $iconInfo = Get-Item $icon_path
+            Write-Host "  - 图标文件大小: $($iconInfo.Length) 字节"
           }
           
           if (-not (Test-Path "assets/icon")) {
@@ -123,6 +134,37 @@ jobs:
             Write-Host "📁 assets/icon目录内容:"
             Get-ChildItem -Recurse "assets/icon" | Format-Table Name, FullName -AutoSize
           }
+          
+          # 显示主要源文件信息
+          Write-Host "📋 主要源文件信息:"
+          if (Test-Path "main.py") {
+            $mainPySize = (Get-Item "main.py").Length
+            Write-Host "  - main.py: $mainPySize 字节"
+          }
+          if (Test-Path "requirements.txt") {
+            Write-Host "  - requirements.txt内容:"
+            Get-Content "requirements.txt" | ForEach-Object { Write-Host "    $_" }
+          }
+          
+          # 开始Nuitka构建，显示详细日志
+          Write-Host ""
+          Write-Host "🚀 开始Nuitka构建过程..."
+          Write-Host "⏰ 构建开始时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          Write-Host "📝 构建命令参数:"
+          Write-Host "  --standalone                        : 独立模式"
+          Write-Host "  --assume-yes-for-downloads          : 自动下载依赖"
+          Write-Host "  --windows-console-mode=disable      : 禁用控制台窗口"
+          Write-Host "  --windows-icon-from-ico=$icon_path  : 设置应用图标"
+          Write-Host "  --include-data-dir=assets/icon      : 包含资源目录"
+          Write-Host "  --windows-uac-admin                 : 管理员权限"
+          Write-Host "  --enable-plugin=pyside6             : 启用PySide6插件"
+          Write-Host "  --lto=yes                           : 链接时优化"
+          Write-Host "  --show-progress                     : 显示构建进度"
+          Write-Host "  --show-memory                       : 显示内存使用"
+          Write-Host "  --verbose                           : 详细输出"
+          Write-Host ""
+          
+          $buildStartTime = Get-Date
           
           python -m nuitka --standalone `
             --assume-yes-for-downloads `
@@ -141,7 +183,40 @@ jobs:
             --prefer-source-code `
             --python-flag=no_site `
             --python-flag=no_warnings `
+            --show-progress `
+            --show-memory `
+            --verbose `
+            --report=nuitka-build-report.xml `
             main.py
+            
+          $buildEndTime = Get-Date
+          $buildDuration = $buildEndTime - $buildStartTime
+          
+          Write-Host ""
+          Write-Host "⏰ 构建完成时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          Write-Host "⌛ 总构建时间: $($buildDuration.TotalMinutes.ToString('F2')) 分钟"
+          
+          # 检查构建报告
+          if (Test-Path "nuitka-build-report.xml") {
+            Write-Host "📊 构建报告已生成: nuitka-build-report.xml"
+            $reportSize = (Get-Item "nuitka-build-report.xml").Length
+            Write-Host "  - 报告文件大小: $reportSize 字节"
+          }
+          
+          # 显示构建后的文件结构
+          Write-Host ""
+          Write-Host "📁 构建后的文件结构:"
+          if (Test-Path "main.dist") {
+            Write-Host "✅ main.dist 目录内容:"
+            Get-ChildItem -Recurse "main.dist" | Where-Object { -not $_.PSIsContainer } | 
+              Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB, 3)}}, FullName | 
+              Format-Table -AutoSize
+              
+            $totalSize = (Get-ChildItem -Recurse "main.dist" | Measure-Object -Property Length -Sum).Sum
+            Write-Host "📊 构建输出总大小: $([math]::Round($totalSize / 1MB, 2)) MB"
+          }
+          
+          Write-Host "🎉 Nuitka构建过程完成！"
         shell: pwsh
         env:
           PYTHONIOENCODING: utf-8
@@ -153,32 +228,118 @@ jobs:
           Write-Host "🔍 验证构建结果..."
           
           # 检查环境变量
-          Write-Host "环境变量 ACE_KILLER_VERSION: $env:ACE_KILLER_VERSION"
+          Write-Host "🌍 环境信息验证:"
+          Write-Host "  - ACE_KILLER_VERSION: $env:ACE_KILLER_VERSION"
+          Write-Host "  - 构建时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
           
           # 检查VERSION文件
           if (Test-Path "VERSION") {
             $versionFileContent = Get-Content "VERSION" -Raw
-            Write-Host "VERSION文件内容: '$versionFileContent'"
+            Write-Host "  - VERSION文件内容: '$versionFileContent'"
+          }
+          
+          # 检查构建报告
+          if (Test-Path "nuitka-build-report.xml") {
+            Write-Host ""
+            Write-Host "📊 构建报告分析:"
+            try {
+              [xml]$report = Get-Content "nuitka-build-report.xml"
+              Write-Host "  - 报告文件: 已成功读取"
+              # 可以添加更多报告解析逻辑
+            } catch {
+              Write-Warning "  - 无法解析构建报告: $($_.Exception.Message)"
+            }
+          } else {
+            Write-Warning "⚠️ 构建报告文件未生成"
           }
           
           # 检查构建是否成功
           if (Test-Path "main.dist") {
-            Write-Host "✅ 构建目录存在"
+            Write-Host ""
+            Write-Host "✅ 构建目录验证通过"
+            
+            # 统计构建输出
+            $distFiles = Get-ChildItem -Recurse "main.dist"
+            $totalFiles = ($distFiles | Where-Object { -not $_.PSIsContainer }).Count
+            $totalDirs = ($distFiles | Where-Object { $_.PSIsContainer }).Count
+            $totalSize = ($distFiles | Where-Object { -not $_.PSIsContainer } | Measure-Object -Property Length -Sum).Sum
+            
+            Write-Host "📊 构建统计信息:"
+            Write-Host "  - 文件总数: $totalFiles"
+            Write-Host "  - 目录总数: $totalDirs"
+            Write-Host "  - 总大小: $([math]::Round($totalSize / 1MB, 2)) MB"
             
             # 检查可执行文件
             if (Test-Path "main.dist/ACE-KILLER.exe") {
               $fileInfo = Get-Item "main.dist/ACE-KILLER.exe"
               $fileSizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
-              Write-Host "✅ 可执行文件已生成 (大小: ${fileSizeMB} MB)"
+              Write-Host ""
+              Write-Host "✅ 主执行文件验证:"
+              Write-Host "  - 文件名: ACE-KILLER.exe"
+              Write-Host "  - 文件大小: ${fileSizeMB} MB"
+              Write-Host "  - 创建时间: $($fileInfo.CreationTime.ToString('yyyy-MM-dd HH:mm:ss'))"
+              Write-Host "  - 修改时间: $($fileInfo.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))"
+              
+              # 检查文件版本信息
+              try {
+                $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($fileInfo.FullName)
+                if ($versionInfo) {
+                  Write-Host "  - 产品名称: $($versionInfo.ProductName)"
+                  Write-Host "  - 产品版本: $($versionInfo.ProductVersion)"
+                  Write-Host "  - 文件版本: $($versionInfo.FileVersion)"
+                  Write-Host "  - 版权信息: $($versionInfo.LegalCopyright)"
+                }
+              } catch {
+                Write-Warning "  - 版本信息读取失败: $($_.Exception.Message)"
+              }
             } else {
               Write-Error "❌ 可执行文件未找到"
+              Write-Host "📁 main.dist目录内容:"
+              Get-ChildItem "main.dist" | Format-Table Name, Length, LastWriteTime -AutoSize
+              exit 1
+            }
+            
+            # 检查重要的依赖文件
+            Write-Host ""
+            Write-Host "🔍 依赖文件检查:"
+            $importantFiles = @(
+              "PySide6/QtCore.pyd",
+              "PySide6/QtGui.pyd", 
+              "PySide6/QtWidgets.pyd"
+            )
+            
+            foreach ($file in $importantFiles) {
+              $filePath = "main.dist/$file"
+              if (Test-Path $filePath) {
+                $size = [math]::Round((Get-Item $filePath).Length / 1MB, 2)
+                Write-Host "  ✅ $file ($size MB)"
+              } else {
+                Write-Warning "  ⚠️ $file (未找到)"
+              }
             }
           } else {
             Write-Error "❌ 构建目录未找到"
+            Write-Host "📁 当前目录内容:"
+            Get-ChildItem | Format-Table Name, Length, LastWriteTime -AutoSize
+            exit 1
           }
+          
+          Write-Host ""
+          Write-Host "🎉 构建验证完成！"
         shell: pwsh
         env:
           ACE_KILLER_VERSION: ${{ github.event.inputs.version }}
+
+      - name: 上传构建报告和日志
+        uses: actions/upload-artifact@v4
+        if: always()  # 即使构建失败也上传日志
+        with:
+          name: build-logs-v${{ github.event.inputs.version }}
+          path: |
+            nuitka-build-report.xml
+            nuitka-crash-report.xml
+          retention-days: 30
+          if-no-files-found: ignore
           
       - name: 压缩可执行文件目录
         run: |
