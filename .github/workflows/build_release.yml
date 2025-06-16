@@ -58,7 +58,7 @@ jobs:
           python -m pip install --upgrade pip --quiet
           pip install wheel --quiet
           pip install -r requirements.txt --quiet
-          pip install nuitka zstandard ordered-set --quiet
+          pip install nuitka==2.5.7 zstandard ordered-set --quiet
       - name: 更新版本号
         run: |
           # 更新 VERSION 文件
@@ -106,7 +106,18 @@ jobs:
           # 设置版本号环境变量
           $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
           Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
-
+          
+          # 设置编译器环境变量，避免Nuitka下载编译器
+          $env:NUITKA_DOWNLOAD_CONFIRMATION = "yes"
+          
+          # 检查资源文件
+          $icon_path = "assets/icon/favicon.ico"
+          if (-not (Test-Path $icon_path)) {
+            Write-Warning "⚠️ 主图标文件不存在: $icon_path"
+          } else {
+            Write-Host "✅ 找到主图标文件: $icon_path"
+          }
+          
           if (-not (Test-Path "assets/icon")) {
             Write-Error "❌ assets/icon目录不存在"
             exit 1
@@ -140,6 +151,8 @@ jobs:
             --copyright="Copyright (c) 2025 CassianVale" `
             --nofollow-import-to=tkinter,PIL.ImageTk `
             --prefer-source-code `
+            --python-flag=no_site `
+            --python-flag=no_warnings `
             --report=compilation-report.xml `
             main.py
         shell: pwsh
