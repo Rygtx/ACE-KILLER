@@ -16,9 +16,9 @@ class TitleBarConfig:
     HEIGHT: int = 35
     MARGIN: tuple = (10, 2, 10, 2)
     SPACING: int = 5
-    FONT_SIZE: int = 14
-    BUTTON_SIZE: int = 16
-    ICON_SIZE: int = 10
+    FONT_SIZE: int = 20
+    BUTTON_SIZE: int = 20
+    ICON_SIZE: int = 12
 
     # 按钮颜色配置
     COLORS = {
@@ -90,7 +90,7 @@ class CustomTitleBar(QWidget):
         icon_path = self._get_icon_path("favicon")
         if icon_path:
             icon = QIcon(icon_path)
-            pixmap = icon.pixmap(QSize(16, 16))  # 设置图标大小为16x16
+            pixmap = icon.pixmap(QSize(20, 20))
             self.icon_label.setPixmap(pixmap)
         else:
             logger.warning("favicon图标未找到，跳过图标显示")

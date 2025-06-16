@@ -173,21 +173,24 @@ class ThemeManager(QObject):
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', 'Microsoft YaHei UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Ubuntu, Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }}
 
-        QWidget {{
+        /* === 基础组件样式 === */
+        QGroupBox, QTabWidget::pane, QScrollArea, QFrame {{
             background-color: {colors.GRAY_1};
             color: {colors.GRAY_9};
         }}
         
-        /* === 无边框主窗口透明背景设置 === */
+        /* === 无边框主窗口保持透明 === */
         QWidget[windowType="frameless"] {{
             background-color: transparent;
+            color: {colors.GRAY_9};
         }}
         
-        QTabWidget[windowType="frameless"]::pane {{
-            background-color: transparent;
+        /* === 普通组件文字颜色 === */
+        QWidget {{
+            color: {colors.GRAY_9};
         }}
         
-        /* 选项卡页面透明背景 */
+        /* === 选项卡页面透明背景 === */
         QWidget[tabPage="true"] {{
             background-color: transparent;
         }}
@@ -747,8 +750,8 @@ class ThemeManager(QObject):
             background: none;
         }}
         
-        /* === 消息框样式 === */
-        QMessageBox {{
+        /* === 消息框和对话框样式 === */
+        QMessageBox, QDialog {{
             background-color: {colors.GRAY_1};
             border-radius: 8px;
         }}
