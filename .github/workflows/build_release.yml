@@ -116,6 +116,10 @@ jobs:
           python -c "import urllib3; print(f'✅ urllib3 版本: {urllib3.__version__}')"
           python -c "import packaging; print(f'✅ packaging 版本: {packaging.__version__}')"
           
+          # 获取 certifi 证书文件路径
+          $certifi_path = python -c "import certifi; print(certifi.where())"
+          Write-Host "📄 certifi 证书路径: $certifi_path"
+          
           # 检查资源文件
           $icon_path = "assets/icon/favicon.ico"
           if (-not (Test-Path $icon_path)) {
@@ -138,6 +142,7 @@ jobs:
             --windows-console-mode=force `
             --windows-icon-from-ico=$icon_path `
             --include-data-dir=assets/icon=assets/icon `
+            --include-data-files="$certifi_path=certifi/cacert.pem" `
             --windows-uac-admin `
             --remove-output `
             --enable-plugin=pyside6 `
@@ -148,7 +153,8 @@ jobs:
             --include-package=idna `
             --include-package=packaging `
             --include-package=win32com `
-            --include-data-files=certifi/cacert.pem `
+            --include-package=json `
+            --include-package=threading `
             --lto=yes `
             --output-filename=ACE-KILLER.exe `
             --product-name="ACE-KILLER" `
