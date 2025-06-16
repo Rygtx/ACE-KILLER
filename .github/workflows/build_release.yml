@@ -39,7 +39,7 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'requirements.txt'
 
-      - name: 缓存PySide6和Nuitka
+      - name: 缓存Python依赖和构建工具
         uses: actions/cache@v4
         id: cache-deps
         with:
@@ -48,16 +48,79 @@ jobs:
             ~/.cache/Nuitka
             ~/.local/share/Nuitka
             ~/AppData/Local/pip/Cache
-          key: ${{ runner.os }}-pyside6-nuitka-${{ hashFiles('requirements.txt') }}
+            ~/AppData/Local/Temp/pip-*
+          key: ${{ runner.os }}-python313-deps-${{ hashFiles('requirements.txt') }}-v2
           restore-keys: |
-            ${{ runner.os }}-pyside6-nuitka-
+            ${{ runner.os }}-python313-deps-
+            ${{ runner.os }}-python-deps-
+
+      - name: 检查缓存状态
+        run: |
+          if ($env:CACHE_HIT -eq 'true') {
+            Write-Host "✅ 缓存命中，跳过部分安装步骤"
+          } else {
+            Write-Host "⚠️ 缓存未命中，将进行完整安装"
+          }
+        env:
+          CACHE_HIT: ${{ steps.cache-deps.outputs.cache-hit }}
+        shell: pwsh
 
       - name: 安装依赖
+        timeout-minutes: 10  # 设置10分钟超时
         run: |
-          python -m pip install --upgrade pip --quiet
-          pip install wheel --quiet
-          pip install -r requirements.txt --quiet
-          pip install nuitka zstandard ordered-set --quiet
+          Write-Host "🔄 开始安装Python依赖包..."
+          Write-Host "⏰ 安装开始时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          
+          # 升级pip并显示版本
+          Write-Host "📦 升级pip..."
+          python -m pip install --upgrade pip
+          python -m pip --version
+          
+          # 安装wheel
+          Write-Host "📦 安装wheel..."
+          pip install wheel
+          
+          # 显示requirements.txt内容
+          Write-Host "📋 requirements.txt内容:"
+          Get-Content requirements.txt | ForEach-Object { Write-Host "  $_" }
+          
+          # 分组安装依赖以便调试
+          Write-Host ""
+          Write-Host "📦 安装基础依赖..."
+          pip install --timeout 300 pywin32==310 pillow==11.2.1 psutil==7.0.0 pyyaml==6.0.2 loguru==0.7.3 packaging==24.1 requests==2.31.0
+          
+          Write-Host ""
+          Write-Host "📦 安装Windows特定依赖..."
+          pip install --timeout 300 winsdk==1.0.0b10 win11toast==0.35
+          
+          Write-Host ""
+          Write-Host "📦 安装PySide6 (这可能需要几分钟)..."
+          $pyside6Start = Get-Date
+          pip install --timeout 600 PySide6==6.9.0 --verbose
+          $pyside6End = Get-Date
+          $pyside6Duration = $pyside6End - $pyside6Start
+          Write-Host "✅ PySide6安装完成，耗时: $($pyside6Duration.TotalMinutes.ToString('F2')) 分钟"
+          
+          Write-Host ""
+          Write-Host "📦 安装构建工具..."
+          pip install --timeout 300 nuitka==2.6.7 zstandard ordered-set
+          
+          # 验证关键包安装
+          Write-Host ""
+          Write-Host "🔍 验证关键包安装状态:"
+          $packages = @('PySide6', 'nuitka', 'psutil', 'pillow', 'pywin32')
+          foreach ($pkg in $packages) {
+            try {
+              $version = pip show $pkg | Select-String "Version:" | ForEach-Object { $_.ToString().Split()[1] }
+              Write-Host "  ✅ $pkg : $version"
+            } catch {
+              Write-Warning "  ⚠️ $pkg : 检查失败"
+            }
+          }
+          
+          Write-Host ""
+          Write-Host "⏰ 安装完成时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          Write-Host "🎉 所有依赖安装完成！"
 
       - name: 更新版本号
         run: |
