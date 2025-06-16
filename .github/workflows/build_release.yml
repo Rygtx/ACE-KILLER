@@ -242,6 +242,7 @@ jobs:
             --remove-output `
             --enable-plugin=pyside6 `
             --lto=yes `
+            --jobs=$env:NUMBER_OF_PROCESSORS `
             --output-filename=ACE-KILLER.exe `
             --product-name="ACE-KILLER" `
             --product-version="${{ github.event.inputs.version }}" `
