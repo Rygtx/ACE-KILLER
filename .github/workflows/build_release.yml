@@ -48,8 +48,10 @@ jobs:
             ~/.cache/Nuitka
             ~/.local/share/Nuitka
             ~/AppData/Local/pip/Cache
-          key: ${{ runner.os }}-pyside6-nuitka-${{ hashFiles('requirements.txt') }}
+            ~/AppData/Local/Nuitka/Nuitka/Cache
+          key: ${{ runner.os }}-pyside6-nuitka-gcc-${{ hashFiles('requirements.txt') }}
           restore-keys: |
+            ${{ runner.os }}-pyside6-nuitka-gcc-
             ${{ runner.os }}-pyside6-nuitka-
       - name: 安装依赖
         run: |
@@ -104,6 +106,9 @@ jobs:
           # 设置版本号环境变量
           $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
           Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
+          
+          # 设置编译器环境变量，避免Nuitka下载编译器
+          $env:NUITKA_DOWNLOAD_CONFIRMATION = "yes"
           
           # 检查资源文件
           $icon_path = "assets/icon/favicon.ico"
