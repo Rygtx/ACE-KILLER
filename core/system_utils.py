@@ -8,7 +8,7 @@
 import ctypes
 import os
 import sys
-import winreg
+import win32com.client
 from utils.logger import logger
 
 
@@ -57,7 +57,7 @@ def get_program_path():
 
 def check_auto_start(app_name="ACE-KILLER"):
     """
-    检查是否设置了开机自启
+    检查是否设置了开机自启（通过检查startup文件夹中的快捷方式）
     
     Args:
         app_name (str): 应用名称，默认为ACE-KILLER
@@ -66,22 +66,40 @@ def check_auto_start(app_name="ACE-KILLER"):
         bool: 是否设置了开机自启
     """
     try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
-                              r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 
-                              0, winreg.KEY_READ)
-        try:
-            value, _ = winreg.QueryValueEx(key, app_name)
-            winreg.CloseKey(key)
-            # 检查注册表中的路径是否与当前程序路径一致
-            expected_path = f'"{get_program_path()}"'
-            if value.lower() != expected_path.lower():
-                logger.warning(f"注册表中的自启路径与当前程序路径不一致，将更新。注册表:{value}，当前:{expected_path}")
-                # 需要更新为正确的路径
-                return False
-            return True
-        except FileNotFoundError:
-            winreg.CloseKey(key)
+        # 获取startup文件夹路径
+        startup_folder = os.path.join(os.path.expanduser("~"), 
+                                    "AppData", "Roaming", "Microsoft", "Windows", 
+                                    "Start Menu", "Programs", "Startup")
+        
+        # 快捷方式文件路径
+        shortcut_path = os.path.join(startup_folder, f"{app_name}.lnk")
+        
+        # 检查快捷方式是否存在
+        if not os.path.exists(shortcut_path):
             return False
+        
+        # 检查快捷方式是否指向当前程序
+        try:
+            shell = win32com.client.Dispatch("WScript.Shell")
+            shortcut = shell.CreateShortCut(shortcut_path)
+            target_path = shortcut.TargetPath
+            arguments = shortcut.Arguments
+            
+            current_path = get_program_path()
+            expected_args = "--minimized"
+            
+            # 比较路径和参数
+            if (target_path.lower() == current_path.lower() and 
+                arguments.strip() == expected_args):
+                return True
+            else:
+                logger.warning(f"快捷方式路径或参数不一致，将更新。目标:{target_path}，参数:{arguments}，当前:{current_path}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"读取快捷方式信息失败: {str(e)}")
+            return False
+            
     except Exception as e:
         logger.error(f"检查开机自启状态失败: {str(e)}")
         return False
@@ -89,7 +107,7 @@ def check_auto_start(app_name="ACE-KILLER"):
 
 def enable_auto_start(app_name="ACE-KILLER"):
     """
-    设置开机自启
+    设置开机自启（通过在startup文件夹中创建快捷方式）
     
     Args:
         app_name (str): 应用名称，默认为ACE-KILLER
@@ -98,15 +116,32 @@ def enable_auto_start(app_name="ACE-KILLER"):
         bool: 操作是否成功
     """
     try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
-                              r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 
-                              0, winreg.KEY_SET_VALUE)
-        program_path = get_program_path()
-        # 开机自启时自动最小化到托盘
-        winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{program_path}" --minimized')
-        winreg.CloseKey(key)
-        logger.debug("已设置开机自启（将最小化到托盘启动）")
+        # 获取startup文件夹路径
+        startup_folder = os.path.join(os.path.expanduser("~"), 
+                                    "AppData", "Roaming", "Microsoft", "Windows", 
+                                    "Start Menu", "Programs", "Startup")
+        
+        # 确保startup文件夹存在
+        if not os.path.exists(startup_folder):
+            os.makedirs(startup_folder, exist_ok=True)
+        
+        # 快捷方式文件路径
+        shortcut_path = os.path.join(startup_folder, f"{app_name}.lnk")
+        
+        # 创建快捷方式
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortCut(shortcut_path)
+        shortcut.TargetPath = get_program_path()
+        shortcut.Arguments = "--minimized"  # 开机自启时自动最小化到托盘
+        shortcut.Description = f"{app_name}"
+        shortcut.WorkingDirectory = os.path.dirname(get_program_path())
+        
+        # 保存快捷方式
+        shortcut.save()
+        
+        logger.debug(f"已设置开机自启（将最小化到托盘启动），快捷方式路径: {shortcut_path}")
         return True
+        
     except Exception as e:
         logger.error(f"设置开机自启失败: {str(e)}")
         return False
@@ -114,7 +149,7 @@ def enable_auto_start(app_name="ACE-KILLER"):
 
 def disable_auto_start(app_name="ACE-KILLER"):
     """
-    取消开机自启
+    取消开机自启（删除startup文件夹中的快捷方式）
     
     Args:
         app_name (str): 应用名称，默认为ACE-KILLER
@@ -123,17 +158,23 @@ def disable_auto_start(app_name="ACE-KILLER"):
         bool: 操作是否成功
     """
     try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
-                              r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 
-                              0, winreg.KEY_SET_VALUE)
-        try:
-            winreg.DeleteValue(key, app_name)
-        except FileNotFoundError:
-            # 注册表项不存在，无需删除
-            pass
-        winreg.CloseKey(key)
-        logger.debug("已取消开机自启")
+        # 获取startup文件夹路径
+        startup_folder = os.path.join(os.path.expanduser("~"), 
+                                    "AppData", "Roaming", "Microsoft", "Windows", 
+                                    "Start Menu", "Programs", "Startup")
+        
+        # 快捷方式文件路径
+        shortcut_path = os.path.join(startup_folder, f"{app_name}.lnk")
+        
+        # 删除快捷方式文件
+        if os.path.exists(shortcut_path):
+            os.remove(shortcut_path)
+            logger.debug(f"已取消开机自启，删除快捷方式: {shortcut_path}")
+        else:
+            logger.debug("快捷方式不存在，无需删除")
+        
         return True
+        
     except Exception as e:
         logger.error(f"取消开机自启失败: {str(e)}")
         return False 
