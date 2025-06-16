@@ -158,8 +158,6 @@ jobs:
             --prefer-source-code `
             --python-flag=no_site `
             --python-flag=no_warnings `
-            --disable-cache=all `
-            --clean-cache=all `
             --show-progress `
             --show-memory `
             --verbose `
