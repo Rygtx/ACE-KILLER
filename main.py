@@ -97,9 +97,9 @@ def main():
         # 设置通知线程停止事件
         stop_event.set()
         # 等待通知线程结束
-        notification_thread_obj.join(timeout=1.0)
+        notification_thread_obj.join(timeout=0.3)
         
-    logger.debug("🔴 ACE-KILLER 程序已终止！")
+        logger.debug("🔴 ACE-KILLER 程序已终止！")
 
 
 if __name__ == "__main__":

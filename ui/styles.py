@@ -511,36 +511,141 @@ class ThemeManager(QObject):
         }}
         
         /* === 选项卡样式 === */
+        /* 选项卡容器面板 - 关键的圆角处理 */
         QTabWidget::pane {{
             border: 1px solid {colors.GRAY_4};
-            border-radius: 6px;
             background-color: {colors.GRAY_1};
-            margin-top: -1px;
+            /* 面板的圆角处理：左上角需要根据选中的标签位置动态处理 */
+            border-top-left-radius: 0px;   /* 如果第一个标签被选中，这里需要是0 */
+            border-top-right-radius: 6px;  /* 右上角始终有圆角 */
+            border-bottom-left-radius: 6px; /* 左下角圆角 */
+            border-bottom-right-radius: 6px; /* 右下角圆角 */
+            margin-top: -1px; /* 与选中标签无缝连接 */
+            padding: 8px;
         }}
         
+        /* 选项卡标签样式 */
         QTabBar::tab {{
             background-color: {colors.GRAY_2};
             color: {colors.GRAY_8};
-            padding: 6px 12px;
-            margin-right: 1px;
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
+            padding: 8px 16px;
+            margin-right: 0px; /* 去掉标签间距 */
+            margin-bottom: 0px;
             border: 1px solid {colors.GRAY_4};
-            border-bottom: none;
+            border-bottom: none; /* 底部无边框，与面板融合 */
+            border-right: none; /* 右边框去掉，与下一个标签无缝連接 */
             font-size: 12px;
-            min-width: 70px;
+            font-weight: 500;
+            min-width: 80px;
+            min-height: 20px;
+            /* 默认不显示圆角 */
+            border-top-left-radius: 0px;
+            border-top-right-radius: 0px;
+            border-bottom-left-radius: 0px;
+            border-bottom-right-radius: 0px;
         }}
         
+        /* 选中的标签 */
         QTabBar::tab:selected {{
-            background-color: {colors.GRAY_1};
+            background-color: {colors.GRAY_1}; /* 与面板颜色一致 */
             color: {colors.PRIMARY_6};
             border-color: {colors.GRAY_4};
-            border-bottom-color: {colors.GRAY_1};
+            border-bottom-color: {colors.GRAY_1}; /* 底部边框与面板颜色一致，实现无缝连接 */
+            border-right: none; /* 右边框去掉，与下一个标签无缝連接 */
+            margin-bottom: -1px; /* 向下延伸1px，确保完全覆盖面板边框 */
+            z-index: 1; /* 确保选中标签在最上层 */
         }}
         
+        /* 第一个标签被选中时的特殊处理 */
+        QTabBar::tab:selected:first {{
+            border-top-left-radius: 6px; /* 左上角圆角 */
+            border-left: 1px solid {colors.GRAY_4}; /* 恢复左边框 */
+        }}
+        
+        /* 最后一个标签被选中时的特殊处理 */
+        QTabBar::tab:selected:last {{
+            border-top-right-radius: 6px; /* 右上角圆角 */
+            border-right: 1px solid {colors.GRAY_4}; /* 恢复右边框 */
+        }}
+        
+        /* 未选中标签的悬停效果 */
         QTabBar::tab:hover:!selected {{
             background-color: {colors.GRAY_3};
             color: {colors.GRAY_9};
+            border-color: {colors.PRIMARY_4};
+            border-right: none; /* 右边框去掉，与下一个标签无缝連接 */
+        }}
+        
+        /* 第一个标签悬停时的特殊处理 */
+        QTabBar::tab:hover:!selected:first {{
+            border-left: 1px solid {colors.PRIMARY_4}; /* 恢复左边框 */
+        }}
+        
+        /* 最后一个标签悬停时的特殊处理 */
+        QTabBar::tab:hover:!selected:last {{
+            border-right: 1px solid {colors.PRIMARY_4}; /* 恢复右边框 */
+        }}
+        
+        /* 第一个标签的特殊样式 */
+        QTabBar::tab:first {{
+            margin-left: 0px; /* 第一个标签左边距为0 */
+            border-top-left-radius: 6px; /* 只有左上角圆角 */
+            border-left: 1px solid {colors.GRAY_4}; /* 恢复左边框 */
+        }}
+        
+        /* 最后一个标签的特殊样式 */
+        QTabBar::tab:last {{
+            margin-right: 0px; /* 最后一个标签右边距为0 */
+            border-top-right-radius: 6px; /* 只有右上角圆角 */
+            border-right: 1px solid {colors.GRAY_4}; /* 恢复右边框 */
+        }}
+        
+        /* 选项卡在不同位置时的圆角处理 */
+        QTabWidget[tabPosition="North"] QTabWidget::pane {{
+            border-top-left-radius: 0px;
+            border-top-right-radius: 6px;
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }}
+        
+        QTabWidget[tabPosition="South"] QTabWidget::pane {{
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            border-bottom-left-radius: 0px;
+            border-bottom-right-radius: 6px;
+        }}
+        
+        QTabWidget[tabPosition="West"] QTabWidget::pane {{
+            border-top-left-radius: 0px;
+            border-top-right-radius: 6px;
+            border-bottom-left-radius: 0px;
+            border-bottom-right-radius: 6px;
+        }}
+        
+        QTabWidget[tabPosition="East"] QTabWidget::pane {{
+            border-top-left-radius: 6px;
+            border-top-right-radius: 0px;
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 0px;
+        }}
+        
+        /* 禁用状态的标签 */
+        QTabBar::tab:disabled {{
+            background-color: {colors.GRAY_3};
+            color: {colors.GRAY_6};
+            border-color: {colors.GRAY_4};
+        }}
+        
+        /* 选项卡栏本身的样式 */
+        QTabBar {{
+            background-color: transparent;
+            border: none;
+        }}
+        
+        /* 选项卡内容区域的滚动条 */
+        QTabWidget QScrollArea {{
+            border: none;
+            background-color: transparent;
         }}
         
         /* === 标签样式 === */
