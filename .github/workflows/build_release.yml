@@ -141,8 +141,8 @@ jobs:
       - name: 使用Nuitka打包应用程序
         run: |
           # 设置版本号环境变量
-          $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
-          Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
+          $env:ACE_KILLER_VERSION = "v${{ github.event.inputs.version }}"
+          Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION= v"${{ github.event.inputs.version }}" "
           
           # 显示系统信息
           Write-Host "🖥️ 系统信息:"
@@ -212,17 +212,17 @@ jobs:
               --lto=yes `
               --output-filename=ACE-KILLER.exe `
               --product-name="ACE-KILLER" `
-              --product-version="${{ github.event.inputs.version }}" `
-              --copyright="Copyright (c) 2025 CassianVale" `
               --nofollow-import-to=tkinter,PIL.ImageTk `
               --prefer-source-code `
               --python-flag=no_site `
               --python-flag=no_warnings `
-              --verbose `
+              --disable-cache=all `
+              --clean-cache=all `
               --show-scons `
               --show-progress `
               --show-memory `
               --report=compilation-report.xml `
+              --mingw64 `
               --jobs=$env:NUMBER_OF_PROCESSORS `
               main.py
               
@@ -278,7 +278,7 @@ jobs:
           Write-Host "🔍 验证构建结果..."
           
           # 检查环境变量
-          Write-Host "环境变量 ACE_KILLER_VERSION: $env:ACE_KILLER_VERSION"
+          Write-Host "环境变量 ACE_KILLER_VERSION: v{{$env:ACE_KILLER_VERSION}"
           
           # 检查VERSION文件
           if (Test-Path "VERSION") {
