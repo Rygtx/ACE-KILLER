@@ -51,16 +51,12 @@ jobs:
           key: ${{ runner.os }}-pyside6-nuitka-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pyside6-nuitka-
-
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip --quiet
           pip install wheel --quiet
           pip install -r requirements.txt --quiet
           pip install nuitka zstandard ordered-set --quiet
-          # 确保网络相关依赖项正确安装
-          pip install requests urllib3 certifi charset-normalizer idna --quiet
-
       - name: 更新版本号
         run: |
           # 更新 VERSION 文件
@@ -106,19 +102,8 @@ jobs:
       - name: 使用Nuitka打包应用程序
         run: |
           # 设置版本号环境变量
-          $env:ACE_KILLER_VERSION = "v${{ github.event.inputs.version }}"
-          Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION= v"${{ github.event.inputs.version }}" "
-          
-          # 验证关键依赖项
-          Write-Host "🔍 验证关键依赖项..."
-          python -c "import requests; print(f'✅ requests 版本: {requests.__version__}')"
-          python -c "import certifi; print(f'✅ certifi 版本: {certifi.__version__}'); print(f'证书文件路径: {certifi.where()}')" 
-          python -c "import urllib3; print(f'✅ urllib3 版本: {urllib3.__version__}')"
-          python -c "import packaging; print(f'✅ packaging 版本: {packaging.__version__}')"
-          
-          # 获取 certifi 证书文件路径
-          $certifi_path = python -c "import certifi; print(certifi.where())"
-          Write-Host "📄 certifi 证书路径: $certifi_path"
+          $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
+          Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
           
           # 检查资源文件
           $icon_path = "assets/icon/favicon.ico"
@@ -139,23 +124,15 @@ jobs:
           
           python -m nuitka --standalone `
             --assume-yes-for-downloads `
-            --windows-console-mode=force `
+            --windows-console-mode=disable `
             --windows-icon-from-ico=$icon_path `
             --include-data-dir=assets/icon=assets/icon `
-            --include-data-files="$certifi_path=certifi/cacert.pem" `
+            --include-package=requests `
             --windows-uac-admin `
             --remove-output `
             --enable-plugin=pyside6 `
-            --include-package=requests `
-            --include-package=urllib3 `
-            --include-package=certifi `
-            --include-package=charset_normalizer `
-            --include-package=idna `
-            --include-package=packaging `
-            --include-package=win32com `
-            --include-package=json `
-            --include-package=threading `
             --lto=yes `
+            --jobs=$env:NUMBER_OF_PROCESSORS `
             --output-filename=ACE-KILLER.exe `
             --product-name="ACE-KILLER" `
             --product-version="${{ github.event.inputs.version }}" `
@@ -164,10 +141,6 @@ jobs:
             --prefer-source-code `
             --python-flag=no_site `
             --python-flag=no_warnings `
-            --show-progress `
-            --show-memory `
-            --verbose `
-            --report=compilation-report.xml `
             main.py
         shell: pwsh
         env:
@@ -237,9 +210,14 @@ jobs:
             ${{ github.event.inputs.release_notes }}
             
             ### 📥 安装说明
-            1. 下载 zip 压缩包文件
+            1. 下载 `ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip` 文件
             2. 解压到任意目录
             3. 右键点击 `ACE-KILLER.exe`，选择"以管理员身份运行"
+            4. 首次运行时，可在设置页面检查是否为最新版本
+            
+            ### ⚠️ 系统要求
+            - Windows 10/11 x64
+            - 需要管理员权限
             
             ### 🔍 如何检查更新
             1. 打开程序主界面
