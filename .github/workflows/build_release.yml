@@ -23,7 +23,6 @@ jobs:
     env:
       PYTHONIOENCODING: utf-8
       PYTHONLEGACYWINDOWSSTDIO: 1
-      NUITKA_DOWNLOAD_CONFIRMATION: 1
       PIP_DISABLE_PIP_VERSION_CHECK: 1
       PYTHONOPTIMIZE: 1
     steps:
@@ -39,6 +38,37 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'requirements.txt'
 
+      - name: 设置MSYS2/MinGW-w64环境
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          path-type: minimal
+          release: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gcc-libs
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-headers-git
+            mingw-w64-x86_64-crt-git
+            mingw-w64-x86_64-winpthreads-git
+          
+      - name: 配置编译器环境
+        shell: msys2 {0}
+        run: |
+          # 验证GCC安装和版本
+          echo "🔧 验证MSYS2 MinGW-w64环境:"
+          gcc --version
+          g++ --version
+          which gcc
+          which g++
+          
+          # 显示编译器详细信息
+          echo "📋 编译器详细信息:"
+          gcc -v 2>&1 | tail -5
+          
+          echo "✅ MSYS2 MinGW-w64环境配置完成"
+
       - name: 缓存PySide6和Nuitka
         uses: actions/cache@v4
         id: cache-deps
@@ -49,20 +79,24 @@ jobs:
             ~/.local/share/Nuitka
             ~/AppData/Local/pip/Cache
             ~/AppData/Local/Nuitka/Nuitka/Cache
-          key: ${{ runner.os }}-pyside6-nuitka-gcc-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pyside6-nuitka-msys2-${{ hashFiles('requirements.txt') }}-v3
           restore-keys: |
-            ${{ runner.os }}-pyside6-nuitka-gcc-
-            ${{ runner.os }}-pyside6-nuitka-
-      - name: 安装依赖
+            ${{ runner.os }}-pyside6-nuitka-msys2-${{ hashFiles('requirements.txt') }}-
+            ${{ runner.os }}-pyside6-nuitka-msys2-
+            ${{ runner.os }}-pyside6-nuitka-mingw64-
+      - name: 安装Python依赖
         run: |
-          python -m pip install --upgrade pip --quiet
-          pip install wheel --quiet
+          Write-Host "📦 安装Python依赖..."
+          python -m pip install --upgrade pip wheel --quiet
           pip install "certifi>=2025.4.26" --quiet
           pip install -r requirements.txt --quiet
-          pip install nuitka==2.5.7 zstandard ordered-set --quiet
-      - name: 更新版本号
+          pip install nuitka==2.6.7 zstandard ordered-set --quiet
+          Write-Host "✅ Python依赖安装完成"
+      - name: 准备构建环境
         run: |
-          # 更新 VERSION 文件
+          Write-Host "🔧 准备构建环境..."
+          
+          # 更新版本号
           echo "${{ github.event.inputs.version }}" | Out-File -FilePath "VERSION" -Encoding utf8 -NoNewline
           Write-Host "✅ 已更新 VERSION 文件为: ${{ github.event.inputs.version }}"
           
@@ -71,46 +105,23 @@ jobs:
           if (Test-Path $versionCheckerPath) {
             (Get-Content -Path $versionCheckerPath -Raw) -replace '__version__ = ".*"', '__version__ = "${{ github.event.inputs.version }}"' | Set-Content -Path $versionCheckerPath -Encoding utf8
             Write-Host "✅ 已更新 version_checker.py 中的版本号"
-          } else {
-            Write-Warning "⚠️ 未找到 version_checker.py 文件"
           }
           
-          # 验证版本号更新
-          Write-Host "📋 VERSION 文件内容:"
-          Get-Content "VERSION"
-          
-          Write-Host "📋 version_checker.py 中的版本号:"
-          Select-String -Path $versionCheckerPath -Pattern '__version__ = ".*"'
-        shell: pwsh
-      
-      - name: 清理构建环境
-        run: |
-          # 清理可能存在的构建文件
-          if (Test-Path "main.dist") { Remove-Item -Recurse -Force "main.dist" }
-          if (Test-Path "main.build") { Remove-Item -Recurse -Force "main.build" }
-          if (Test-Path "main.onefile-build") { Remove-Item -Recurse -Force "main.onefile-build" }
-          if (Test-Path "nuitka-crash-report.xml") { Remove-Item -Force "nuitka-crash-report.xml" }
+          # 清理构建文件
+          @("main.dist", "main.build", "main.onefile-build", "nuitka-crash-report.xml") | ForEach-Object {
+            if (Test-Path $_) { Remove-Item -Recurse -Force $_ }
+          }
           
           # 清理Python缓存
           Get-ChildItem -Path . -Recurse -Name "__pycache__" -ErrorAction SilentlyContinue | ForEach-Object { 
             try { Remove-Item -Recurse -Force $_ } catch { Write-Warning "无法删除: $_" }
           }
-          Get-ChildItem -Path . -Recurse -Name "*.pyc" -ErrorAction SilentlyContinue | ForEach-Object { 
-            try { Remove-Item -Force $_ } catch { Write-Warning "无法删除: $_" }
-          }
           
-          Write-Host "✅ 构建环境已清理"
+          Write-Host "✅ 构建环境准备完成"
         shell: pwsh
 
       - name: 使用Nuitka打包应用程序
         run: |
-          # 设置版本号环境变量
-          $env:ACE_KILLER_VERSION = "${{ github.event.inputs.version }}"
-          Write-Host "🔧 设置环境变量 ACE_KILLER_VERSION=$env:ACE_KILLER_VERSION"
-          
-          # 设置编译器环境变量，避免Nuitka下载编译器
-          $env:NUITKA_DOWNLOAD_CONFIRMATION = "yes"
-          
           # 检查资源文件
           $icon_path = "assets/icon/favicon.ico"
           if (-not (Test-Path $icon_path)) {
@@ -122,24 +133,24 @@ jobs:
           if (-not (Test-Path "assets/icon")) {
             Write-Error "❌ assets/icon目录不存在"
             exit 1
-          } else {
-            Write-Host "✅ 找到assets/icon资源目录"
-            Write-Host "📁 assets/icon目录内容:"
-            Get-ChildItem -Recurse "assets/icon" | Format-Table Name, FullName -AutoSize
           }
           
-          # 显示编译器信息
-          Write-Host "🔧 当前编译器信息:"
-          try { gcc --version | Select-Object -First 1 } catch { Write-Warning "GCC不可用" }
+          # 验证编译器可用性
+          Write-Host "🔧 验证编译器环境:"
+          try {
+            $gccPath = (Get-Command gcc -ErrorAction Stop).Source
+            Write-Host "✅ 找到GCC: $gccPath"
+            gcc --version | Select-Object -First 1
+          } catch {
+            Write-Error "❌ 无法找到GCC编译器"
+            exit 1
+          }
           
+          Write-Host "🚀 开始Nuitka编译..."
           python -m nuitka --standalone `
-            --assume-yes-for-downloads `
             --windows-console-mode=disable `
             --windows-icon-from-ico=$icon_path `
             --include-data-dir=assets/icon=assets/icon `
-            --include-package=requests `
-            --include-package=certifi `
-            --include-package-data=certifi `
             --windows-uac-admin `
             --remove-output `
             --enable-plugin=pyside6 `
@@ -166,40 +177,31 @@ jobs:
         run: |
           Write-Host "🔍 验证构建结果..."
           
-          # 检查环境变量
-          Write-Host "环境变量 ACE_KILLER_VERSION: $env:ACE_KILLER_VERSION"
+          # 检查关键文件
+          $checks = @(
+            @{ Path = "VERSION"; Name = "版本文件" },
+            @{ Path = "compilation-report.xml"; Name = "编译报告" },
+            @{ Path = "main.dist"; Name = "构建目录" },
+            @{ Path = "main.dist/ACE-KILLER.exe"; Name = "可执行文件" }
+          )
           
-          # 检查VERSION文件
-          if (Test-Path "VERSION") {
-            $versionFileContent = Get-Content "VERSION" -Raw
-            Write-Host "VERSION文件内容: '$versionFileContent'"
-          }
-          
-          # 检查编译报告
-          if (Test-Path "compilation-report.xml") {
-            Write-Host "✅ 编译报告已生成"
-          } else {
-            Write-Warning "⚠️ 编译报告未找到"
-          }
-          
-          # 检查构建是否成功
-          if (Test-Path "main.dist") {
-            Write-Host "✅ 构建目录存在"
-            
-            # 检查可执行文件
-            if (Test-Path "main.dist/ACE-KILLER.exe") {
-              $fileInfo = Get-Item "main.dist/ACE-KILLER.exe"
-              $fileSizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
-              Write-Host "✅ 可执行文件已生成 (大小: ${fileSizeMB} MB)"
+          foreach ($check in $checks) {
+            if (Test-Path $check.Path) {
+              if ($check.Path -eq "main.dist/ACE-KILLER.exe") {
+                $fileInfo = Get-Item $check.Path
+                $fileSizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
+                Write-Host "✅ $($check.Name) (大小: ${fileSizeMB} MB)"
+              } else {
+                Write-Host "✅ $($check.Name)"
+              }
             } else {
-              Write-Error "❌ 可执行文件未找到"
+              Write-Error "❌ $($check.Name) 未找到: $($check.Path)"
+              if ($check.Path -eq "main.dist/ACE-KILLER.exe") { exit 1 }
             }
-          } else {
-            Write-Error "❌ 构建目录未找到"
           }
+          
+          Write-Host "🎉 构建验证完成！"
         shell: pwsh
-        env:
-          ACE_KILLER_VERSION: ${{ github.event.inputs.version }}
 
       - name: 上传编译报告
         if: always()
