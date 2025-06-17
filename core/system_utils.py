@@ -37,8 +37,45 @@ def check_single_instance():
     mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Global\\ACE-KILLER_MUTEX")
     if ctypes.windll.kernel32.GetLastError() == 183:
         logger.warning("程序已经在运行中，无法启动多个实例！")
+        
+        # 显示提醒弹窗
+        show_already_running_dialog()
         return False
     return True
+
+
+def show_already_running_dialog():
+    """
+    显示程序已运行的提醒对话框
+    """
+    try:
+        # 使用Windows API显示消息框
+        message = (
+            "ACE-KILLER 已经在运行中！\n\n"
+            "程序只允许运行一个实例。\n"
+            "请检查系统托盘是否有ACE-KILLER图标。\n\n"
+            "如果找不到运行中的程序，请尝试：\n"
+            "• 检查任务管理器中是否有ACE-KILLER进程\n"
+            "• 重启电脑后再次运行程序"
+        )
+        
+        title = "ACE-KILLER - 程序已运行"
+        
+        # 使用Windows API显示消息框
+        # MB_OK = 0x00000000, MB_ICONINFORMATION = 0x00000040, MB_TOPMOST = 0x00040000
+        ctypes.windll.user32.MessageBoxW(
+            0,  # 父窗口句柄
+            message,  # 消息内容
+            title,  # 标题
+            0x00000040 | 0x00040000  # MB_ICONINFORMATION | MB_TOPMOST
+        )
+        
+        logger.debug("已显示程序重复运行提醒对话框")
+        
+    except Exception as e:
+        logger.error(f"显示程序重复运行对话框失败: {str(e)}")
+        # 如果显示对话框失败，至少在控制台输出信息
+        print("ACE-KILLER 已经在运行中，无法启动多个实例！")
 
 
 def get_program_path():
