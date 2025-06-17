@@ -50,7 +50,7 @@
    - 📁 打开配置目录
    - 🚪 退出程序
 
-## 项目展示
+## 🏠 项目展示
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/Cassianvale/ACE-KILLER/main/assets/image/1.png" width="45%" alt="应用界面预览">
@@ -66,7 +66,7 @@
   <img src="https://raw.githubusercontent.com/Cassianvale/ACE-KILLER/main/assets/image/5.png" width="80%" alt="进程监控界面预览2">
 </div>
 
-## 进程模式策略
+## 😶‍🌫️ 进程模式策略
 
 | 性能模式    | CPU 优先级             | 效能节流     | CPU 亲和性   |
 | ----------- | ---------------------- | ------------ | ------------ |
