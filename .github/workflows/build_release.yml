@@ -57,6 +57,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip --quiet
           pip install wheel --quiet
+          pip install "certifi>=2025.4.26" --quiet
           pip install -r requirements.txt --quiet
           pip install nuitka==2.5.7 zstandard ordered-set --quiet
       - name: 更新版本号

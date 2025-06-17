@@ -1381,13 +1381,8 @@ class MainWindow(QWidget):
             has_update, current_ver, latest_ver, update_info_str, error_msg
         )
         
-        # 解包结果，支持新的格式
-        if len(result) == 4:
-            title, message, msg_type, extra_data = result
-        else:
-            # 兼容旧格式
-            title, message, msg_type = result
-            extra_data = {}
+        # 解包结果
+        title, message, msg_type, extra_data = result
         
         import webbrowser
         
