@@ -439,8 +439,8 @@ class ThemeManager(QObject):
         }}
         
         QRadioButton::indicator {{
-            width: 14px;
-            height: 14px;
+            width: 12px;
+            height: 12px;
             border-radius: 7px;
             border: 1px solid {colors.GRAY_5};
             background-color: {colors.GRAY_1};
@@ -451,14 +451,40 @@ class ThemeManager(QObject):
         }}
         
         QRadioButton::indicator:checked {{
+            width: 12px;
+            height: 12px;
+            border-radius: 7px;
             border: 2px solid {colors.PRIMARY_6};
             background-color: {colors.GRAY_1};
-            image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOCIgaGVpZ2h0PSI4IiB2aWV3Qm94PSIwIDAgOCA4IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUgY3g9IjQiIGN5PSI0IiByPSI0IiBmaWxsPSIjMTg5MGZmIi8+PC9zdmc+);
+            /* 使用radial-gradient创建内部圆点 */
+            background: qradialgradient(cx:0.5, cy:0.5, radius:0.45, fx:0.5, fy:0.5, 
+                stop:0 {colors.PRIMARY_6}, 
+                stop:0.5 {colors.PRIMARY_6}, 
+                stop:0.6 {colors.GRAY_1}, 
+                stop:1 {colors.GRAY_1});
+        }}
+        
+        QRadioButton::indicator:checked:hover {{
+            border-color: {colors.PRIMARY_5};
+            background: qradialgradient(cx:0.5, cy:0.5, radius:0.45, fx:0.5, fy:0.5, 
+                stop:0 {colors.PRIMARY_5}, 
+                stop:0.5 {colors.PRIMARY_5}, 
+                stop:0.6 {colors.GRAY_1}, 
+                stop:1 {colors.GRAY_1});
         }}
         
         QRadioButton::indicator:disabled {{
             background-color: {colors.GRAY_3};
             border-color: {colors.GRAY_4};
+        }}
+        
+        QRadioButton::indicator:checked:disabled {{
+            border-color: {colors.GRAY_4};
+            background: qradialgradient(cx:0.5, cy:0.5, radius:0.45, fx:0.5, fy:0.5, 
+                stop:0 {colors.GRAY_6}, 
+                stop:0.5 {colors.GRAY_6}, 
+                stop:0.6 {colors.GRAY_3}, 
+                stop:1 {colors.GRAY_3});
         }}
         
         /* === 进度条样式 === */
