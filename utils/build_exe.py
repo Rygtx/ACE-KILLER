@@ -2,6 +2,8 @@ import os
 import sys
 import subprocess
 import shutil
+import argparse
+import re
 from utils.logger import logger
 
 # 设置标准输出编码为UTF-8，解决Windows环境下中文输出问题
@@ -20,6 +22,149 @@ root_dir = os.path.dirname(current_dir)
 
 # 设置图标文件路径
 icon_path = os.path.join(root_dir, 'assets', 'icon', 'favicon.ico')
+assets_icon_dir = os.path.join(root_dir, 'assets', 'icon')
+
+# 检查资源文件是否存在
+if not os.path.exists(icon_path):
+    logger.error(f"图标文件不存在: {icon_path}")
+    sys.exit(1)
+
+if not os.path.exists(assets_icon_dir):
+    logger.error(f"图标资源目录不存在: {assets_icon_dir}")
+    sys.exit(1)
+
+logger.info(f"图标文件路径: {icon_path}")
+logger.info(f"图标资源目录: {assets_icon_dir}")
+
+# 列出要包含的图标资源文件
+icon_files = [f for f in os.listdir(assets_icon_dir) if os.path.isfile(os.path.join(assets_icon_dir, f))]
+logger.info(f"将包含的图标资源文件: {', '.join(icon_files)}")
+
+def get_current_version():
+    """获取当前版本号"""
+    version_file = os.path.join(root_dir, 'VERSION')
+    if os.path.exists(version_file):
+        with open(version_file, 'r', encoding='utf-8') as f:
+            return f.read().strip()
+    return "1.0.0"
+
+def update_version(new_version):
+    """更新VERSION文件和version_checker.py中的版本号"""
+    version_file = os.path.join(root_dir, 'VERSION')
+    version_checker_file = os.path.join(root_dir, 'utils', 'version_checker.py')
+    
+    # 验证版本号格式
+    if not re.match(r'^\d+\.\d+\.\d+$', new_version):
+        logger.error(f"版本号格式错误: {new_version}，应为 x.y.z 格式")
+        return False
+    
+    try:
+        # 更新VERSION文件
+        with open(version_file, 'w', encoding='utf-8') as f:
+            f.write(new_version + '\n')
+        logger.success(f"VERSION文件已更新为: {new_version}")
+        
+        # 更新version_checker.py中的__version__
+        if os.path.exists(version_checker_file):
+            with open(version_checker_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 使用正则表达式替换__version__的值
+            updated_content = re.sub(
+                r'__version__ = "[^"]*"',
+                f'__version__ = "{new_version}"',
+                content
+            )
+            
+            with open(version_checker_file, 'w', encoding='utf-8') as f:
+                f.write(updated_content)
+            logger.success(f"version_checker.py中的__version__已更新为: {new_version}")
+        else:
+            logger.warning("未找到version_checker.py文件，跳过__version__更新")
+        
+        return True
+    except Exception as e:
+        logger.error(f"更新版本号失败: {str(e)}")
+        return False
+
+def verify_version_sync():
+    """验证VERSION文件和version_checker.py中的版本号是否同步"""
+    try:
+        # 读取VERSION文件
+        version_file = os.path.join(root_dir, 'VERSION')
+        version_from_file = "未找到"
+        if os.path.exists(version_file):
+            with open(version_file, 'r', encoding='utf-8') as f:
+                version_from_file = f.read().strip()
+        
+        # 读取version_checker.py中的__version__
+        version_checker_file = os.path.join(root_dir, 'utils', 'version_checker.py')
+        version_from_code = "未找到"
+        if os.path.exists(version_checker_file):
+            with open(version_checker_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                match = re.search(r'__version__ = "([^"]*)"', content)
+                if match:
+                    version_from_code = match.group(1)
+        
+        logger.info(f"版本号验证:")
+        logger.info(f"  VERSION文件: {version_from_file}")
+        logger.info(f"  version_checker.py: {version_from_code}")
+        
+        if version_from_file == version_from_code:
+            logger.success("✅ 版本号同步正常")
+            return True
+        else:
+            logger.warning("⚠️ 版本号不同步，建议更新")
+            return False
+            
+    except Exception as e:
+        logger.error(f"验证版本号同步失败: {str(e)}")
+        return False
+
+def parse_arguments():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(description='ACE-KILLER Nuitka 打包工具')
+    parser.add_argument('-v', '--version', 
+                       help='指定新版本号 (格式: x.y.z)',
+                       type=str)
+    parser.add_argument('--no-version-update', 
+                       action='store_true',
+                       help='跳过版本号更新')
+    return parser.parse_args()
+
+# 解析命令行参数
+args = parse_arguments()
+
+# 获取当前版本号
+current_version = get_current_version()
+logger.info(f"当前版本号: {current_version}")
+
+# 验证版本号同步状态
+verify_version_sync()
+
+# 处理版本号更新
+if not args.no_version_update:
+    if args.version:
+        # 使用命令行指定的版本号
+        new_version = args.version
+        if update_version(new_version):
+            current_version = new_version
+        else:
+            sys.exit(1)
+    else:
+        # 交互式输入新版本号
+        print(f"\n当前版本号: {current_version}")
+        user_input = input("请输入新版本号 (格式: x.y.z，直接回车跳过): ").strip()
+        if user_input:
+            if update_version(user_input):
+                current_version = user_input
+            else:
+                sys.exit(1)
+        else:
+            logger.info("跳过版本号更新")
+
+logger.info(f"使用版本号进行打包: {current_version}")
 
 # 确保nuitka已安装
 try:
@@ -46,7 +191,7 @@ cmd = [
     "--standalone",  # 生成独立可执行文件
     "--windows-console-mode=disable",  # 禁用控制台
     "--windows-icon-from-ico=" + icon_path,  # 设置图标
-    "--include-data-files=%s=favicon.ico" % icon_path,  # 添加图标文件
+    "--include-data-dir=%s=assets/icon" % assets_icon_dir,  # 包含整个图标资源目录
     "--windows-uac-admin",  # 请求管理员权限
     "--remove-output",  # 在重新构建前移除输出目录
     
@@ -57,10 +202,8 @@ cmd = [
     "--lto=yes",  # 链接时优化
     "--mingw64",  # 使用MinGW64
     "--jobs=4",  # 使用多核编译加速
-    "--show-memory",  # 显示内存使用情况
     "--disable-cache=all",  # 禁用缓存
     "--clean-cache=all",  # 清除现有缓存
-    "--show-progress",  # 显示编译进度
     "--output-filename=ACE-KILLER.exe",  # 指定输出文件名
     "--nofollow-import-to=tkinter,PIL.ImageTk",  # 不跟随部分不必要模块
     "--prefer-source-code",  # 优先使用源代码而不是字节码
@@ -97,7 +240,7 @@ except subprocess.CalledProcessError as e:
 
 # 压缩可执行文件目录
 dist_dir = os.path.join(root_dir, "main.dist")
-zip_name = "ACE-KILLER-v1.0.0-x64"
+zip_name = f"ACE-KILLER-v{current_version}-x64"
 zip_path = os.path.join(root_dir, zip_name + ".zip")
 if os.path.exists(dist_dir):
     logger.info("正在压缩可执行文件目录...")
@@ -108,4 +251,29 @@ else:
     logger.error("未找到可执行文件目录，无法压缩")
     sys.exit(1)
 
-logger.success("ACE-KILLER Nuitka 打包和压缩完成！")
+logger.success(f"ACE-KILLER v{current_version} Nuitka 打包和压缩完成！")
+
+# 显示使用说明
+def show_usage():
+    """显示使用说明"""
+    print("\n" + "="*60)
+    print("ACE-KILLER 打包工具使用说明:")
+    print("="*60)
+    print("1. 直接运行 (交互式更新版本号):")
+    print("   python utils/build_exe.py")
+    print()
+    print("2. 指定版本号:")
+    print("   python utils/build_exe.py -v 1.2.3")
+    print()
+    print("3. 跳过版本号更新:")
+    print("   python utils/build_exe.py --no-version-update")
+    print()
+    print("4. 显示帮助:")
+    print("   python utils/build_exe.py -h")
+    print("="*60)
+
+# 仅在直接运行脚本时显示使用说明
+if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        print(f"\n当前项目版本: {get_current_version()}")
+        show_usage()
