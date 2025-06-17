@@ -53,17 +53,17 @@
 ## 项目展示
 
 <div align="center">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/1.png" width="45%" alt="应用界面预览">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/2.png" width="45%" alt="进程监控界面预览1">
+  <img src="https://raw.githubusercontent.com/Cassianvale/ACE-KILLER/main/assets/image/1.png" width="45%" alt="应用界面预览">
+  <img src="https://raw.githubusercontent.com/Cassianvale/ACE-KILLER/main/assets/image/2.png" width="45%" alt="进程监控界面预览1">
 </div>
 
 <div align="center">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/3.png" width="45%" alt="内存清理界面预览">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/4.png" width="45%" alt="设置界面预览">
+  <img src="https://raw.githubusercontent.com/Cassianvale/ACE-KILLER/main/assets/image/3.png" width="45%" alt="内存清理界面预览">
+  <img src="https://raw.githubusercontent.com/Cassianvale/ACE-KILLER/main/assets/image/4.png" width="45%" alt="设置界面预览">
 </div>
 
 <div align="center">
-  <img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/image/5.png" width="80%" alt="进程监控界面预览2">
+  <img src="https://raw.githubusercontent.com/Cassianvale/ACE-KILLER/main/assets/image/5.png" width="80%" alt="进程监控界面预览2">
 </div>
 
 ## 进程模式策略
