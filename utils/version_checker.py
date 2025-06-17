@@ -8,6 +8,7 @@
 import os
 import sys
 import json
+import time
 import threading
 import requests
 from packaging import version
@@ -57,6 +58,8 @@ class VersionChecker(QObject):
         # 返回默认版本号
         return __version__
     
+
+    
     def check_for_updates_async(self):
         """
         异步检查更新
@@ -87,6 +90,7 @@ class VersionChecker(QObject):
             )
             response.raise_for_status()
             
+            # 请求成功
             release_data = response.json()
             
             # 解析最新版本信息
@@ -101,14 +105,32 @@ class VersionChecker(QObject):
             # 比较版本号
             has_update = self._compare_versions(current_ver, latest_version)
             
+            # 查找下载链接（优先查找.zip文件）
+            assets = release_data.get('assets', [])
+            download_url = None
+            for asset in assets:
+                asset_name = asset.get('name', '').lower()
+                if asset_name.endswith('.zip') and 'x64' in asset_name:
+                    download_url = asset.get('browser_download_url')
+                    break
+            
+            # 如果没找到x64的zip，查找任何zip文件
+            if not download_url:
+                for asset in assets:
+                    asset_name = asset.get('name', '').lower()
+                    if asset_name.endswith('.zip'):
+                        download_url = asset.get('browser_download_url')
+                        break
+            
             # 构建更新信息
             update_info = {
                 'version': latest_version,
                 'name': release_name,
                 'body': release_body,
                 'url': release_url,
+                'download_url': download_url,  # 直接下载链接
                 'published_at': release_data.get('published_at', ''),
-                'assets': release_data.get('assets', [])
+                'assets': assets
             }
             
             update_info_str = json.dumps(update_info, ensure_ascii=False, indent=2)
@@ -125,18 +147,22 @@ class VersionChecker(QObject):
             )
             
         except requests.exceptions.Timeout:
-            error_msg = "网络请求超时，请检查网络连接"
+            error_msg = "网络请求超时，请检查网络连接后稍后重试"
             logger.warning(f"检查更新失败: {error_msg}")
             self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
             
         except requests.exceptions.ConnectionError:
-            error_msg = "网络连接失败，请检查网络连接"
+            error_msg = "网络连接失败，请检查网络连接后稍后重试"
             logger.warning(f"检查更新失败: {error_msg}")
             self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
             
         except requests.exceptions.HTTPError as e:
-            error_msg = f"GitHub API 请求失败: {e.response.status_code}"
-            logger.warning(f"检查更新失败: {error_msg}")
+            if e.response.status_code == 403:
+                error_msg = "网络请求被拒绝(403)，可能是网络代理、防火墙或GitHub访问限制导致"
+                logger.warning(f"检查更新失败: {error_msg}")
+            else:
+                error_msg = f"GitHub API 请求失败: {e.response.status_code}"
+                logger.warning(f"检查更新失败: {error_msg}")
             self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
             
         except Exception as e:
@@ -248,20 +274,32 @@ def create_update_message(has_update, current_ver, latest_ver, update_info_str, 
         error_msg: 错误信息
         
     Returns:
-        tuple: (标题, 消息内容, 消息类型)
+        tuple: (标题, 消息内容, 消息类型, 额外数据)
     """
+
+    # 处理其他错误
     if error_msg:
         return (
             "检查更新失败",
-            f"检查更新时遇到问题：\n{error_msg}\n\n当前版本: v{current_ver}\n\n您可以手动访问 GitHub 项目页面获取最新版本。",
-            "error"
+            f"检查更新时遇到问题：\n{error_msg}\n\n"
+            f"当前版本: v{current_ver}\n\n"
+            f"建议操作：\n"
+            f"• 检查网络连接\n"
+            f"• 稍后重试\n"
+            f"• 直接访问GitHub项目页面获取最新版本\n\n"
+            f"是否打开GitHub项目页面？",
+            "error",
+            {"github_url": "https://github.com/cassianvale/ACE-KILLER/releases"}
         )
     
+    # 处理有更新的情况
     if has_update:
         try:
             update_info = json.loads(update_info_str)
             release_name = update_info.get('name', f'v{latest_ver}')
             release_body = update_info.get('body', '').strip()
+            release_url = update_info.get('url', 'https://github.com/cassianvale/ACE-KILLER/releases')
+            direct_download_url = update_info.get('download_url')
             
             # 限制更新日志长度
             if len(release_body) > 300:
@@ -277,20 +315,37 @@ def create_update_message(has_update, current_ver, latest_ver, update_info_str, 
             if release_body:
                 message += f"更新内容:\n{release_body}\n\n"
             
-            message += "是否前往下载页面？"
+            # 根据是否有直接下载链接调整消息
+            if direct_download_url:
+                message += "是否立即下载新版本？"
+            else:
+                message += "是否前往下载页面？"
             
-            return ("发现新版本", message, "update")
+            return (
+                "发现新版本", 
+                message, 
+                "update",
+                {
+                    "download_url": direct_download_url if direct_download_url else release_url,
+                    "is_direct_download": bool(direct_download_url)
+                }
+            )
             
         except Exception as e:
             logger.error(f"解析更新信息失败: {str(e)}")
             return (
                 "发现新版本",
                 f"发现新版本！\n\n当前版本: v{current_ver}\n最新版本: v{latest_ver}\n\n是否前往下载页面？",
-                "update"
+                "update",
+                {
+                    "download_url": "https://github.com/cassianvale/ACE-KILLER/releases",
+                    "is_direct_download": False
+                }
             )
     else:
         return (
             "已是最新版本",
             f"您当前使用的已经是最新版本。\n\n当前版本: v{current_ver}",
-            "info"
+            "info",
+            {}
         ) 

@@ -1377,30 +1377,100 @@ class MainWindow(QWidget):
             StyleHelper.set_label_type(self.version_label, "info")
         
         # 创建并显示消息
-        title, message, msg_type = create_update_message(
+        result = create_update_message(
             has_update, current_ver, latest_ver, update_info_str, error_msg
         )
         
+        # 解包结果，支持新的格式
+        if len(result) == 4:
+            title, message, msg_type, extra_data = result
+        else:
+            # 兼容旧格式
+            title, message, msg_type = result
+            extra_data = {}
+        
+        import webbrowser
+        
         if msg_type == "error":
-            # 显示错误消息，询问是否手动访问GitHub
-            reply = QMessageBox.question(
-                self, title, message + "\n\n是否前往 GitHub 项目页面？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            if reply == QMessageBox.Yes:
-                import webbrowser
-                webbrowser.open("https://github.com/cassianvale/ACE-KILLER/releases/latest")
+            # 其他错误消息，询问是否手动访问GitHub
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setWindowTitle(title)
+            msg_box.setText(message)
+            
+            # 添加自定义按钮
+            get_version_btn = msg_box.addButton("🌐 前往下载页面", QMessageBox.YesRole)
+            cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.NoRole)
+            msg_box.setDefaultButton(cancel_btn)
+            
+            msg_box.exec()
+            if msg_box.clickedButton() == get_version_btn:
+                github_url = extra_data.get('github_url', 'https://github.com/cassianvale/ACE-KILLER/releases')
+                webbrowser.open(github_url)
                 
         elif msg_type == "update":
             # 有新版本，询问是否前往下载
-            reply = QMessageBox.question(
-                self, title, message,
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
-            )
-            if reply == QMessageBox.Yes:
-                import webbrowser
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setWindowTitle(title)
+            msg_box.setText(message)
+            
+            # 根据是否为直接下载调整按钮配置
+            is_direct_download = extra_data.get('is_direct_download', False)
+            if is_direct_download:
+                # 有直接下载链接时，提供加速镜像和源地址两个选项
+                mirror_btn = msg_box.addButton("🚀 国内加速下载", QMessageBox.AcceptRole)
+                direct_btn = msg_box.addButton("🌐 源地址下载", QMessageBox.ActionRole)
+                cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.RejectRole)
+                msg_box.setDefaultButton(mirror_btn)
+            else:
+                # 没有直接下载链接时，只提供页面跳转
+                download_btn = msg_box.addButton("🌐 前往下载页面", QMessageBox.AcceptRole)
+                cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.RejectRole)
+                msg_box.setDefaultButton(download_btn)
+            
+            msg_box.exec()
+            clicked_button = msg_box.clickedButton()
+            
+            # 处理下载按钮点击
+            download_url = extra_data.get('download_url')
+            should_download = False
+            final_download_url = None
+            
+            if is_direct_download:
+                # 有直接下载链接的情况
+                if clicked_button == mirror_btn:
+                    # 国内加速镜像下载
+                    should_download = True
+                    final_download_url = f"https://ghfast.top/{download_url}" if download_url else None
+                elif clicked_button == direct_btn:
+                    # 源地址下载
+                    should_download = True
+                    final_download_url = download_url
+            else:
+                # 没有直接下载链接的情况
+                if clicked_button == download_btn:
+                    should_download = True
+                    final_download_url = download_url
+            
+            # 执行下载
+            if should_download and final_download_url:
+                import subprocess
+                import os
+                try:
+                    # 在Windows上使用默认浏览器下载
+                    if os.name == 'nt':
+                        os.startfile(final_download_url)
+                    else:
+                        # 其他系统使用webbrowser
+                        webbrowser.open(final_download_url)
+                    
+                except Exception as e:
+                    logger.error(f"启动下载失败: {str(e)}")
+                    # 回退到浏览器打开
+                    webbrowser.open(final_download_url)
+            elif should_download:
+                # 备用方案：打开发布页面
                 import json
                 try:
                     update_info = json.loads(update_info_str)
@@ -1409,17 +1479,45 @@ class MainWindow(QWidget):
                 except:
                     webbrowser.open("https://github.com/cassianvale/ACE-KILLER/releases/latest")
                     
-        else:  # info - 已是最新版本
+        else:
             QMessageBox.information(self, title, message)
     
     @Slot()
     def show_about(self):
         """显示关于对话框"""
-        QMessageBox.about(self, "关于 ACE-KILLER", 
-                         "ACE-KILLER\n\n"
-                         "作者: CassianVale\n\n"
-                         "GitHub: https://github.com/cassianvale/ACE-KILLER\n\n"
-                         "ACE-KILLER是一款游戏优化工具，用于监控并优化游戏进程")
+        # 创建自定义消息框，添加访问官网的选项
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("关于 ACE-KILLER")
+        msg_box.setText(
+            "ACE-KILLER\n\n"
+            "作者: CassianVale\n\n"
+            "GitHub: https://github.com/cassianvale/ACE-KILLER\n\n"
+            "ACE-KILLER是一款游戏优化工具，用于监控并优化游戏进程\n\n"
+            "💡 如果这个工具对您有帮助，欢迎访问GitHub项目页面：\n"
+            "   • 点击⭐Star支持项目发展\n"
+            "   • 提交Issues反馈问题和建议\n"
+            "   • 分享给更多需要的朋友\n\n"
+            "您的支持是项目持续改进的动力！\n\n"
+            "是否访问项目官网？"
+        )
+        msg_box.setIcon(QMessageBox.Information)
+        
+        # 添加自定义按钮
+        visit_btn = msg_box.addButton("⭐ 访问GitHub主页", QMessageBox.ActionRole)
+        close_btn = msg_box.addButton("❌ 关闭", QMessageBox.RejectRole)
+        
+        # 设置默认按钮
+        msg_box.setDefaultButton(visit_btn)
+        
+        # 执行对话框并处理结果
+        msg_box.exec()
+        clicked_button = msg_box.clickedButton()
+        
+        # 如果点击了访问官网按钮
+        if clicked_button == visit_btn:
+            import webbrowser
+            webbrowser.open("https://github.com/cassianvale/ACE-KILLER")
+            logger.debug("用户通过关于对话框访问了项目官网")
     
     @Slot()
     def show_main_window(self):
