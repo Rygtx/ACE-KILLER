@@ -11,7 +11,7 @@ import queue
 import threading
 import time
 from utils.logger import logger
-from windows_toasts import InteractableWindowsToaster, Toast, WindowsToaster, ToastImagePosition, ToastButton, ToastDisplayImage
+from windows_toasts import InteractableWindowsToaster, Toast, WindowsToaster, ToastImagePosition, ToastButton, ToastDisplayImage, ToastAudio
 
 
 # 全局通知对象
@@ -45,8 +45,11 @@ def send_notification(title, message, icon_path=None, buttons=None, silent=True)
     try:
         toaster = get_toaster()
         
+        # 根据silent参数设置音频
+        audio = ToastAudio(silent=True) if silent else ToastAudio()
+        
         # 创建Toast对象
-        toast = Toast(text_fields=[title, message])
+        toast = Toast(text_fields=[title, message], audio=audio)
         
         # 添加图标
         if icon_path and os.path.exists(icon_path):
