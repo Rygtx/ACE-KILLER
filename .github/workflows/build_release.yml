@@ -217,9 +217,7 @@ jobs:
             ${{ github.event.inputs.release_notes }}
 
             ### 📥 安装说明
-            1. 下载 zip 压缩包文件（国内用户可使用加速链接）
-               - 🍒 GitHub 官方下载: [ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip](https://github.com/Cassianvale/ACE-KILLER/releases/download/v${{ github.event.inputs.version }}/ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip)  
-               - 🔥 国内加速节点下载: [ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip](https://ghfast.top/https://github.com/Cassianvale/ACE-KILLER/releases/download/v${{ github.event.inputs.version }}/ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip)  
+            1. 下载 zip 压缩包文件
             2. 解压到任意目录
             3. 右键点击 `ACE-KILLER.exe`，选择"以管理员身份运行"
 
@@ -232,10 +230,7 @@ jobs:
             2. 切换到"设置"选项卡
             3. 点击"检查更新"按钮
             4. 如有新版本会自动提示并可直接跳转下载
-
-            ### 📊 下载统计
-            ![Total Downloads](https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/total?style=for-the-badge&label=总下载次数&color=success)
-            ![Latest Release Downloads](https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/latest/total?style=for-the-badge&label=最新版本下载&color=blue)
+            
           # 添加覆盖选项
           draft: false
           prerelease: false

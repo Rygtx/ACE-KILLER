@@ -64,16 +64,16 @@ def main():
     
     # 显示欢迎通知
     buttons = [
-        {'text': '访问项目地址', 'action': 'open_url', 'launch': 'https://github.com/cassianvale/ACE-KILLER'},
-        {'text': '获取最新版本', 'action': 'open_url', 'launch': 'https://github.com/cassianvale/ACE-KILLER/releases/latest'}
+        {'text': '访问项目官网', 'action': 'open_url', 'launch': 'https://github.com/cassianvale/ACE-KILLER'},
+        {'text': '下载最新版本', 'action': 'open_url', 'launch': 'https://github.com/cassianvale/ACE-KILLER/releases/latest'}
     ]
     
     send_notification(
         title="ACE-KILLER",
-        message=f"🚀 启动成功！欢迎使用 ACE-KILLER ！\n\n🐶 作者: CassianVale\n",
+        message=f"🚀 欢迎使用 ACE-KILLER ！\n🐶 作者: CassianVale",
         icon_path=icon_path,
         buttons=buttons,
-        silent=False
+        silent=True
     )
     
 
@@ -97,7 +97,7 @@ def main():
         # 设置通知线程停止事件
         stop_event.set()
         # 等待通知线程结束
-        notification_thread_obj.join(timeout=0.3)
+        notification_thread_obj.join(timeout=0.5)
         
         logger.debug("🔴 ACE-KILLER 程序已终止！")
 

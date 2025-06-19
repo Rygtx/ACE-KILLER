@@ -2370,6 +2370,7 @@ def get_status_info(monitor):
     for service_name, service_info in service_results.items():
         service_exists = service_info["exists"]
         status = service_info["status"]
+        start_type = service_info["start_type"]
         
         if service_exists:
             if status == 'running':
