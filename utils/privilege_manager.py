@@ -10,7 +10,6 @@ import ctypes
 import sys
 import win32security
 import win32api
-import win32con
 from utils.logger import logger
 
 

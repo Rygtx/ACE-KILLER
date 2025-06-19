@@ -13,8 +13,8 @@ import time
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QLabel, QCheckBox, QSystemTrayIcon, QMenu, 
-    QGroupBox, QTabWidget, QFrame, QMessageBox, QScrollArea, QStyle,
-    QGridLayout, QProgressDialog, QProgressBar, QComboBox, QSpinBox, QRadioButton
+    QGroupBox, QTabWidget, QFrame, QMessageBox, QScrollArea,
+    QGridLayout, QProgressDialog, QProgressBar, QComboBox, QSpinBox
 )
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtGui import QIcon, QAction, QPainterPath, QRegion, QPainter, QBrush, QPen, QColor
@@ -23,7 +23,7 @@ from utils.version_checker import get_version_checker, get_current_version, crea
 from utils.notification import send_notification
 from core.system_utils import enable_auto_start, disable_auto_start
 from utils.memory_cleaner import get_memory_cleaner
-from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT, PERFORMANCE_MODE
+from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT
 from ui.process_io_priority_manager import show_process_io_priority_manager
 from ui.components.custom_titlebar import CustomTitleBar
 from ui.styles import (

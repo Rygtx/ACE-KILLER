@@ -1,13 +1,16 @@
-import os
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+内存清理工具类
+"""
+
 import time
 import threading
 import ctypes
-from ctypes import windll, wintypes, byref, Structure, c_ulong, POINTER, sizeof
+from ctypes import windll, wintypes, byref, Structure, POINTER, sizeof, c_long
 import psutil
 from utils.logger import logger
-import sys
-
-from ctypes import c_long
 
 # 导入ConfigManager和权限管理器
 from config.config_manager import ConfigManager
