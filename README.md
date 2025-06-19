@@ -16,9 +16,8 @@
 
 <div>
     <img alt="total downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/total?style=for-the-badge&label=总下载次数&color=success">
-    <img alt="latest downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/latest/total?style=for-the-badge&label=最新版本下载&color=blue">
+    <img alt="latest release downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/latest/total?style=for-the-badge&label=最新版本下载&color=blue">
 </div>
-
 <br/>
 
 
