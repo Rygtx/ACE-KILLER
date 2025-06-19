@@ -6,9 +6,7 @@
 """
 
 import os
-import sys
 import json
-import time
 import threading
 import requests
 from packaging import version

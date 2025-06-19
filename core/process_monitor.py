@@ -17,7 +17,7 @@ from win32process import SetPriorityClass, IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRI
 import ctypes
 from ctypes import wintypes
 import win32service
-import win32serviceutil
+
 
 # 定义Windows API常量和结构体
 PROCESS_POWER_THROTTLING_INFORMATION = 4

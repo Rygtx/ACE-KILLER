@@ -125,7 +125,17 @@ jobs:
             --lto=yes `
             --jobs=$env:NUMBER_OF_PROCESSORS `
             --output-filename=ACE-KILLER.exe `
-            --nofollow-import-to=tkinter,numpy,scipy,pandas,matplotlib `
+            --nofollow-import-to=tkinter,numpy,scipy,matplotlib,PIL.ImageTk `
+            --nofollow-import-to=PySide6.QtWebEngineWidgets `
+            --nofollow-import-to=PySide6.Qt3DCore `
+            --nofollow-import-to=PySide6.Qt3DRender `
+            --nofollow-import-to=PySide6.QtCharts `
+            --nofollow-import-to=PySide6.QtDataVisualization `
+            --nofollow-import-to=PySide6.QtMultimedia `
+            --nofollow-import-to=PySide6.QtPositioning `
+            --nofollow-import-to=PySide6.QtBluetooth `
+            --nofollow-import-to=PySide6.QtSerialPort `
+            --nofollow-import-to=PySide6.QtLocation `
             --prefer-source-code `
             --python-flag=no_site `
             --python-flag=no_warnings `
@@ -223,6 +233,9 @@ jobs:
             3. 点击"检查更新"按钮
             4. 如有新版本会自动提示并可直接跳转下载
 
+            ### 📊 下载统计
+            ![Total Downloads](https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/total?style=for-the-badge&label=总下载次数&color=success)
+            ![Latest Release Downloads](https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/latest/total?style=for-the-badge&label=最新版本下载&color=blue)
           # 添加覆盖选项
           draft: false
           prerelease: false

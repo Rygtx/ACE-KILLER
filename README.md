@@ -2,9 +2,9 @@
 
 # ACE-KILLER
 
-<img src="https://github.com/Cassianvale/ACE-KILLER/raw/main/assets/icon/favicon.ico" width="120px" alt="ACE-KILLER Logo"/>
+<img src="https://socialify.git.ci/Cassianvale/ACE-KILLER/image?font=Jost&forks=1&issues=1&name=1&pattern=Plus&stargazers=1&theme=Dark" alt="ACE-KILLER" width="640" height="320" />
 
-✨ **游戏反作弊进程管理工具，专为无畏契约、三角洲行动等使用 ACE 反作弊的游戏设计** ✨
+✨ _游戏反作弊进程管理工具，专为无畏契约、三角洲行动等使用 ACE 反作弊的游戏设计_ ✨
 
 <!-- 项目状态徽章 -->
 <div>
@@ -14,14 +14,9 @@
     <img alt="version" src="https://img.shields.io/github/v/release/Cassianvale/ACE-KILLER?style=flat-square&color=orange&logo=github">
 </div>
 
-<!-- GitHub 统计徽章 -->
 <div>
-    <img alt="stars" src="https://img.shields.io/github/stars/Cassianvale/ACE-KILLER?style=flat-square&color=yellow&logo=github">
-    <img alt="forks" src="https://img.shields.io/github/forks/Cassianvale/ACE-KILLER?style=flat-square&color=blue&logo=github">
-    <img alt="total downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/total?style=flat-square&color=green&logo=github&label=total%20downloads">
-    <a href="https://github.com/Cassianvale/ACE-KILLER/releases/latest">
-        <img alt="latest downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/latest/total?style=flat-square&color=brightgreen&logo=download&label=latest%20downloads">
-    </a>
+    <img alt="total downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/total?style=for-the-badge&label=总下载次数&color=success">
+    <img alt="latest downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/latest/total?style=for-the-badge&label=最新版本下载&color=blue">
 </div>
 
 <br/>

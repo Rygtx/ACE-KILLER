@@ -11,7 +11,24 @@ import queue
 import threading
 import time
 from utils.logger import logger
-from win11toast import notify
+from windows_toasts import InteractableWindowsToaster, Toast, WindowsToaster, ToastImagePosition, ToastButton, ToastDisplayImage
+
+
+# 全局通知对象
+_toaster = None
+
+
+def get_toaster():
+    """
+    获取通知器实例（单例模式）
+    
+    Returns:
+        InteractableWindowsToaster: 通知器实例
+    """
+    global _toaster
+    if _toaster is None:
+        _toaster = InteractableWindowsToaster('')
+    return _toaster
 
 
 def send_notification(title, message, icon_path=None, buttons=None, silent=True):
@@ -22,28 +39,39 @@ def send_notification(title, message, icon_path=None, buttons=None, silent=True)
         title (str): 通知标题
         message (str): 通知内容
         icon_path (str, optional): 图标路径
-        buttons (list, optional): 按钮列表
+        buttons (list, optional): 按钮列表，格式：[{'text': '按钮文本', 'action': '动作'}]
         silent (bool, optional): 是否静音通知
     """
     try:
-        icon = None
+        toaster = get_toaster()
+        
+        # 创建Toast对象
+        toast = Toast(text_fields=[title, message])
+        
+        # 添加图标
         if icon_path and os.path.exists(icon_path):
-            icon = {
-                'src': icon_path,
-                'placement': 'appLogoOverride'  # 方形icon
-            }
+            try:
+                toast.AddImage(ToastDisplayImage.fromPath(icon_path, position=ToastImagePosition.AppLogo))
+            except Exception as e:
+                logger.warning(f"添加图标失败: {str(e)}")
         
-        audio = {'silent': 'true'} if silent else None
+        # 添加按钮
+        if buttons:
+            for button in buttons:
+                if isinstance(button, dict):
+                    # 支持字典格式的按钮
+                    text = button.get('text', '确定')
+                    action = button.get('action', '')
+                    launch = button.get('launch', '')
+                    toast.AddAction(ToastButton(text, action, launch=launch))
+                elif isinstance(button, str):
+                    # 支持简单字符串格式的按钮
+                    toast.AddAction(ToastButton(button, f'action={button.lower()}'))
         
-        notify(
-            app_id="ACE-KILLER",
-            title=title,
-            body=message,
-            icon=icon,
-            buttons=buttons,
-            audio=audio
-        )
+        # 显示通知
+        toaster.show_toast(toast)
         return True
+        
     except Exception as e:
         logger.error(f"发送通知失败: {str(e)}")
         return False
@@ -93,12 +121,23 @@ def notification_thread(message_queue, icon_path=None, stop_event=None):
             # 获取消息，最多等待0.5秒
             message = message_queue.get(timeout=0.5)
             
-            # 发送通知
-            send_notification(
-                title="ACE-KILLER 消息通知",
-                message=message,
-                icon_path=icon_path
-            )
+            # 支持字符串和字典格式的消息
+            if isinstance(message, str):
+                # 简单字符串消息
+                send_notification(
+                    title="ACE-KILLER 消息通知",
+                    message=message,
+                    icon_path=icon_path
+                )
+            elif isinstance(message, dict):
+                # 字典格式消息，支持更多自定义选项
+                send_notification(
+                    title=message.get('title', "ACE-KILLER 消息通知"),
+                    message=message.get('message', ''),
+                    icon_path=message.get('icon_path', icon_path),
+                    buttons=message.get('buttons'),
+                    silent=message.get('silent', True)
+                )
             
             # 标记任务完成
             message_queue.task_done()

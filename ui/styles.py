@@ -6,7 +6,6 @@ Ant Design风格UI样式定义
 """
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QWidget
 from utils.logger import logger
 
 

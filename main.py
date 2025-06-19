@@ -64,8 +64,8 @@ def main():
     
     # 显示欢迎通知
     buttons = [
-        {'activationType': 'protocol', 'arguments': 'https://github.com/cassianvale/ACE-KILLER', 'content': '访问项目地址'},
-        {'activationType': 'protocol', 'arguments': 'https://github.com/cassianvale/ACE-KILLER/releases/latest', 'content': '获取最新版本'}
+        {'text': '访问项目地址', 'action': 'open_url', 'launch': 'https://github.com/cassianvale/ACE-KILLER'},
+        {'text': '获取最新版本', 'action': 'open_url', 'launch': 'https://github.com/cassianvale/ACE-KILLER/releases/latest'}
     ]
     
     send_notification(

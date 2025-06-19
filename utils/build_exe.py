@@ -197,7 +197,16 @@ cmd = [
     
     # PySide6 相关配置
     "--enable-plugin=pyside6",  # 启用PySide6插件
-
+    "--nofollow-import-to=PySide6.QtWebEngineWidgets",
+    "--nofollow-import-to=PySide6.Qt3DCore",
+    "--nofollow-import-to=PySide6.Qt3DRender",
+    "--nofollow-import-to=PySide6.QtCharts",
+    "--nofollow-import-to=PySide6.QtDataVisualization",
+    "--nofollow-import-to=PySide6.QtMultimedia",
+    "--nofollow-import-to=PySide6.QtPositioning",
+    "--nofollow-import-to=PySide6.QtBluetooth",
+    "--nofollow-import-to=PySide6.QtSerialPort",
+    "--nofollow-import-to=PySide6.QtLocation",
     # 优化选项
     "--lto=yes",  # 链接时优化
     "--mingw64",  # 使用MinGW64

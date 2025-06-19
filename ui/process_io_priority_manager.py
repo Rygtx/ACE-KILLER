@@ -1,19 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import threading
 import time
 import psutil
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-    QComboBox, QLineEdit, QGroupBox, QCheckBox, QProgressBar,
-    QMessageBox, QTabWidget, QWidget, QSpinBox, QSplitter,
-    QTextEdit, QFrame, QProgressDialog, QButtonGroup, QRadioButton
+    QComboBox, QLineEdit, QGroupBox, QProgressBar,
+    QMessageBox, QTabWidget, QWidget, QSpinBox,
+    QButtonGroup, QRadioButton
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QThread
-from PySide6.QtGui import QIcon, QColor
+from PySide6.QtGui import QColor
 
 from utils.logger import logger
 from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT, PERFORMANCE_MODE
