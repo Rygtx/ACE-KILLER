@@ -6,22 +6,39 @@
 
 ✨ **游戏反作弊进程管理工具，专为无畏契约、三角洲行动等使用 ACE 反作弊的游戏设计** ✨
 
+<!-- 项目状态徽章 -->
 <div>
-<img alt="platform" src="https://img.shields.io/badge/platform-Windows-blueviolet">
-<img alt="python" src="https://img.shields.io/badge/Python-3.10+-blue.svg">
-<img alt="license" src="https://img.shields.io/badge/License-GPL--3.0-green.svg">
-<img alt="version" src="https://img.shields.io/github/v/release/Cassianvale/ACE-KILLER?color=orange&label=Version">
+    <img alt="platform" src="https://img.shields.io/badge/Platform-Windows-blue?style=flat-square&logo=windows">
+    <img alt="python" src="https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python&logoColor=white">
+    <img alt="license" src="https://img.shields.io/badge/License-GPL--3.0-green?style=flat-square&logo=gnu">
+    <img alt="version" src="https://img.shields.io/github/v/release/Cassianvale/ACE-KILLER?style=flat-square&color=orange&logo=github">
 </div>
 
+<!-- GitHub 统计徽章 -->
 <div>
-    <a href="https://github.com/Cassianvale/ACE-KILLER"><img alt="stars" src="https://img.shields.io/github/stars/Cassianvale/ACE-KILLER?style=social"></a>
-    <a href="https://github.com/Cassianvale/ACE-KILLER/releases/latest"><img alt="downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/total?style=social"></a>
+    <img alt="stars" src="https://img.shields.io/github/stars/Cassianvale/ACE-KILLER?style=flat-square&color=yellow&logo=github">
+    <img alt="forks" src="https://img.shields.io/github/forks/Cassianvale/ACE-KILLER?style=flat-square&color=blue&logo=github">
+    <img alt="total downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/total?style=flat-square&color=green&logo=github&label=total%20downloads">
+    <a href="https://github.com/Cassianvale/ACE-KILLER/releases/latest">
+        <img alt="latest downloads" src="https://img.shields.io/github/downloads/Cassianvale/ACE-KILLER/latest/total?style=flat-square&color=brightgreen&logo=download&label=latest%20downloads">
+    </a>
 </div>
 
 <br/>
 
 > 项目设计初衷并非直接对抗反作弊程序，不涉及对反作弊内核的修改，所以不用担心会封号问题  
 > 本工具对`SGuard64.exe`扫盘进程进行了限制，减少帧数波动，将反作弊服务的管理权交还给玩家
+
+<div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 16px; margin: 16px 0;">
+  <h3 style="color: #856404; margin: 0 0 12px 0;">⚠️ 重要声明</h3>
+  <p style="color: #856404; margin: 0; font-weight: bold;">
+    🚨 本项目所有代码均通过<strong>标准Windows API和脚本实现</strong><br/>
+    🔒 不涉及<strong>任何反作弊内核修改、注入或破解</strong>，仅对进程资源进行合理管理<br/>
+    ⚖️ 所有功能基于Windows系统标准权限管理，<strong>未使用任何第三方破解工具</strong><br/>
+    🎯 本项目仅优化系统资源分配，<strong>不干扰反作弊程序的正常检测逻辑，所有操作均合理合法</strong><br/>
+    <p style="color: red; font-weight: bold;" >❗ 最后，如果您因使用本工具而遇到任何被检测的问题，请优先检查自己是否使用了其他可能导致封号的软件！</p>
+  </p>
+</div>
 
 </div>
 
@@ -39,7 +56,7 @@
 
 ## 🚀 如何使用
 
-1. 下载最新版本的[发布包](https://github.com/Cassianvale/ACE-KILLER/releases)
+1. [点击下载最新版本.zip压缩包](https://github.com/Cassianvale/ACE-KILLER/releases) 👈
 2. 解压后运行`ACE-KILLER.exe`
 3. 程序将在系统托盘显示图标
 4. 右键点击托盘图标可以：
