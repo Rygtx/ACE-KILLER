@@ -15,6 +15,7 @@ pyyaml==6.0.2
 requests==2.32.4
 shiboken6==6.9.0
 urllib3==2.5.0
+win32-setctime==1.2.0
 windows-toasts==1.3.1
 winrt-runtime==3.2.1
 winrt-windows-data-xml-dom==3.2.1
