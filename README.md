@@ -35,7 +35,7 @@
 </div>
 
 ## ✅ 功能特性
-
+- 🦄 GUI框架 https://github.com/Cassianvale/ACE-PyQt
 - 🛡️ 自动关闭`ACE-Tray.exe`反作弊安装询问弹窗
 - 🚀 自动优化`SGuard64.exe`扫盘进程，降低 CPU 占用
 - 🗑️ 支持一键启动/停止反作弊进程，卸载/删除 ACE 反作弊服务
