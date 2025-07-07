@@ -16,14 +16,14 @@ from PySide6.QtWidgets import (
     QGroupBox, QTabWidget, QFrame, QMessageBox, QScrollArea,
     QGridLayout, QProgressDialog, QProgressBar, QComboBox, QSpinBox
 )
-from PySide6.QtCore import Qt, Signal, Slot, QTimer
+from PySide6.QtCore import Qt, Signal, Slot, QTimer, QRectF
 from PySide6.QtGui import QIcon, QAction, QPainterPath, QRegion, QPainter, QBrush, QPen, QColor
-from utils.logger import logger
-from utils.version_checker import get_version_checker, get_current_version, create_update_message
-from utils.notification import send_notification
-from core.system_utils import enable_auto_start, disable_auto_start
-from utils.memory_cleaner import get_memory_cleaner
-from utils.process_io_priority import get_io_priority_manager, IO_PRIORITY_HINT
+
+from utils import (
+    logger, get_version_checker, get_app_version, create_update_message,
+    send_notification, enable_auto_start, disable_auto_start, get_memory_cleaner, get_io_priority_manager, IO_PRIORITY_HINT
+)
+
 from ui.process_io_priority_manager import show_process_io_priority_manager
 from ui.components.custom_titlebar import CustomTitleBar
 from ui.styles import (
@@ -46,13 +46,21 @@ class MainWindow(QWidget):
     stop_progress_signal = Signal(int)
     stop_result_signal = Signal(str, int, int)
     
-    def __init__(self, monitor, icon_path=None, start_minimized=False):
+    def __init__(self, config_manager, monitor=None, icon_path=None, start_minimized=False):
         super().__init__()
         
+        self.config_manager = config_manager
         self.monitor = monitor
         self.icon_path = icon_path
-        self.current_theme = monitor.config_manager.theme
+        self.current_theme = config_manager.theme
         self.start_minimized = start_minimized
+        
+        # 获取应用信息
+        self.app_name = config_manager.get_app_name()
+        self.app_author = config_manager.get_app_author()
+        self.app_description = config_manager.get_app_description()
+        self.github_repo = config_manager.get_github_repo()
+        self.github_releases_url = config_manager.get_github_releases_url()
         
         # 自定义标题栏最小化相关
         self.is_custom_minimized = False
@@ -62,7 +70,7 @@ class MainWindow(QWidget):
         self.memory_cleaner = get_memory_cleaner()
         
         # 初始化版本检查器
-        self.version_checker = get_version_checker()
+        self.version_checker = get_version_checker(config_manager)
         self.version_checker.check_finished.connect(self._on_version_check_finished)
         
         # 连接信号到槽函数
@@ -98,7 +106,7 @@ class MainWindow(QWidget):
     def paintEvent(self, event):
         """绘制圆角窗口背景"""
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         
         # 获取当前主题颜色
         colors = AntColorsDark if theme_manager.get_current_theme() == "dark" else AntColors
@@ -108,21 +116,23 @@ class MainWindow(QWidget):
         painter.setPen(QPen(QColor(colors.GRAY_4), 1))
         
         path = QPainterPath()
-        path.addRoundedRect(self.rect().adjusted(1, 1, -1, -1), 12, 12)
+        path.addRoundedRect(QRectF(self.rect().adjusted(1, 1, -1, -1)), 12, 12)
         painter.drawPath(path)
     
     def showEvent(self, event):
         """窗口显示时应用圆角遮罩"""
         super().showEvent(event)
-        # 延迟应用圆角遮罩
-        QTimer.singleShot(10, self.apply_rounded_mask)
-    
+        self.apply_rounded_mask()
+        # 重置自定义最小化标志
+        self.is_custom_minimized = False
+        self.update_tray_menu_text()
+
     def apply_rounded_mask(self):
         """应用圆角遮罩到窗口"""
         try:
             # 创建圆角路径
             path = QPainterPath()
-            path.addRoundedRect(self.rect(), 12, 12)
+            path.addRoundedRect(QRectF(self.rect()), 12, 12)
             
             # 应用遮罩
             region = QRegion(path.toFillPolygon().toPolygon())
@@ -139,13 +149,13 @@ class MainWindow(QWidget):
     
     def setup_ui(self):
         """设置用户界面"""
-        self.setWindowTitle("ACE-KILLER")
-        self.setMinimumSize(600, 780)
+        self.setWindowTitle(self.app_name)
+        self.setMinimumSize(600, 800)
         
         # 设置无边框窗口
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowSystemMenuHint)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setAttribute(Qt.WA_OpaquePaintEvent, False)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowSystemMenuHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
         
         if self.icon_path and os.path.exists(self.icon_path):
             self.setWindowIcon(QIcon(self.icon_path))
@@ -387,7 +397,7 @@ class MainWindow(QWidget):
         custom_layout.addWidget(self.cooldown_spinbox, 1, 1)
         
         # 添加描述标签
-        description_label = QLabel("⚠ 注意: 清理间隔不能小于1分钟，冷却时间用于防止短时间内重复触发清理")
+        description_label = QLabel("⚠ 注意: 清理间隔不能小于30秒，冷却时间用于防止短时间内重复触发清理")
         description_label.setWordWrap(True)
         StyleHelper.set_label_type(description_label, "warning")
         custom_layout.addWidget(description_label, 1, 3, 1, 3)
@@ -484,6 +494,14 @@ class MainWindow(QWidget):
         self.startup_checkbox = QCheckBox("开机自启动")
         self.startup_checkbox.stateChanged.connect(self.toggle_auto_start)
         startup_layout.addWidget(self.startup_checkbox)
+        startup_group.setLayout(startup_layout)
+        settings_layout.addWidget(startup_group)
+        
+        # 添加启动时检查更新选项
+        self.check_update_on_start_checkbox = QCheckBox("启动时检查更新")
+        self.check_update_on_start_checkbox.stateChanged.connect(self.toggle_check_update_on_start)
+        startup_layout.addWidget(self.check_update_on_start_checkbox)
+        
         startup_group.setLayout(startup_layout)
         settings_layout.addWidget(startup_group)
         
@@ -617,9 +635,9 @@ class MainWindow(QWidget):
         version_layout = QVBoxLayout()
         
         # 获取当前版本号
-        current_version = get_current_version()
+        current_version = get_app_version(self.config_manager)
         self.version_label = QLabel(f"当前版本: v{current_version}")
-        self.version_label.setAlignment(Qt.AlignCenter)
+        self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         StyleHelper.set_label_type(self.version_label, "info")
         version_layout.addWidget(self.version_label)
         
@@ -643,10 +661,10 @@ class MainWindow(QWidget):
         # 创建托盘菜单
         tray_menu = QMenu()
         
-        # 显示主窗口动作
-        show_action = QAction("显示主窗口", self)
-        show_action.triggered.connect(self.show_main_window)
-        tray_menu.addAction(show_action)
+        # 显示/隐藏主窗口动作
+        self.toggle_window_action = QAction("显示主窗口", self)
+        self.toggle_window_action.triggered.connect(self.toggle_main_window)
+        tray_menu.addAction(self.toggle_window_action)
         
         # 显示状态动作
         status_action = QAction("显示状态", self)
@@ -732,6 +750,9 @@ class MainWindow(QWidget):
         exit_action = QAction("退出", self)
         exit_action.triggered.connect(self.confirm_exit)
         tray_menu.addAction(exit_action)
+        
+        # 初始更新托盘菜单项文本
+        self.update_tray_menu_text()
 
     @Slot(str)
     def switch_theme(self, theme):
@@ -1065,13 +1086,15 @@ class MainWindow(QWidget):
             self.monitor.anticheat_killed = False
             self.monitor.scanprocess_optimized = False
             logger.debug("根据配置停止监控程序")
-        
+        # 设置检查更新选项
+        self.check_update_on_start_checkbox.setChecked(self.config_manager.check_update_on_start)
+            
         # 更新调试模式设置
         self.debug_checkbox.setChecked(self.monitor.config_manager.debug_mode)
         
         # 更新关闭行为设置
-        # 根据配置值设置下拉框选择
-        close_to_tray = self.monitor.config_manager.close_to_tray
+        # 设置关闭行为选项
+        close_to_tray = self.config_manager.close_to_tray
         for i in range(self.close_behavior_combo.count()):
             if self.close_behavior_combo.itemData(i) == close_to_tray:
                 self.close_behavior_combo.setCurrentIndex(i)
@@ -1229,12 +1252,10 @@ class MainWindow(QWidget):
         # 立即更新状态显示
         self.update_status()
     
-    @Slot()
     def toggle_notifications(self):
         """切换通知开关"""
         self._toggle_notifications(from_tray=False)
     
-    @Slot()
     def toggle_notifications_from_tray(self):
         """从托盘菜单切换通知开关"""
         self._toggle_notifications(from_tray=True)
@@ -1255,10 +1276,10 @@ class MainWindow(QWidget):
             self.startup_action.blockSignals(False)
         
         # 修改注册表
-        if self.monitor.config_manager.auto_start:
-            enable_auto_start()
+        if self.config_manager.auto_start:
+            enable_auto_start(self.app_name)
         else:
-            disable_auto_start()
+            disable_auto_start(self.app_name)
         
         # 保存配置
         if self.monitor.config_manager.save_config():
@@ -1269,12 +1290,10 @@ class MainWindow(QWidget):
         # 立即更新状态显示
         self.update_status()
     
-    @Slot()
     def toggle_auto_start(self):
         """切换开机自启动开关"""
         self._toggle_auto_start(from_tray=False)
     
-    @Slot()
     def toggle_auto_start_from_tray(self):
         """从托盘菜单切换开机自启动开关"""
         self._toggle_auto_start(from_tray=True)
@@ -1318,17 +1337,14 @@ class MainWindow(QWidget):
         # 立即更新状态显示
         self.update_status()
     
-    @Slot()
     def toggle_process_monitor(self):
         """切换进程监控开关"""
         self._toggle_process_monitor(from_tray=False)
     
-    @Slot()
     def toggle_process_monitor_from_tray(self):
         """从托盘菜单切换进程监控开关"""
         self._toggle_process_monitor(from_tray=True)
-    
-    @Slot()
+        
     def open_config_dir(self):
         """打开配置目录"""
         try:
@@ -1351,7 +1367,6 @@ class MainWindow(QWidget):
             logger.error(f"打开配置目录失败: {str(e)}")
             QMessageBox.warning(self, "错误", f"打开配置目录失败: {str(e)}")
     
-    @Slot()
     def check_update(self):
         """检查更新"""
         # 显示正在检查的消息
@@ -1360,7 +1375,53 @@ class MainWindow(QWidget):
         
         # 异步检查更新
         self.version_checker.check_for_updates_async()
+
+    def _open_download_url(self, download_url=None, is_direct_download=False):
+        """
+        打开下载链接或发布页面
+        
+        Args:
+            download_url: 下载链接，如果为None则使用GitHub发布页面
+            is_direct_download: 是否为直接下载链接
+        """
+        try:
+            import webbrowser
+            import os
+            
+            # 确定最终使用的下载URL
+            final_url = download_url if download_url else self.github_releases_url
+            
+            # 如果是直接下载链接
+            if is_direct_download:
+                # 在Windows上使用默认浏览器下载
+                if os.name == 'nt':
+                    os.startfile(final_url)
+                else:
+                    webbrowser.open(final_url)
+                logger.debug(f"用户直接下载新版本: {final_url}")
+            else:
+                # 如果不是直接下载链接，打开网页
+                webbrowser.open(final_url)
+                logger.debug(f"用户访问下载页面: {final_url}")
+                
+            return True
+        except Exception as e:
+            logger.error(f"打开下载链接失败: {str(e)}")
+            QMessageBox.warning(self, "错误", f"打开下载链接失败: {str(e)}")
+            return False
     
+    def _open_download_page(self, link):
+        """
+        通过版本标签链接触发下载
+        
+        Args:
+            link: 链接文本
+        """
+        if hasattr(self, 'download_url') and self.download_url:
+            self._open_download_url(self.download_url, is_direct_download=True)
+        else:
+            self._open_download_url(self.github_releases_url, is_direct_download=False)
+
     @Slot(bool, str, str, str, str)
     def _on_version_check_finished(self, has_update, current_ver, latest_ver, update_info_str, error_msg):
         """版本检查完成的处理函数"""
@@ -1368,17 +1429,50 @@ class MainWindow(QWidget):
         self.check_update_btn.setText("检查更新")
         self.check_update_btn.setEnabled(True)
         
+        # 检测是否为静默模式
+        silent_mode = (error_msg == "silent_mode")
+        
+        # 保存下载URL
+        self.download_url = None
+        if has_update and update_info_str:
+            try:
+                import json
+                update_info = json.loads(update_info_str)
+                self.download_url = update_info.get('download_url')
+                if not self.download_url:
+                    self.download_url = update_info.get('url', self.github_releases_url)
+            except:
+                self.download_url = self.github_releases_url
+        
         # 更新版本显示标签
         if has_update and latest_ver:
-            self.version_label.setText(f"当前版本: v{current_ver} | 最新版本: v{latest_ver} 🆕")
+            # 添加HTML链接，设置为可点击状态
+            self.version_label.setText(f"当前版本: v{current_ver} | 最新版本: v{latest_ver} 🆕 <a href='#download'>前往下载</a>")
+            self.version_label.setOpenExternalLinks(False)  # 使用自定义逻辑来处理链接
+            self.version_label.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+            # 连接到下载函数
+            self.version_label.linkActivated.connect(self._open_download_page)
             StyleHelper.set_label_type(self.version_label, "warning")
         else:
             self.version_label.setText(f"当前版本: v{current_ver}")
             StyleHelper.set_label_type(self.version_label, "info")
         
+        # 如果是静默模式，只更新界面不显示弹窗
+        if silent_mode:
+            logger.debug(f"静默检查更新中，有更新: {has_update}")
+            # 如果有更新，在托盘图标中显示简短提示
+            if has_update and self.config_manager.show_notifications:
+                self.tray_icon.showMessage(
+                    self.app_name,
+                    f"发现新版本 v{latest_ver} 可用",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    3000  # 显示3秒
+                )
+            return
+        
         # 创建并显示消息
         result = create_update_message(
-            has_update, current_ver, latest_ver, update_info_str, error_msg
+            has_update, current_ver, latest_ver, update_info_str, error_msg, self.github_releases_url
         )
         
         # 解包结果
@@ -1389,39 +1483,37 @@ class MainWindow(QWidget):
         if msg_type == "error":
             # 其他错误消息，询问是否手动访问GitHub
             msg_box = QMessageBox(self)
-            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setIcon(QMessageBox.Icon.Critical)
             msg_box.setWindowTitle(title)
             msg_box.setText(message)
             
             # 添加自定义按钮
-            get_version_btn = msg_box.addButton("🌐 前往下载页面", QMessageBox.YesRole)
-            cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.NoRole)
+            get_version_btn = msg_box.addButton("🌐 前往下载页面", QMessageBox.ButtonRole.YesRole)
+            cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.ButtonRole.NoRole)
             msg_box.setDefaultButton(cancel_btn)
             
             msg_box.exec()
             if msg_box.clickedButton() == get_version_btn:
-                github_url = extra_data.get('github_url', 'https://github.com/cassianvale/ACE-KILLER/releases')
+                github_url = extra_data.get('github_url', self.github_releases_url)
                 webbrowser.open(github_url)
                 
         elif msg_type == "update":
             # 有新版本，询问是否前往下载
             msg_box = QMessageBox(self)
-            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setIcon(QMessageBox.Icon.Information)
             msg_box.setWindowTitle(title)
             msg_box.setText(message)
             
             # 根据是否为直接下载调整按钮配置
             is_direct_download = extra_data.get('is_direct_download', False)
             if is_direct_download:
-                # 有直接下载链接时，提供加速镜像和源地址两个选项
-                mirror_btn = msg_box.addButton("🚀 国内加速下载", QMessageBox.AcceptRole)
-                direct_btn = msg_box.addButton("🌐 源地址下载", QMessageBox.ActionRole)
-                cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.RejectRole)
-                msg_box.setDefaultButton(mirror_btn)
+                direct_btn = msg_box.addButton("🌐 下载更新", QMessageBox.ButtonRole.AcceptRole)
+                cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.ButtonRole.RejectRole)
+                msg_box.setDefaultButton(direct_btn)
             else:
                 # 没有直接下载链接时，只提供页面跳转
-                download_btn = msg_box.addButton("🌐 前往下载页面", QMessageBox.AcceptRole)
-                cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.RejectRole)
+                download_btn = msg_box.addButton("🌐 前往下载页面", QMessageBox.ButtonRole.AcceptRole)
+                cancel_btn = msg_box.addButton("❌ 关闭", QMessageBox.ButtonRole.RejectRole)
                 msg_box.setDefaultButton(download_btn)
             
             msg_box.exec()
@@ -1429,65 +1521,34 @@ class MainWindow(QWidget):
             
             # 处理下载按钮点击
             download_url = extra_data.get('download_url')
+            is_direct_download = extra_data.get('is_direct_download', False)
             should_download = False
-            final_download_url = None
             
             if is_direct_download:
                 # 有直接下载链接的情况
-                if clicked_button == mirror_btn:
-                    # 国内加速镜像下载
+                if clicked_button == direct_btn:
                     should_download = True
-                    final_download_url = f"https://ghfast.top/{download_url}" if download_url else None
-                elif clicked_button == direct_btn:
-                    # 源地址下载
-                    should_download = True
-                    final_download_url = download_url
             else:
                 # 没有直接下载链接的情况
                 if clicked_button == download_btn:
                     should_download = True
-                    final_download_url = download_url
             
             # 执行下载
-            if should_download and final_download_url:
-                import subprocess
-                import os
-                try:
-                    # 在Windows上使用默认浏览器下载
-                    if os.name == 'nt':
-                        os.startfile(final_download_url)
-                    else:
-                        # 其他系统使用webbrowser
-                        webbrowser.open(final_download_url)
-                    
-                except Exception as e:
-                    logger.error(f"启动下载失败: {str(e)}")
-                    # 回退到浏览器打开
-                    webbrowser.open(final_download_url)
-            elif should_download:
-                # 备用方案：打开发布页面
-                import json
-                try:
-                    update_info = json.loads(update_info_str)
-                    release_url = update_info.get('url', 'https://github.com/cassianvale/ACE-KILLER/releases/latest')
-                    webbrowser.open(release_url)
-                except:
-                    webbrowser.open("https://github.com/cassianvale/ACE-KILLER/releases/latest")
+            if should_download:
+                self._open_download_url(download_url, is_direct_download)
                     
         else:
             QMessageBox.information(self, title, message)
     
-    @Slot()
     def show_about(self):
         """显示关于对话框"""
         # 创建自定义消息框，添加访问官网的选项
         msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("关于 ACE-KILLER")
+        msg_box.setWindowTitle("关于")
         msg_box.setText(
-            "ACE-KILLER\n\n"
-            "作者: CassianVale\n\n"
-            "GitHub: https://github.com/cassianvale/ACE-KILLER\n\n"
-            "ACE-KILLER是一款游戏优化工具，用于监控并优化游戏进程\n\n"
+            f"{self.app_name}\n\n"
+            f"作者: {self.app_author}\n\n"
+            f"描述: {self.app_description}\n\n"
             "💡 如果这个工具对您有帮助，欢迎访问GitHub项目页面：\n"
             "   • 点击⭐Star支持项目发展\n"
             "   • 提交Issues反馈问题和建议\n"
@@ -1495,11 +1556,11 @@ class MainWindow(QWidget):
             "您的支持是项目持续改进的动力！\n\n"
             "是否访问项目官网？"
         )
-        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setIcon(QMessageBox.Icon.Information)
         
         # 添加自定义按钮
-        visit_btn = msg_box.addButton("⭐ 访问GitHub主页", QMessageBox.ActionRole)
-        close_btn = msg_box.addButton("❌ 关闭", QMessageBox.RejectRole)
+        visit_btn = msg_box.addButton("⭐ 访问GitHub主页", QMessageBox.ButtonRole.ActionRole)
+        close_btn = msg_box.addButton("❌ 关闭", QMessageBox.ButtonRole.RejectRole)
         
         # 设置默认按钮
         msg_box.setDefaultButton(visit_btn)
@@ -1511,72 +1572,78 @@ class MainWindow(QWidget):
         # 如果点击了访问官网按钮
         if clicked_button == visit_btn:
             import webbrowser
-            webbrowser.open("https://github.com/cassianvale/ACE-KILLER")
+            github_url = f"https://github.com/{self.github_repo}"
+            webbrowser.open(github_url)
             logger.debug("用户通过关于对话框访问了项目官网")
-    
-    @Slot()
-    def show_main_window(self):
-        """显示主窗口"""
-        # 如果窗口是通过自定义标题栏最小化的，需要特殊处理
-        if self.is_custom_minimized:
-            self.restore_from_custom_minimize()
+            
+    def toggle_main_window(self):
+        """切换主窗口的显示状态"""
+        if self.isHidden() or self.is_custom_minimized:
+            # 如果窗口隐藏或是自定义最小化状态，则显示窗口
+            if self.is_custom_minimized:
+                self.restore_from_custom_minimize()
+            else:
+                self.showNormal()
+                self.activateWindow()
+            logger.debug("从托盘菜单显示主窗口")
         else:
-            self.showNormal()
-            self.activateWindow()
+            # 如果窗口已显示，则最小化到托盘
+            if hasattr(self, 'custom_titlebar') and self.custom_titlebar:
+                self.custom_titlebar.minimize_to_tray()
+                logger.debug("从托盘菜单隐藏主窗口到托盘")
+            else:
+                self.hide()
+                logger.debug("从托盘菜单隐藏主窗口")
+        
+        self.update_tray_menu_text()
+    
+    def update_tray_menu_text(self):
+        """更新托盘菜单项文本"""
+        if hasattr(self, 'toggle_window_action'):
+            if self.isHidden() or self.is_custom_minimized:
+                self.toggle_window_action.setText("显示主窗口")
+            else:
+                self.toggle_window_action.setText("隐藏窗口到托盘")
     
     def restore_from_custom_minimize(self):
         """从自定义标题栏最小化状态恢复窗口"""
-        try:
-            # 恢复窗口透明度
+        if hasattr(self, 'custom_titlebar') and self.custom_titlebar:
+            self.custom_titlebar.safe_restore_window()
+            logger.debug("使用safe_restore_window()方法恢复窗口")
+        else:
+            # 否则使用简单恢复
             self.setWindowOpacity(1.0)
-            
-            # 恢复原始几何信息
-            if self.original_geometry and self.original_geometry.isValid():
-                self.setGeometry(self.original_geometry)
-            else:
-                # 如果没有保存的几何信息，使用默认位置
-                screen = self.screen()
-                if screen:
-                    center = screen.geometry().center()
-                    geometry = self.geometry()
-                    geometry.moveCenter(center)
-                    self.setGeometry(geometry)
-            
-            # 显示并激活窗口
             self.show()
             self.showNormal()
             self.activateWindow()
-            self.raise_()
-            
-            # 重置标志
             self.is_custom_minimized = False
+            logger.debug("主窗口已恢复")
             
-            logger.debug("窗口已从自定义最小化状态恢复")
-            
-        except Exception as e:
-            logger.error(f"从自定义最小化状态恢复窗口失败: {str(e)}")
-            # 回退到简单恢复
-            self.setWindowOpacity(1.0)
-            self.showNormal()
-            self.activateWindow()
-    
-    @Slot()
     def show_status(self):
         """在托盘菜单显示状态通知"""
-        status = get_status_info(self.monitor)
+        status = self._get_status_info()
         send_notification(
-            title="ACE-KILLER 状态",
+            title=f"{self.app_name} 状态",
             message=status,
             icon_path=self.icon_path
         )
+
+    def _get_status_info(self):
+        """获取应用状态信息"""
+        status_lines = []
+        status_lines.append(f"🟢 {self.app_name} 正在运行")
+        status_lines.append(f"📱 通知: {'已启用' if self.config_manager.show_notifications else '已禁用'}")
+        status_lines.append(f"🚀 开机自启: {'已启用' if self.config_manager.auto_start else '已禁用'}")
+        status_lines.append(f"🎨 主题: {'浅色模式' if self.config_manager.theme == 'light' else '深色模式'}")
+        status_lines.append(f"🪟 关闭行为: {'最小化到托盘' if self.config_manager.close_to_tray else '直接退出'}")
+        return "\n".join(status_lines)
     
-    @Slot()
     def tray_icon_activated(self, reason):
         """处理托盘图标激活事件"""
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-            self.show_main_window()
+            # 使用toggle_main_window方法切换窗口显示状态
+            self.toggle_main_window()
     
-    @Slot()
     def confirm_exit(self):
         """确认退出程序"""
         self.exit_app()
@@ -1602,14 +1669,16 @@ class MainWindow(QWidget):
     def closeEvent(self, event):
         """处理窗口关闭事件"""
         # 根据配置设置执行相应操作
-        if self.monitor.config_manager.close_to_tray:
+        if self.config_manager.close_to_tray:
             # 最小化到后台
             event.ignore()
             self.hide()
+            self.update_tray_menu_text()
+            
             # 如果托盘图标可见且通知开启，显示最小化提示
-            if hasattr(self, 'tray_icon') and self.tray_icon.isVisible() and self.monitor.config_manager.show_notifications:
+            if hasattr(self, 'tray_icon') and self.tray_icon.isVisible() and self.config_manager.show_notifications:
                 self.tray_icon.showMessage(
-                    "ACE-KILLER",
+                    self.app_name,
                     "程序已最小化到系统托盘，继续在后台运行",
                     QSystemTrayIcon.MessageIcon.Information,
                     2000
@@ -1619,15 +1688,15 @@ class MainWindow(QWidget):
             event.accept()
             self.exit_app()
 
-    @Slot()
+
     def toggle_debug_mode(self):
         """切换调试模式"""
         # 获取新的调试模式状态
         new_debug_mode = self.debug_checkbox.isChecked()
-        self.monitor.config_manager.debug_mode = new_debug_mode
+        self.config_manager.debug_mode = new_debug_mode
         
         # 保存配置
-        if self.monitor.config_manager.save_config():
+        if self.config_manager.save_config():
             logger.debug(f"调试模式已更改并保存: {'开启' if new_debug_mode else '关闭'}")
         else:
             logger.warning(f"调试模式已更改但保存失败: {'开启' if new_debug_mode else '关闭'}")
@@ -1644,35 +1713,49 @@ class MainWindow(QWidget):
         # 立即更新状态显示
         self.update_status()
 
-    @Slot()
     def on_close_behavior_changed(self):
         """关闭行为选项变化时的处理"""
         close_to_tray = self.close_behavior_combo.currentData()
         if close_to_tray is not None:
-            self.monitor.config_manager.close_to_tray = close_to_tray
+            self.config_manager.close_to_tray = close_to_tray
             
             # 保存配置
-            if self.monitor.config_manager.save_config():
+            if self.config_manager.save_config():
                 logger.debug(f"关闭行为设置已更改并保存: {'最小化到后台' if close_to_tray else '直接退出'}")
             else:
                 logger.warning(f"关闭行为设置已更改但保存失败: {'最小化到后台' if close_to_tray else '直接退出'}")
             
             # 立即更新状态显示
             self.update_status()
-
-    @Slot()
+            
+    def toggle_check_update_on_start(self):
+        """切换启动时检查更新设置"""
+        try:
+            # 获取当前复选框状态
+            check_update_on_start = self.check_update_on_start_checkbox.isChecked()
+            
+            # 更新配置
+            self.config_manager.check_update_on_start = check_update_on_start
+            
+            # 保存配置
+            if self.config_manager.save_config():
+                logger.debug(f"启动时检查更新设置已保存: {check_update_on_start}")
+            else:
+                logger.warning("启动时检查更新设置保存失败")
+                
+        except Exception as e:
+            logger.error(f"切换启动时检查更新设置失败: {str(e)}")
+            QMessageBox.warning(self, "错误", f"切换启动时检查更新设置失败: {str(e)}")
+            
+            # 恢复界面状态
+            self.check_update_on_start_checkbox.setChecked(self.config_manager.check_update_on_start)
+            
     def toggle_memory_cleanup(self):
         """切换内存清理功能开关"""
         enabled = self.memory_checkbox.isChecked()
         
-        # 更新内存清理器的enabled属性
-        self.memory_cleaner.enabled = enabled
-        
-        # 将设置同步到配置管理器
-        self.memory_cleaner.sync_to_config_manager()
-        
-        # 检查是否应该启动或停止清理线程
-        self.memory_cleaner._check_should_run_thread()
+        # 使用内存清理器的设置方法
+        self.memory_cleaner.set_enabled(enabled)
         
         if enabled:
             # 检查是否有任何清理选项被启用
@@ -1693,16 +1776,12 @@ class MainWindow(QWidget):
         # 立即更新UI状态
         self.update_memory_status()
     
-    @Slot()
     def toggle_brute_mode(self):
         """切换暴力模式开关"""
         enabled = self.brute_mode_checkbox.isChecked()
         
-        # 更新配置
-        self.memory_cleaner.brute_mode = enabled
-        
-        # 将设置同步到配置管理器
-        self.memory_cleaner.sync_to_config_manager()
+        # 使用内存清理器的设置方法
+        self.memory_cleaner.set_brute_mode(enabled)
         
         logger.debug(f"内存清理暴力模式已{'启用' if enabled else '禁用'}")
     
@@ -1749,13 +1828,11 @@ class MainWindow(QWidget):
         self.memory_cleaner.set_cooldown_time(value)
         logger.debug(f"内存清理冷却时间已设置为 {value} 秒")
     
-    @Slot()
     def _update_progress_dialog_value(self, value):
         """更新进度对话框的值（从主线程）"""
         if hasattr(self, 'progress_dialog') and self.progress_dialog is not None:
             self.progress_dialog.setValue(value)
-    
-    @Slot()
+            
     def manual_clean_workingset(self):
         """手动清理工作集"""
         try:
@@ -1765,7 +1842,6 @@ class MainWindow(QWidget):
         except Exception as e:
             logger.error(f"手动清理工作集失败: {str(e)}")
     
-    @Slot()
     def manual_clean_syscache(self):
         """手动清理系统缓存"""
         try:
@@ -1775,7 +1851,6 @@ class MainWindow(QWidget):
         except Exception as e:
             logger.error(f"手动清理系统缓存失败: {str(e)}")
     
-    @Slot()
     def manual_clean_all(self):
         """手动执行全面清理"""
         # 添加二次确认对话框
@@ -1836,7 +1911,6 @@ class MainWindow(QWidget):
         # 更新状态
         self.update_memory_status()
 
-    @Slot()
     def delete_ace_services(self):
         """删除ACE相关服务"""
         # 确认对话框
@@ -1960,7 +2034,6 @@ class MainWindow(QWidget):
         # 刷新状态
         self.update_status()
 
-    @Slot()
     def optimize_anticheat_processes(self):
         """一键优化所有反作弊进程的I/O优先级并添加到自动优化列表"""
         # 反作弊相关进程名称列表
@@ -2076,7 +2149,6 @@ class MainWindow(QWidget):
             added_list.append(process_name)
             logger.debug(f"添加进程 {process_name} 到自动优化列表")
 
-    @Slot()
     def show_auto_optimize_tab(self):
         """显示自动优化列表选项卡"""
         # 导入对话框类
@@ -2096,14 +2168,12 @@ class MainWindow(QWidget):
         # 刷新状态显示，因为用户可能在列表中做了修改
         self.update_status()
 
-    @Slot()
     def show_process_manager(self):
         """显示进程I/O优先级管理器"""
         show_process_io_priority_manager(self, self.monitor.config_manager)
         # 刷新状态显示，因为用户可能在管理器中做了修改
         self.update_status()
 
-    @Slot()
     def stop_ace_services(self):
         """停止ACE相关服务"""
         # 确认对话框
@@ -2233,7 +2303,6 @@ class MainWindow(QWidget):
         # 刷新状态
         self.update_status()
 
-    @Slot()
     def start_ace_program(self):
         """启动ACE反作弊程序"""
         try:
@@ -2273,7 +2342,6 @@ class MainWindow(QWidget):
             logger.error(error_msg)
             QMessageBox.critical(self, "启动失败", error_msg)
 
-    @Slot()
     def uninstall_ace_program(self):
         """卸载ACE反作弊程序"""
         # 确认对话框
@@ -2412,13 +2480,15 @@ def get_start_type_display(start_type):
         return start_type
 
 
-def create_gui(monitor, icon_path=None):
+def create_gui(config_manager, monitor=None, icon_path=None, start_minimized=False):
     """
     创建图形用户界面
     
     Args:
+        config_manager: 配置管理器对象
         monitor: 进程监控器对象
         icon_path: 图标路径
+        start_minimized: 是否以最小化模式启动
         
     Returns:
         (QApplication, MainWindow): 应用程序对象和主窗口对象
@@ -2431,10 +2501,7 @@ def create_gui(monitor, icon_path=None):
     # 应用Ant Design全局主题样式
     StyleApplier.apply_ant_design_theme(app)
     
-    # 检查是否需要最小化启动（通过命令行参数传递）
-    start_minimized = "--minimized" in sys.argv
-    
-    window = MainWindow(monitor, icon_path, start_minimized)
+    window = MainWindow(config_manager, monitor, icon_path, start_minimized)
     
     # 如果设置了最小化启动，则不显示主窗口
     if not start_minimized:

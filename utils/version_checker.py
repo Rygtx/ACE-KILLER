@@ -5,17 +5,14 @@
 版本检查和更新模块
 """
 
-import os
-import json
-import threading
-import requests
-from packaging import version
 from PySide6.QtCore import QObject, Signal
-from utils.logger import logger
-
-
-# 版本信息 - 通过 GitHub Actions 构建时会被替换
-__version__ = "1.0.0"  # 默认版本号，构建时会被替换
+import json
+import re
+import os
+import requests
+import threading
+from packaging import version
+from .logger import logger
 
 
 class VersionChecker(QObject):
@@ -24,12 +21,15 @@ class VersionChecker(QObject):
     # 版本检查完成信号 - (有更新, 当前版本, 最新版本, 更新信息, 错误信息)
     check_finished = Signal(bool, str, str, str, str)
     
-    def __init__(self):
+    def __init__(self, config_manager=None):
         super().__init__()
-        self.github_api_url = "https://api.github.com/repos/cassianvale/ACE-KILLER/releases/latest"
-        self.github_releases_url = "https://github.com/cassianvale/ACE-KILLER/releases"
-        self.timeout = 10  # 网络请求超时时间（秒）
-    
+        self.config_manager = config_manager
+        self.github_api_url = config_manager.get_github_api_url()
+        self.github_releases_url = config_manager.get_github_releases_url()
+        self.app_name = config_manager.get_app_name()
+        self.timeout = config_manager.system_config.get("network_timeout", 10)
+        self.silent_mode = False  # 默认非静默模式，显示更新弹窗
+
     def get_current_version(self):
         """
         获取当前版本号
@@ -37,31 +37,21 @@ class VersionChecker(QObject):
         Returns:
             str: 当前版本号
         """
-        # 首先尝试从环境变量获取版本号（GitHub Actions 构建时设置）
-        env_version = os.environ.get('ACE_KILLER_VERSION')
-        if env_version:
-            return env_version.strip()
+        # 从配置管理器获取版本号
+        if self.config_manager:
+            return self.config_manager.get_app_version()
         
-        # 尝试从版本文件获取
-        try:
-            version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'VERSION')
-            if os.path.exists(version_file):
-                with open(version_file, 'r', encoding='utf-8') as f:
-                    file_version = f.read().strip()
-                    if file_version:
-                        return file_version
-        except Exception as e:
-            logger.debug(f"读取版本文件失败: {str(e)}")
-        
-        # 返回默认版本号
-        return __version__
+        # 如果没有配置管理器，返回默认版本号
+        return "1.0.0"
     
-
-    
-    def check_for_updates_async(self):
+    def check_for_updates_async(self, silent_mode=False):
         """
         异步检查更新
+        
+        Args:
+            silent_mode (bool): 是否静默检查（不显示弹窗）
         """
+        self.silent_mode = silent_mode
         thread = threading.Thread(target=self._check_for_updates_thread)
         thread.daemon = True
         thread.start()
@@ -75,7 +65,7 @@ class VersionChecker(QObject):
             
             # 发送 HTTP 请求获取最新版本信息
             headers = {
-                'User-Agent': f'ACE-KILLER/{current_ver}',
+                'User-Agent': f'{self.app_name}/{current_ver}',
                 'Accept': 'application/vnd.github.v3+json'
             }
             
@@ -135,24 +125,30 @@ class VersionChecker(QObject):
             
             logger.debug(f"版本检查完成 - 当前: {current_ver}, 最新: {latest_version}, 有更新: {has_update}")
             
-            # 发送检查完成信号
+            # 静默模式下也发送信号，但添加静默标记，用于更新界面信息而不显示弹窗
             self.check_finished.emit(
                 has_update, 
                 current_ver, 
                 latest_version, 
                 update_info_str, 
-                ""
+                "silent_mode" if self.silent_mode else ""  # 使用错误信息字段传递静默模式标记
             )
             
+            # 记录静默模式信息
+            if self.silent_mode:
+                logger.info(f"静默检查模式：有更新: {has_update}, 最新版本: {latest_version}")
+                
         except requests.exceptions.Timeout:
             error_msg = "网络请求超时，请检查网络连接后稍后重试"
             logger.warning(f"检查更新失败: {error_msg}")
-            self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
+            if not self.silent_mode:
+                self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
             
         except requests.exceptions.ConnectionError:
             error_msg = "网络连接失败，请检查网络连接后稍后重试"
             logger.warning(f"检查更新失败: {error_msg}")
-            self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
+            if not self.silent_mode:
+                self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
             
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 403:
@@ -161,12 +157,14 @@ class VersionChecker(QObject):
             else:
                 error_msg = f"GitHub API 请求失败: {e.response.status_code}"
                 logger.warning(f"检查更新失败: {error_msg}")
-            self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
+            if not self.silent_mode:
+                self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
             
         except Exception as e:
             error_msg = f"检查更新时发生错误: {str(e)}"
             logger.error(f"检查更新失败: {error_msg}")
-            self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
+            if not self.silent_mode:
+                self.check_finished.emit(False, self.get_current_version(), "", "", error_msg)
     
     def _compare_versions(self, current_ver, latest_ver):
         """
@@ -209,7 +207,6 @@ class VersionChecker(QObject):
         cleaned = ver_str.lstrip('v')
         
         # 移除可能的后缀（如 -beta, -alpha 等）
-        import re
         cleaned = re.split(r'[-+]', cleaned)[0]
         
         # 确保版本号格式正确
@@ -220,26 +217,52 @@ class VersionChecker(QObject):
         return '.'.join(parts[:3])
 
 
-def get_version_checker():
+# 单例版本检查器实例
+_version_checker_instance = None
+
+def get_version_checker(config_manager=None):
     """
     获取版本检查器实例（单例模式）
+    
+    Args:
+        config_manager: 配置管理器实例
     
     Returns:
         VersionChecker: 版本检查器实例
     """
-    if not hasattr(get_version_checker, '_instance'):
-        get_version_checker._instance = VersionChecker()
-    return get_version_checker._instance
+    global _version_checker_instance
+    if _version_checker_instance is None:
+        _version_checker_instance = VersionChecker(config_manager)
+    return _version_checker_instance
 
 
-def get_current_version():
+def check_for_update(config_manager=None, silent_mode=False):
     """
-    获取当前版本号的便捷函数
+    检查更新的便捷函数
+    
+    Args:
+        config_manager: 配置管理器实例
+        silent_mode (bool): 是否静默检查（不显示弹窗）
     
     Returns:
-        str: 当前版本号
+        VersionChecker: 版本检查器实例
     """
-    return get_version_checker().get_current_version()
+    checker = get_version_checker(config_manager)
+    checker.check_for_updates_async(silent_mode=silent_mode)
+    return checker
+
+
+def get_app_version(config_manager=None):
+    """
+    获取当前应用版本号的便捷函数
+    
+    Args:
+        config_manager: 配置管理器实例
+    
+    Returns:
+        str: 当前应用版本号
+    """
+    return get_version_checker(config_manager).get_current_version()
 
 
 def format_version_info(current_version, latest_version=None, has_update=False):
@@ -260,7 +283,7 @@ def format_version_info(current_version, latest_version=None, has_update=False):
         return f"当前版本: v{current_version}"
 
 
-def create_update_message(has_update, current_ver, latest_ver, update_info_str, error_msg):
+def create_update_message(has_update, current_ver, latest_ver, update_info_str, error_msg, github_url=None):
     """
     创建更新检查结果消息
     
@@ -270,6 +293,7 @@ def create_update_message(has_update, current_ver, latest_ver, update_info_str, 
         latest_ver: 最新版本
         update_info_str: 更新信息JSON字符串
         error_msg: 错误信息
+        github_url: GitHub发布页面URL（可选）
         
     Returns:
         tuple: (标题, 消息内容, 消息类型, 额外数据)
@@ -287,7 +311,7 @@ def create_update_message(has_update, current_ver, latest_ver, update_info_str, 
             f"• 直接访问GitHub项目页面获取最新版本\n\n"
             f"是否打开GitHub项目页面？",
             "error",
-            {"github_url": "https://github.com/cassianvale/ACE-KILLER/releases"}
+            {"github_url": github_url}
         )
     
     # 处理有更新的情况
@@ -296,7 +320,7 @@ def create_update_message(has_update, current_ver, latest_ver, update_info_str, 
             update_info = json.loads(update_info_str)
             release_name = update_info.get('name', f'v{latest_ver}')
             release_body = update_info.get('body', '').strip()
-            release_url = update_info.get('url', 'https://github.com/cassianvale/ACE-KILLER/releases')
+            release_url = update_info.get('url', github_url)
             direct_download_url = update_info.get('download_url')
             
             # 限制更新日志长度
@@ -336,7 +360,7 @@ def create_update_message(has_update, current_ver, latest_ver, update_info_str, 
                 f"发现新版本！\n\n当前版本: v{current_ver}\n最新版本: v{latest_ver}\n\n是否前往下载页面？",
                 "update",
                 {
-                    "download_url": "https://github.com/cassianvale/ACE-KILLER/releases",
+                    "download_url": github_url,
                     "is_direct_download": False
                 }
             )

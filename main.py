@@ -9,29 +9,54 @@ import os
 import sys
 import queue
 
-from config.config_manager import ConfigManager
+from config import ConfigManager, APP_INFO, DEFAULT_CONFIG, SYSTEM_CONFIG
 from core.process_monitor import GameProcessMonitor
-from core.system_utils import run_as_admin, check_single_instance
+from utils.system_utils import run_as_admin, check_single_instance
 from utils.logger import setup_logger, logger
 from utils.notification import find_icon_path, send_notification, create_notification_thread
 from utils.process_io_priority import get_io_priority_service
 
+
 from ui.main_window import create_gui
 
 
-def main():
-    """主程序入口函数"""
+def main(custom_app_info=None, custom_default_config=None, custom_system_config=None):
+    """
+    主程序入口函数
+    
+    Args:
+        custom_app_info (dict, optional): 自定义应用信息，用于覆盖默认值
+        custom_default_config (dict, optional): 自定义默认配置，用于覆盖默认值
+        custom_system_config (dict, optional): 自定义系统配置，用于覆盖默认值
+    """
+    # 检查是否以最小化模式启动（通过命令行参数）
+    start_minimized = "--minimized" in sys.argv
+    
+    # 合并应用信息
+    final_app_info = APP_INFO.copy()
+    if custom_app_info:
+        final_app_info.update(custom_app_info)
+    
+    # 合并系统配置
+    final_system_config = SYSTEM_CONFIG.copy()
+    if custom_system_config:
+        final_system_config.update(custom_system_config)
+    
     # 检查管理员权限
     if not run_as_admin():
         return
     
     # 检查单实例运行
-    if not check_single_instance():
+    mutex_name = f"Global\\{final_app_info['name'].replace(' ', '_')}_MUTEX"
+    if not check_single_instance(mutex_name):
         return
     
     # 创建配置管理器
-    config_manager = ConfigManager()
-    
+    config_manager = ConfigManager(
+        custom_app_info=final_app_info,
+        custom_default_config=custom_default_config,
+        custom_system_config=final_system_config
+    )
     # 配置日志系统
     setup_logger(
         config_manager.log_dir,
@@ -60,20 +85,25 @@ def main():
     )
     
     # 创建并运行PySide6图形界面
-    app, window = create_gui(monitor, icon_path)
-    
-    # 显示欢迎通知
+    app, window = create_gui(config_manager, monitor, icon_path, start_minimized)
+
+    app_name = config_manager.get_app_name()
+    app_author = config_manager.get_app_author()
+    github_repo = config_manager.get_github_repo()
+    github_releases = config_manager.get_github_releases_url()
+
     buttons = [
-        {'text': '访问项目官网', 'action': 'open_url', 'launch': 'https://github.com/cassianvale/ACE-KILLER'},
-        {'text': '下载最新版本', 'action': 'open_url', 'launch': 'https://github.com/cassianvale/ACE-KILLER/releases/latest'}
+        {'text': '访问项目官网', 'action': 'open_url', 'launch': f'https://github.com/{github_repo}'},
+        {'text': '下载最新版本', 'action': 'open_url', 'launch': github_releases}
     ]
     
+    # 不受Windows通知选项限制，每次开启都显示通知
     send_notification(
-        title="ACE-KILLER",
-        message=f"🚀 欢迎使用 ACE-KILLER ！\n🐶 作者: CassianVale",
+        title=app_name,
+        message=f"🚀 欢迎使用 {app_name} ！\n🐶 作者: {app_author}",
         icon_path=icon_path,
         buttons=buttons,
-        silent=True
+        silent=True     # 通知是否静音
     )
     
 
