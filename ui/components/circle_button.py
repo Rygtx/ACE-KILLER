@@ -40,7 +40,7 @@ class CircleButton(QWidget):
     def paintEvent(self, event):
         """绘制按钮"""
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         # 绘制圆形背景
         self._draw_background(painter)
@@ -59,7 +59,6 @@ class CircleButton(QWidget):
 
     def _draw_icon(self, painter):
         """绘制图标"""
-        icon_size = QSize(self._icon_size, self._icon_size)
         icon_pos_x = (self.width() - self._icon_size) // 2
         icon_pos_y = (self.height() - self._icon_size) // 2
         self._icon.paint(
@@ -78,7 +77,7 @@ class CircleButton(QWidget):
 
     def mousePressEvent(self, event):
         """鼠标点击事件"""
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             # 只发出关闭请求信号，让父窗口处理异步关闭
             self.clicked.emit()
             self.close_requested.emit()

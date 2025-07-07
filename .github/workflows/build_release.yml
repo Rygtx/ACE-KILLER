@@ -1,4 +1,4 @@
-name: 构建和发布ACE-KILLER
+name: 构建和发布
 
 permissions:
   contents: write
@@ -15,6 +15,11 @@ on:
         description: "发布说明"
         required: false
         default: "此版本包含性能改进和错误修复"
+      should_publish:
+        description: "是否发布到GitHub Releases"
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -64,16 +69,17 @@ jobs:
         run: |
           Write-Host "🔧 准备构建环境..."
 
-          # 更新版本号
-          echo "${{ github.event.inputs.version }}" | Out-File -FilePath "VERSION" -Encoding utf8 -NoNewline
-          Write-Host "✅ 已更新 VERSION 文件为: ${{ github.event.inputs.version }}"
-
-          # 更新 utils/version_checker.py 中的版本号
-          $versionCheckerPath = "utils/version_checker.py"
-          if (Test-Path $versionCheckerPath) {
-            (Get-Content -Path $versionCheckerPath -Raw) -replace '__version__ = ".*"', '__version__ = "${{ github.event.inputs.version }}"' | Set-Content -Path $versionCheckerPath -Encoding utf8
-            Write-Host "✅ 已更新 version_checker.py 中的版本号"
+          # 更新 app_config.py 中的版本号
+          $appConfigPath = "config/app_config.py"
+          if (Test-Path $appConfigPath) {
+            (Get-Content -Path $appConfigPath -Raw) -replace '"version": ".*?"', '"version": "${{ github.event.inputs.version }}"' | Set-Content -Path $appConfigPath -Encoding utf8
+            Write-Host "✅ 已更新 app_config.py 中的版本号"
           }
+
+          # 提取应用名称
+          $appName = python -c "from config.app_config import APP_INFO; print(APP_INFO['name'])"
+          echo "APP_NAME=$appName" >> $env:GITHUB_ENV
+          Write-Host "✅ 应用名称: $appName"
 
           # 清理构建文件
           @("main.dist", "main.build", "main.onefile-build", "nuitka-crash-report.xml") | ForEach-Object {
@@ -124,7 +130,7 @@ jobs:
             --enable-plugin=pyside6 `
             --lto=yes `
             --jobs=$env:NUMBER_OF_PROCESSORS `
-            --output-filename=ACE-KILLER.exe `
+            --output-filename=$env:APP_NAME.exe `
             --nofollow-import-to=tkinter,numpy,scipy,matplotlib,PIL.ImageTk `
             --nofollow-import-to=PySide6.QtWebEngineWidgets `
             --nofollow-import-to=PySide6.Qt3DCore `
@@ -155,15 +161,14 @@ jobs:
 
           # 检查关键文件
           $checks = @(
-            @{ Path = "VERSION"; Name = "版本文件" },
             @{ Path = "compilation-report.xml"; Name = "编译报告" },
             @{ Path = "main.dist"; Name = "构建目录" },
-            @{ Path = "main.dist/ACE-KILLER.exe"; Name = "可执行文件" }
+            @{ Path = "main.dist/$env:APP_NAME.exe"; Name = "可执行文件" }
           )
 
           foreach ($check in $checks) {
             if (Test-Path $check.Path) {
-              if ($check.Path -eq "main.dist/ACE-KILLER.exe") {
+              if ($check.Path -eq "main.dist/$env:APP_NAME.exe") {
                 $fileInfo = Get-Item $check.Path
                 $fileSizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
                 Write-Host "✅ $($check.Name) (大小: ${fileSizeMB} MB)"
@@ -172,7 +177,7 @@ jobs:
               }
             } else {
               Write-Error "❌ $($check.Name) 未找到: $($check.Path)"
-              if ($check.Path -eq "main.dist/ACE-KILLER.exe") { exit 1 }
+              if ($check.Path -eq "main.dist/$env:APP_NAME.exe") { exit 1 }
             }
           }
 
@@ -190,7 +195,7 @@ jobs:
       - name: 压缩可执行文件目录
         run: |
           $dist_dir = "main.dist"
-          $zip_name = "ACE-KILLER-v${{ github.event.inputs.version }}-x64"
+          $zip_name = "$env:APP_NAME-v${{ github.event.inputs.version }}-x64"
           $zip_path = "$zip_name.zip"
 
           if (Test-Path $dist_dir) {
@@ -208,10 +213,11 @@ jobs:
 
       - name: 创建发布
         id: create_release
+        if: ${{ github.event.inputs.should_publish == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.version }}
-          name: ACE-KILLER v${{ github.event.inputs.version }}
+          name: ${{ env.APP_NAME }} v${{ github.event.inputs.version }}
           body: |
             ### 🚀 更新日志
             ${{ github.event.inputs.release_notes }}
@@ -219,7 +225,7 @@ jobs:
             ### 📥 安装说明
             1. 下载 zip 压缩包文件
             2. 解压到任意目录
-            3. 右键点击 `ACE-KILLER.exe`，选择"以管理员身份运行"
+            3. 右键点击 `${{ env.APP_NAME }}.exe`，选择"以管理员身份运行"
 
             ### ⚠️ 系统要求
             - Windows 10/11 x64
@@ -235,4 +241,4 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ACE-KILLER-v${{ github.event.inputs.version }}-x64.zip
+            ${{ env.APP_NAME }}-v${{ github.event.inputs.version }}-x64.zip

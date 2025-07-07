@@ -558,7 +558,6 @@ class ThemeManager(QObject):
             margin-bottom: 0px;
             border: 1px solid {colors.GRAY_4};
             border-bottom: none; /* 底部无边框，与面板融合 */
-            border-right: none; /* 右边框去掉，与下一个标签无缝連接 */
             font-size: 12px;
             font-weight: 500;
             min-width: 80px;
@@ -576,7 +575,6 @@ class ThemeManager(QObject):
             color: {colors.PRIMARY_6};
             border-color: {colors.GRAY_4};
             border-bottom-color: {colors.GRAY_1}; /* 底部边框与面板颜色一致，实现无缝连接 */
-            border-right: none; /* 右边框去掉，与下一个标签无缝連接 */
             margin-bottom: -1px; /* 向下延伸1px，确保完全覆盖面板边框 */
         }}
         
@@ -597,7 +595,6 @@ class ThemeManager(QObject):
             background-color: {colors.GRAY_3};
             color: {colors.GRAY_9};
             border-color: {colors.PRIMARY_4};
-            border-right: none; /* 右边框去掉，与下一个标签无缝連接 */
         }}
         
         /* 第一个标签悬停时的特殊处理 */
@@ -622,6 +619,14 @@ class ThemeManager(QObject):
             margin-right: 0px; /* 最后一个标签右边距为0 */
             border-top-right-radius: 6px; /* 只有右上角圆角 */
             border-right: 1px solid {colors.GRAY_4}; /* 恢复右边框 */
+        }}
+        
+        /* 只有一个标签时的特殊处理 */
+        QTabBar::tab:only-one {{
+            border-top-left-radius: 6px; /* 左上角圆角 */
+            border-top-right-radius: 6px; /* 右上角圆角 */
+            border-left: 1px solid {colors.GRAY_4}; /* 左边框 */
+            border-right: 1px solid {colors.GRAY_4}; /* 右边框 */
         }}
         
         /* 选项卡在不同位置时的圆角处理 */

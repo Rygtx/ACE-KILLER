@@ -8,17 +8,19 @@ from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QParalle
 from PySide6.QtGui import QIcon
 from ui.components.circle_button import CircleButton
 from utils.logger import logger
+from config import APP_INFO
 
 @dataclass
 class TitleBarConfig:
-    """标题栏配置"""
+    """TitleBar配置"""
 
     HEIGHT: int = 35
     MARGIN: tuple = (10, 2, 10, 2)
-    SPACING: int = 5
-    FONT_SIZE: int = 20
-    BUTTON_SIZE: int = 20
-    ICON_SIZE: int = 12
+    SPACING: int = 5            # favicon与标题间隔
+    FONT_SIZE: int = 15         # 标题文字大小
+    BUTTON_SIZE: int = 20       # 右上角button大小
+    ICON_SIZE: int = 12         # 右上角button内的icon大小
+    FAVICON_SIZE: int = 20      # favicon图标大小
 
     # 按钮颜色配置
     COLORS = {
@@ -90,13 +92,15 @@ class CustomTitleBar(QWidget):
         icon_path = self._get_icon_path("favicon")
         if icon_path:
             icon = QIcon(icon_path)
-            pixmap = icon.pixmap(QSize(20, 20))
+            pixmap = icon.pixmap(QSize(self.config.FAVICON_SIZE, self.config.FAVICON_SIZE))
             self.icon_label.setPixmap(pixmap)
         else:
             logger.warning("favicon图标未找到，跳过图标显示")
         
         # 创建标题文字标签
         self.title_label = QLabel(self.parent.windowTitle())
+        # 标题文字向上偏移3px
+        self.title_label.setStyleSheet(f"font-size: {self.config.FONT_SIZE}px; padding-bottom: 3px;")
         
         # 添加到布局
         self.layout.addWidget(self.icon_label)
@@ -105,7 +109,7 @@ class CustomTitleBar(QWidget):
 
     def _create_buttons(self):
         """创建控制按钮"""
-        # 系统托盘按钮
+        # 隐藏到系统托盘按钮
         self.systray_button = self._create_circle_button(
             *self.config.COLORS["systray"],
             "systray",
@@ -158,15 +162,15 @@ class CustomTitleBar(QWidget):
     
     def mousePressEvent(self, event):
         """鼠标按下事件"""
-        if event.button() == Qt.LeftButton:
-            self._start_pos = event.globalPos() - self.parent.frameGeometry().topLeft()
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._start_pos = event.globalPosition().toPoint() - self.parent.frameGeometry().topLeft()
             self._is_tracking = True
             event.accept()
 
     def mouseMoveEvent(self, event):
         """鼠标移动事件"""
-        if self._is_tracking and event.buttons() == Qt.LeftButton:
-            self.parent.move(event.globalPos() - self._start_pos)
+        if self._is_tracking and event.buttons() == Qt.MouseButton.LeftButton:
+            self.parent.move(event.globalPosition().toPoint() - self._start_pos)
             event.accept()
 
     def mouseReleaseEvent(self, event):
@@ -181,14 +185,14 @@ class CustomTitleBar(QWidget):
             # 透明度动画
             opacity_animation = QPropertyAnimation(self.parent, b"windowOpacity")
             opacity_animation.setDuration(300)
-            opacity_animation.setEasingCurve(QEasingCurve.InOutCubic)
+            opacity_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
             opacity_animation.setStartValue(1.0)
             opacity_animation.setEndValue(0.0)
             
             # 缩放动画
             geometry_animation = QPropertyAnimation(self.parent, b"geometry")
             geometry_animation.setDuration(300)
-            geometry_animation.setEasingCurve(QEasingCurve.InOutCubic)
+            geometry_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
             
             self.minimize_animations.addAnimation(opacity_animation)
             self.minimize_animations.addAnimation(geometry_animation)
@@ -210,8 +214,8 @@ class CustomTitleBar(QWidget):
         )
         
         # 设置缩放终点
-        final_geometry.setWidth(current_geometry.width() * 0.05)
-        final_geometry.setHeight(current_geometry.height() * 0.05)
+        final_geometry.setWidth(int(current_geometry.width() * 0.05))
+        final_geometry.setHeight(int(current_geometry.height() * 0.05))
         final_geometry.moveCenter(tray_pos)
         
         self.minimize_animations.animationAt(1).setStartValue(current_geometry)
@@ -228,7 +232,7 @@ class CustomTitleBar(QWidget):
         if self.taskbar_animation is None:
             self.taskbar_animation = QPropertyAnimation(self.parent, b"windowOpacity")
             self.taskbar_animation.setDuration(200)
-            self.taskbar_animation.setEasingCurve(QEasingCurve.InOutCubic)
+            self.taskbar_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
             self.taskbar_animation.finished.connect(self._on_taskbar_minimize_finished)
         
         self.taskbar_animation.setStartValue(1.0)
@@ -243,15 +247,10 @@ class CustomTitleBar(QWidget):
             # 重置动画组
             if self.minimize_animations:
                 self.minimize_animations.stop()
-            
-            # 显示托盘通知（使用主窗口的托盘图标）
-            if hasattr(self.parent, 'tray_icon') and self.parent.tray_icon:
-                self.parent.tray_icon.showMessage(
-                    "ACE-KILLER",
-                    "程序已最小化到系统托盘",
-                    QSystemTrayIcon.Information,
-                    1000
-                )
+
+            # 更新托盘菜单文本
+            if hasattr(self.parent, 'update_tray_menu_text'):
+                self.parent.update_tray_menu_text()
             
             logger.debug("窗口已通过自定义标题栏最小化到托盘")
             
@@ -266,18 +265,80 @@ class CustomTitleBar(QWidget):
     def safe_restore_window(self):
         """安全恢复窗口的方法"""
         try:
-            self.parent.setWindowOpacity(1.0)
-            # 获取主屏幕
-            screen = self.parent.screen()
-            if screen:
-                # 将窗口放置在屏幕中央
-                center = screen.geometry().center()
-                geometry = self.parent.geometry()
-                geometry.moveCenter(center)
-                self.parent.setGeometry(geometry)
+            # 创建恢复动画组
+            restore_animations = QParallelAnimationGroup()
             
+            # 获取系统托盘位置（屏幕右下角）
+            screen = self.parent.screen()
+            screen_geometry = screen.geometry()
+            tray_pos = QPoint(
+                screen_geometry.right() - 20,
+                screen_geometry.bottom() - 20
+            )
+            
+            # 设置起始几何信息（小窗口在托盘位置）
+            start_geometry = QRect(0, 0, 30, 30)  # 小窗口大小
+            start_geometry.moveCenter(tray_pos)
+            
+            # 获取目标几何信息
+            if hasattr(self.parent, 'original_geometry') and self.parent.original_geometry and self.parent.original_geometry.isValid():
+                final_geometry = QRect(self.parent.original_geometry)
+            else:
+                # 如果没有保存的几何信息，使用默认位置
+                final_geometry = QRect(self.parent.geometry())
+                center = screen_geometry.center()
+                final_geometry.moveCenter(center)
+            
+            # 设置窗口初始状态
+            self.parent.setWindowOpacity(0.0)
+            self.parent.setGeometry(start_geometry)
             self.parent.show()
-            self.parent.activateWindow()
-            self.parent.raise_()
+            
+            # 创建透明度动画
+            opacity_animation = QPropertyAnimation(self.parent, b"windowOpacity")
+            opacity_animation.setDuration(300)
+            opacity_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
+            opacity_animation.setStartValue(0.0)
+            opacity_animation.setEndValue(1.0)
+            
+            # 创建几何动画
+            geometry_animation = QPropertyAnimation(self.parent, b"geometry")
+            geometry_animation.setDuration(300)
+            geometry_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
+            geometry_animation.setStartValue(start_geometry)
+            geometry_animation.setEndValue(final_geometry)
+            
+            # 添加动画到组
+            restore_animations.addAnimation(opacity_animation)
+            restore_animations.addAnimation(geometry_animation)
+            
+            # 动画结束后的处理
+            restore_animations.finished.connect(lambda: self._on_restore_animation_finished(restore_animations))
+            
+            # 启动动画
+            restore_animations.start()
+            
+            logger.debug("窗口正在从托盘恢复，带动画效果")
+            
         except Exception as e:
             logger.error(f"安全恢复窗口失败: {str(e)}")
+    
+    def _on_restore_animation_finished(self, animation_group):
+        """恢复动画完成后的处理"""
+        try:
+            # 确保窗口完全显示
+            self.parent.showNormal()
+            self.parent.activateWindow()
+            self.parent.raise_()
+            
+            # 重置自定义最小化标志
+            if hasattr(self.parent, 'is_custom_minimized'):
+                self.parent.is_custom_minimized = False
+            
+            # 清理动画资源
+            animation_group.deleteLater()
+            
+            logger.debug("窗口从托盘恢复动画完成")
+            
+        except Exception as e:
+            logger.error(f"恢复动画完成处理错误: {str(e)}")

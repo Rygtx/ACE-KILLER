@@ -5,13 +5,21 @@
 通知系统模块
 """
 
+import winrt
+import winrt.windows.foundation
+import winrt.windows.foundation.collections
+
 import os
 import sys
 import queue
 import threading
 import time
-from utils.logger import logger
-from windows_toasts import InteractableWindowsToaster, Toast, WindowsToaster, ToastImagePosition, ToastButton, ToastDisplayImage, ToastAudio
+from .logger import logger
+from windows_toasts import (
+    InteractableWindowsToaster, Toast, WindowsToaster, 
+    ToastImagePosition, ToastButton, ToastDisplayImage, ToastAudio
+)
+from config.app_config import APP_INFO
 
 
 # 全局通知对象
@@ -128,14 +136,14 @@ def notification_thread(message_queue, icon_path=None, stop_event=None):
             if isinstance(message, str):
                 # 简单字符串消息
                 send_notification(
-                    title="ACE-KILLER 消息通知",
+                    title=f"{APP_INFO['name']} 消息通知",
                     message=message,
                     icon_path=icon_path
                 )
             elif isinstance(message, dict):
                 # 字典格式消息，支持更多自定义选项
                 send_notification(
-                    title=message.get('title', "ACE-KILLER 消息通知"),
+                    title=message.get('title', f"{APP_INFO['name']} 消息通知"),
                     message=message.get('message', ''),
                     icon_path=message.get('icon_path', icon_path),
                     buttons=message.get('buttons'),
